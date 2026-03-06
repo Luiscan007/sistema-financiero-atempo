@@ -69,7 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                             uid: user.uid,
                             email: user.email || '',
                             nombre: user.displayName || user.email || 'Usuario',
-                            rol: ROLES_USUARIO.ADMIN, // Primer usuario es admin
+                            rol:'admin', // Primer usuario es admin
                             fotoUrl: user.photoURL || undefined,
                             activo: true,
                             fechaRegistro: new Date(),
