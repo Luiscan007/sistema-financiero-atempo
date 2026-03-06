@@ -23,7 +23,7 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db, googleProvider, COLECCIONES } from '@/lib/firebase';
-import { ROLES_USUARIO, type RolUsuario } from '@/lib/utils';
+import { ROLES_USUARIO, type typeRolUsuario as RolUsuario } from '@/lib/utils';
 
 interface UsuarioPerfil {
     uid: string;
