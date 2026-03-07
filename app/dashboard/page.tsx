@@ -84,9 +84,8 @@ function KPICard({
                 </div>
                 {cambio !== undefined && (
                     <div
+                        className={`flex items-center gap-1 text-xs font-medium ${cambio >= 0 ? 'text-green-400' : 'text-red-400'}`}
                     >
-                        className={`flex items-center gap-1 text-xs font-medium ${cambio >= 0 ? 'text-green-400' : 'text-red-400'
-                            }`}
                         {cambio >= 0 ? (
                             <ArrowUpRight className="w-3 h-3" />
                         ) : (
@@ -535,5 +534,4 @@ export default function DashboardPage() {
             </div>
         </div>
     );
-
 }
