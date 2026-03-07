@@ -35,18 +35,7 @@ interface Producto {
 }
 
 // Datos demo
-const PRODUCTOS_DEMO: Producto[] = [
-    { id: '1', nombre: 'Agua Mineral 500ml', codigo: '001', categoria: 'Bebidas', descripcion: 'Agua mineral natural', precioBs: 850, stock: 120, stockMinimo: 20, unidad: 'unidad', activo: true, fechaCreacion: '2024-01-15' },
-    { id: '2', nombre: 'Coca-Cola 1.5L', codigo: '002', categoria: 'Bebidas', descripcion: 'Refresco cola 1.5 litros', precioBs: 1800, stock: 45, stockMinimo: 12, unidad: 'unidad', activo: true, fechaCreacion: '2024-01-15' },
-    { id: '3', nombre: 'Pan Canilla', codigo: '003', categoria: 'Panadería', descripcion: 'Pan de canilla artesanal', precioBs: 450, stock: 8, stockMinimo: 15, unidad: 'unidad', activo: true, fechaCreacion: '2024-01-20' },
-    { id: '4', nombre: 'Aceite 1L', codigo: '004', categoria: 'Aceites', descripcion: 'Aceite vegetal refinado', precioBs: 4200, stock: 25, stockMinimo: 10, unidad: 'litro', activo: true, fechaCreacion: '2024-01-20' },
-    { id: '5', nombre: 'Harina PAN 1kg', codigo: '005', categoria: 'Harinas', descripcion: 'Harina de maíz precocida', precioBs: 2800, stock: 60, stockMinimo: 20, unidad: 'kg', activo: true, fechaCreacion: '2024-02-01' },
-    { id: '6', nombre: 'Azúcar 1kg', codigo: '006', categoria: 'Básicos', descripcion: 'Azúcar refinada', precioBs: 3100, stock: 5, stockMinimo: 15, unidad: 'kg', activo: true, fechaCreacion: '2024-02-01' },
-    { id: '7', nombre: 'Arroz 1kg', codigo: '007', categoria: 'Granos', descripcion: 'Arroz blanco selecto', precioBs: 2500, stock: 80, stockMinimo: 25, unidad: 'kg', activo: true, fechaCreacion: '2024-02-10' },
-    { id: '8', nombre: 'Leche en Polvo', codigo: '008', categoria: 'Lácteos', descripcion: 'Leche entera en polvo', precioBs: 8500, stock: 4, stockMinimo: 10, unidad: 'unidad', activo: true, fechaCreacion: '2024-02-10' },
-    { id: '9', nombre: 'Café Molido 250g', codigo: '009', categoria: 'Café', descripcion: 'Café tostado y molido', precioBs: 5200, stock: 35, stockMinimo: 8, unidad: 'unidad', activo: true, fechaCreacion: '2024-02-15' },
-    { id: '10', nombre: 'Jabón de Baño', codigo: '010', categoria: 'Higiene', descripcion: 'Jabón de tocador', precioBs: 1200, stock: 50, stockMinimo: 15, unidad: 'unidad', activo: false, fechaCreacion: '2024-03-01' },
-];
+const PRODUCTOS_DEMO: Producto[] = [];
 
 const CATEGORIAS = ['Todos', 'Bebidas', 'Panadería', 'Aceites', 'Harinas', 'Básicos', 'Granos', 'Lácteos', 'Café', 'Higiene'];
 const UNIDADES = ['unidad', 'kg', 'litro', 'caja', 'paquete', 'docena', 'gramo', 'ml'];
