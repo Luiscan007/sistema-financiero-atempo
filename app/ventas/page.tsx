@@ -35,40 +35,7 @@ interface Venta {
     vendedor?: string;
 }
 
-const VENTAS_DEMO: Venta[] = [
-    {
-        id: '1', numeroRecibo: 'VEN-2024-001201', fecha: '2024-03-06T09:15:00',
-        clienteNombre: 'Juan Pérez', items: [{ nombre: 'Agua Mineral', cantidad: 3, precioBs: 850, subtotal: 2550 }],
-        totalBs: 2550, totalUSD: 62.96, tasaUsada: 40.50, metodoPago: 'pago_movil', referencia: 'REF-12345',
-    },
-    {
-        id: '2', numeroRecibo: 'VEN-2024-001202', fecha: '2024-03-06T10:30:00',
-        items: [
-            { nombre: 'Harina PAN', cantidad: 2, precioBs: 2800, subtotal: 5600 },
-            { nombre: 'Aceite', cantidad: 1, precioBs: 4200, subtotal: 4200 },
-        ],
-        totalBs: 9800, totalUSD: 241.97, tasaUsada: 40.50, metodoPago: 'punto_venta',
-    },
-    {
-        id: '3', numeroRecibo: 'VEN-2024-001203', fecha: '2024-03-06T11:45:00',
-        clienteNombre: 'María García', items: [{ nombre: 'Café Molido', cantidad: 1, precioBs: 5200, subtotal: 5200 }],
-        totalBs: 5200, totalUSD: 128.39, tasaUsada: 40.50, metodoPago: 'efectivo_usd',
-    },
-    {
-        id: '4', numeroRecibo: 'VEN-2024-001204', fecha: '2024-03-06T14:20:00',
-        items: [
-            { nombre: 'Arroz', cantidad: 5, precioBs: 2500, subtotal: 12500 },
-            { nombre: 'Azúcar', cantidad: 3, precioBs: 3100, subtotal: 9300 },
-            { nombre: 'Leche en Polvo', cantidad: 2, precioBs: 8500, subtotal: 17000 },
-        ],
-        totalBs: 38800, totalUSD: 957.90, tasaUsada: 40.50, metodoPago: 'mixto',
-    },
-    {
-        id: '5', numeroRecibo: 'VEN-2024-001205', fecha: '2024-03-05T16:10:00',
-        clienteNombre: 'Carlos López', items: [{ nombre: 'Shampoo', cantidad: 2, precioBs: 3800, subtotal: 7600 }],
-        totalBs: 7600, totalUSD: 187.65, tasaUsada: 40.50, metodoPago: 'efectivo_bs',
-    },
-];
+const VENTAS_DEMO: Venta[] = [];
 
 const ICONOS_PAGO: Record<string, any> = {
     punto_venta: CreditCard,
