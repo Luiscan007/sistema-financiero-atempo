@@ -112,7 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             uid: credencial.user.uid,
             email,
             nombre,
-            rol: ROLES_USUARIO.ADMIN,
+            rol: "admin",
             activo: true,
             fechaRegistro: new Date(),
         };
@@ -126,7 +126,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Verificar permisos por módulo y rol
     const tienePermiso = (modulo: string): boolean => {
         if (!perfil) return false;
-        if (perfil.rol === ROLES_USUARIO.ADMIN) return true;
+        if (perfil.rol === "admin") return true;
 
         const permisos: Record<string, RolUsuario[]> = {
             pos: [ROLES_USUARIO.VENDEDOR],
