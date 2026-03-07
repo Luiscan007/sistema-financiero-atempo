@@ -444,7 +444,7 @@ export default function DashboardPage() {
                                     axisLine={false}
                                     domain={['auto', 'auto']}
                                 />
-                                    tickFormatter={(v) => `${v.toFixed(1)}`}
+                                    tickFormatter={(v: number) => `${v.toFixed(1)}`}
                                 <Tooltip content={<TooltipPersonalizado />} />
                                 <Legend wrapperStyle={{ fontSize: '12px' }} />
                                 <Line type="monotone" dataKey="bcv" name="BCV" stroke="#3b82f6" strokeWidth={2} dot={false} />
