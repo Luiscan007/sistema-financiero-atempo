@@ -14,6 +14,8 @@ import {
     ChevronLeft, ChevronRight, LogOut, Bell, RefreshCw,
     Menu, X, Activity, AlertTriangle, WifiOff, Sun, Moon,
 } from 'lucide-react';
+import PanelNotificaciones from '@/components/ui/PanelNotificaciones';
+import { useNotificaciones } from '@/lib/useNotificaciones';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { useTasas } from '@/components/providers/TasasProvider';
 import { formatBs, formatUSD, colorBrecha, nivelBrecha } from '@/lib/utils';
@@ -82,6 +84,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
     const { perfil, logout } = useAuth();
     const { tasas, cargando: cargandoTasas, refrescar, ultimaActualizacion } = useTasas();
     const { tema, toggleTema } = useTema();
+    const [panelNotifAbierto, setPanelNotifAbierto] = useState(false);
+    const { noLeidas } = useNotificaciones();
 
     useEffect(() => {
         const handleOnline  = () => setOnline(true);
@@ -330,9 +334,17 @@ export default function AppLayout({ children }: AppLayoutProps) {
                         </button>
 
                         {/* Notificaciones */}
-                        <button className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-all relative">
+                        <button
+                            onClick={() => setPanelNotifAbierto(true)}
+                            className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-all relative"
+                            title="Notificaciones"
+                        >
                             <Bell className="w-4 h-4" />
-                            <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-red-500 rounded-full" />
+                            {noLeidas > 0 && (
+                                <span className="absolute top-1 right-1 min-w-[16px] h-4 px-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none animate-pulse">
+                                    {noLeidas > 9 ? '9+' : noLeidas}
+                                </span>
+                            )}
                         </button>
                     </div>
                 </header>
@@ -342,6 +354,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
                     {children}
                 </main>
             </div>
+
+            {/* PANEL NOTIFICACIONES */}
+            <PanelNotificaciones
+                abierto={panelNotifAbierto}
+                onCerrar={() => setPanelNotifAbierto(false)}
+            />
 
             {/* SIDEBAR MOVIL */}
             {mobileMenuAbierto && (
