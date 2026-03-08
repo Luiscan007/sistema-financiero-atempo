@@ -78,7 +78,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
     const [online, setOnline] = useState(true);
     const pathname = usePathname();
     const router = useRouter();
-    const { perfil, logout } = useAuth();
+    const { usuario, perfil, cargando: cargandoAuth, logout } = useAuth();
     const { tasas, cargando: cargandoTasas, refrescar, ultimaActualizacion } = useTasas();
 
     // Detectar conexión online/offline
@@ -96,12 +96,34 @@ export default function AppLayout({ children }: AppLayoutProps) {
         };
     }, []);
 
+    // GUARDIA DE AUTENTICACION - redirige si no hay sesion
+    useEffect(() => {
+        if (!cargando && !usuario) {
+            router.replace('/auth');
+        }
+    }, [usuario, cargando, router]);
+
     const handleLogout = async () => {
         await logout();
         router.push('/auth');
     };
 
     const brechaAlta = tasas.brechaUSD > 50;
+
+    // Pantalla de carga mientras Firebase verifica la sesion
+    if (cargandoAuth) {
+        return (
+            <div className="flex h-screen items-center justify-center bg-background">
+                <div className="flex flex-col items-center gap-4">
+                    <div className="w-10 h-10 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
+                    <p className="text-sm text-muted-foreground">Verificando sesion...</p>
+                </div>
+            </div>
+        );
+    }
+
+    // Si no hay usuario tras cargar, no renderizar nada (el useEffect redirige)
+    if (!usuario) return null;
 
     return (
         <div className="flex h-screen bg-background overflow-hidden">
