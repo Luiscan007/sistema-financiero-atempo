@@ -10,32 +10,12 @@ import { useState } from 'react';
 import {
     Plus, Search, Edit2, Trash2, Tag, Clock,
     BookOpen, Home, CheckCircle2, X, DollarSign,
-    Users, Calendar, ToggleLeft, ToggleRight,
+    Users, Calendar, ToggleLeft, ToggleRight, Loader2,
 } from 'lucide-react';
-import toast from 'react-hot-toast';
 import { useTasas } from '@/components/providers/TasasProvider';
 import { cn } from '@/lib/utils';
+import { useServicios, type Servicio, type TipoServicio } from '@/hooks/useServicios';
 
-// ─── Tipos ────────────────────────────────────────────────────────────────────
-
-type TipoServicio = 'paquete_clases' | 'alquiler';
-
-interface Servicio {
-    id: string;
-    nombre: string;
-    tipo: TipoServicio;
-    categoria: string;
-    descripcion: string;
-    precioUSD: number;          // precio base en dolares
-    duracionHoras?: number;     // para alquiler: horas incluidas
-    clasesIncluidas?: number;   // para paquetes: # de clases
-    frecuenciaSemana?: number;  // clases por semana
-    vigenciaDias?: number;      // dias de validez del paquete
-    activo: boolean;
-    fechaCreacion: string;
-}
-
-const SERVICIOS_DEMO: Servicio[] = [];
 const CATEGORIAS_DEFAULT: string[] = [];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -339,13 +319,19 @@ function ModalServicio({
 
 export default function CatalogoPage() {
     const { tasas } = useTasas();
-    const [servicios, setServicios] = useState<Servicio[]>(SERVICIOS_DEMO);
+    const { servicios, cargando, guardarServicio, eliminarServicio } = useServicios();
     const [busqueda, setBusqueda] = useState('');
     const [filtroTipo, setFiltroTipo] = useState<'todos' | TipoServicio>('todos');
     const [filtroCategoria, setFiltroCategoria] = useState('Todos');
     const [filtroActivo, setFiltroActivo] = useState<'todos' | 'activos' | 'inactivos'>('todos');
     const [modalServicio, setModalServicio] = useState<Partial<Servicio> | null | undefined>(undefined);
-    const [categoriasDinamicas, setCategoriasDinamicas] = useState<string[]>(CATEGORIAS_DEFAULT);
+
+    // Categorias dinamicas: las que ya existen en servicios + las nuevas que agregue el usuario
+    const [catExtras, setCatExtras] = useState<string[]>(CATEGORIAS_DEFAULT);
+    const categoriasDinamicas = Array.from(new Set([
+        ...servicios.map(s => s.categoria).filter(Boolean),
+        ...catExtras,
+    ]));
 
     const serviciosFiltrados = servicios.filter(s => {
         const matchBusqueda = !busqueda || s.nombre.toLowerCase().includes(busqueda.toLowerCase()) || s.descripcion?.toLowerCase().includes(busqueda.toLowerCase());
@@ -355,19 +341,6 @@ export default function CatalogoPage() {
         return matchBusqueda && matchTipo && matchCat && matchActivo;
     });
 
-    const guardarServicio = (s: Servicio) => {
-        setServicios(prev => {
-            const idx = prev.findIndex(x => x.id === s.id);
-            if (idx >= 0) { const n = [...prev]; n[idx] = s; return n; }
-            return [...prev, s];
-        });
-    };
-
-    const eliminarServicio = (id: string) => {
-        setServicios(prev => prev.filter(s => s.id !== id));
-        toast.success('Servicio eliminado');
-    };
-
     const totalActivos = servicios.filter(s => s.activo).length;
     const totalPaquetes = servicios.filter(s => s.tipo === 'paquete_clases').length;
     const totalAlquileres = servicios.filter(s => s.tipo === 'alquiler').length;
@@ -375,7 +348,15 @@ export default function CatalogoPage() {
     return (
         <div className="p-4 lg:p-6 space-y-6">
 
-            {/* Header */}
+            {/* Loading */}
+            {cargando && (
+                <div className="flex items-center justify-center py-20">
+                    <Loader2 className="w-8 h-8 animate-spin text-blue-400" />
+                    <span className="ml-3 text-muted-foreground">Cargando servicios...</span>
+                </div>
+            )}
+
+            {!cargando && (
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold">Catalogo de Servicios</h1>
@@ -546,6 +527,9 @@ export default function CatalogoPage() {
                 </div>
             )}
 
+            </div>
+            )} {/* end !cargando */}
+
             {/* Modal */}
             {modalServicio !== undefined && (
                 <ModalServicio
@@ -556,7 +540,7 @@ export default function CatalogoPage() {
                     categorias={categoriasDinamicas}
                     onNuevaCategoria={(c) => {
                         if (!categoriasDinamicas.includes(c)) {
-                            setCategoriasDinamicas(prev => [...prev, c]);
+                            setCatExtras(prev => [...prev, c]);
                         }
                     }}
                 />
