@@ -3,7 +3,6 @@
 /**
  * app/inventario/page.tsx
  * Catalogo de servicios: paquetes de clases y alquiler de espacios
- * Precios en USD con conversion automatica a Bs segun tasa BCV
  */
 
 import { useState } from 'react';
@@ -18,16 +17,12 @@ import { useServicios, type Servicio, type TipoServicio } from '@/lib/useServici
 
 const CATEGORIAS_DEFAULT: string[] = [];
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
 function formatUSD(n: number) {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }).format(n);
 }
 function formatBs(n: number) {
     return new Intl.NumberFormat('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n) + ' Bs';
 }
-
-// ─── Badge tipo servicio ───────────────────────────────────────────────────────
 
 function BadgeTipo({ tipo }: { tipo: TipoServicio }) {
     if (tipo === 'paquete_clases') {
@@ -315,8 +310,6 @@ function ModalServicio({
     );
 }
 
-// ─── Pagina principal ──────────────────────────────────────────────────────────
-
 export default function CatalogoPage() {
     const { tasas } = useTasas();
     const { servicios, cargando, guardarServicio, eliminarServicio } = useServicios();
@@ -325,16 +318,17 @@ export default function CatalogoPage() {
     const [filtroCategoria, setFiltroCategoria] = useState('Todos');
     const [filtroActivo, setFiltroActivo] = useState<'todos' | 'activos' | 'inactivos'>('todos');
     const [modalServicio, setModalServicio] = useState<Partial<Servicio> | null | undefined>(undefined);
-
-    // Categorias dinamicas: las que ya existen en servicios + las nuevas que agregue el usuario
     const [catExtras, setCatExtras] = useState<string[]>(CATEGORIAS_DEFAULT);
+
     const categoriasDinamicas = Array.from(new Set([
         ...servicios.map(s => s.categoria).filter(Boolean),
         ...catExtras,
     ]));
 
     const serviciosFiltrados = servicios.filter(s => {
-        const matchBusqueda = !busqueda || s.nombre.toLowerCase().includes(busqueda.toLowerCase()) || s.descripcion?.toLowerCase().includes(busqueda.toLowerCase());
+        const matchBusqueda = !busqueda
+            || s.nombre.toLowerCase().includes(busqueda.toLowerCase())
+            || (s.descripcion || '').toLowerCase().includes(busqueda.toLowerCase());
         const matchTipo = filtroTipo === 'todos' || s.tipo === filtroTipo;
         const matchCat = filtroCategoria === 'Todos' || s.categoria === filtroCategoria;
         const matchActivo = filtroActivo === 'todos' || (filtroActivo === 'activos' ? s.activo : !s.activo);
@@ -345,17 +339,19 @@ export default function CatalogoPage() {
     const totalPaquetes = servicios.filter(s => s.tipo === 'paquete_clases').length;
     const totalAlquileres = servicios.filter(s => s.tipo === 'alquiler').length;
 
+    if (cargando) {
+        return (
+            <div className="flex items-center justify-center py-32">
+                <Loader2 className="w-8 h-8 animate-spin text-blue-400" />
+                <span className="ml-3 text-muted-foreground">Cargando servicios...</span>
+            </div>
+        );
+    }
+
     return (
         <div className="p-4 lg:p-6 space-y-6">
 
-            {/* Loading */}
-            {cargando && (
-                <div className="flex items-center justify-center py-20">
-                    <Loader2 className="w-8 h-8 animate-spin text-blue-400" />
-                    <span className="ml-3 text-muted-foreground">Cargando servicios...</span>
-                </div>
-            )}
-            {!cargando && <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold">Catalogo de Servicios</h1>
                     <p className="text-sm text-muted-foreground mt-0.5">
@@ -368,7 +364,6 @@ export default function CatalogoPage() {
                 </button>
             </div>
 
-            {/* KPIs */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 {[
                     { label: 'Total servicios', valor: servicios.length, icon: Tag, color: 'text-blue-400' },
@@ -386,7 +381,6 @@ export default function CatalogoPage() {
                 ))}
             </div>
 
-            {/* Filtros */}
             <div className="glass-card p-4">
                 <div className="flex flex-col sm:flex-row gap-3">
                     <div className="relative flex-1">
@@ -414,7 +408,6 @@ export default function CatalogoPage() {
                 </div>
             </div>
 
-            {/* Lista de servicios */}
             {serviciosFiltrados.length === 0 ? (
                 <div className="glass-card p-12 text-center">
                     <Tag className="w-12 h-12 text-muted-foreground mx-auto mb-4 opacity-40" />
@@ -436,7 +429,6 @@ export default function CatalogoPage() {
                                 'glass-card p-5 flex flex-col gap-3 transition-all hover:border-border/80',
                                 !servicio.activo && 'opacity-60'
                             )}>
-                                {/* Top row */}
                                 <div className="flex items-start justify-between gap-2">
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2 flex-wrap mb-1">
@@ -466,12 +458,10 @@ export default function CatalogoPage() {
                                     </div>
                                 </div>
 
-                                {/* Descripcion */}
                                 {servicio.descripcion && (
                                     <p className="text-xs text-muted-foreground leading-relaxed">{servicio.descripcion}</p>
                                 )}
 
-                                {/* Detalles especificos */}
                                 <div className="flex flex-wrap gap-2 text-xs">
                                     {servicio.tipo === 'paquete_clases' && (
                                         <>
@@ -503,7 +493,6 @@ export default function CatalogoPage() {
                                     )}
                                 </div>
 
-                                {/* Precio */}
                                 <div className="mt-auto pt-3 border-t border-border flex items-end justify-between">
                                     <div>
                                         <p className="text-xs text-muted-foreground mb-0.5">Precio</p>
@@ -525,10 +514,6 @@ export default function CatalogoPage() {
                 </div>
             )}
 
-            </div>}
-            {/* end !cargando section */}
-
-            {/* Modal */}
             {modalServicio !== undefined && (
                 <ModalServicio
                     servicio={modalServicio}
