@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils';
 import type { PagoMetodo } from '@/lib/store';
 import { useServicios } from '@/lib/useServicios';
 import type { Servicio, TipoServicio } from '@/lib/useServicios';
+import { useVentas } from '@/lib/useVentas';
 
 function fmtUSD(n: number) {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }).format(n);
@@ -119,6 +120,7 @@ function MetodoPagoForm({
 
 export default function POSPage() {
     const { servicios: todosServicios, cargando: cargandoServicios } = useServicios();
+    const { guardarVenta } = useVentas();
     const [busqueda, setBusqueda] = useState('');
     const [filtroTipo, setFiltroTipo] = useState<'todos' | TipoServicio>('todos');
     const [metodosSeleccionados, setMetodosSeleccionados] = useState<string[]>([]);
@@ -180,11 +182,43 @@ export default function POSPage() {
         setProcesando(true);
         const numeroRecibo = generarNumeroRecibo();
         try {
-            await new Promise(r => setTimeout(r, 1000));
-            toast.success('Venta completada! Recibo ' + numeroRecibo, { duration: 5000 });
+            const subtotal = calcularSubtotal();
+            const montoDesc = calcularDescuento();
+
+            await guardarVenta({
+                numeroRecibo,
+                fecha: new Date().toLocaleString('es-VE'),
+                items: items.map((item: any) => ({
+                    id: item.id,
+                    nombre: item.nombre,
+                    cantidad: item.cantidad,
+                    precio: item.precio,
+                    subtotal: item.subtotal,
+                    descuento: item.descuento || 0,
+                })),
+                subtotal,
+                descuentoGlobal,
+                montoDescuento: montoDesc,
+                total,
+                totalUSD: total / tarifaActual,
+                tasaUsada: tarifaActual,
+                tipoTasa: tasaSeleccionada,
+                metodoPago: metodoPago.map((m: any) => ({
+                    tipo: m.tipo,
+                    monto: m.monto,
+                    banco: m.banco || m.bancoOrigen || '',
+                    telefono: m.telefono || m.telefonoCliente || '',
+                    referencia: m.referencia || '',
+                })),
+                usuarioId: '',
+                usuarioNombre: '',
+            });
+
+            toast.success('Venta guardada! Recibo ' + numeroRecibo, { duration: 5000 });
             setVentaCompletada(true);
-        } catch {
-            toast.error('Error al procesar la venta');
+        } catch (err) {
+            console.error(err);
+            toast.error('Error al guardar la venta');
         } finally {
             setProcesando(false);
         }
