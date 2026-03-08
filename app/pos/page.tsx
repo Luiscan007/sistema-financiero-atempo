@@ -487,7 +487,8 @@ export default function POSPage() {
 
                         {/* Totales y pago */}
                         {items.length > 0 && (
-                            <div className="flex-shrink-0 border-t border-border p-4 space-y-4">
+                            <div className="flex-shrink-0 flex flex-col border-t border-border overflow-hidden">
+                              <div className="overflow-y-auto p-4 space-y-4">
                                 {/* Descuento global */}
                                 <div className="flex items-center gap-2">
                                     <Tag className="w-4 h-4 text-yellow-400" />
@@ -578,7 +579,9 @@ export default function POSPage() {
                                     </div>
                                 )}
 
-                                {/* Confirmar */}
+                              </div>
+                              {/* Confirmar - siempre visible, pegado abajo */}
+                              <div className="p-4 pt-0 flex-shrink-0">
                                 <button onClick={procesarVenta}
                                     disabled={procesando || items.length === 0}
                                     className={cn('w-full btn-success justify-center text-sm font-semibold py-3',
@@ -589,6 +592,7 @@ export default function POSPage() {
                                         <><CheckCircle2 className="w-4 h-4" />Confirmar Venta</>
                                     )}
                                 </button>
+                              </div>
                             </div>
                         )}
                     </>
