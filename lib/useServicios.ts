@@ -17,7 +17,6 @@ import {
     doc,
     serverTimestamp,
     query,
-    orderBy,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import toast from 'react-hot-toast';
@@ -48,7 +47,8 @@ export function useServicios() {
 
     // Escucha cambios en tiempo real desde Firestore
     useEffect(() => {
-        const q = query(collection(db, COLECCION), orderBy('fechaCreacion', 'desc'));
+        // Simple collection query - no orderBy to avoid needing a Firestore index
+        const q = query(collection(db, COLECCION));
 
         const unsubscribe = onSnapshot(
             q,
@@ -71,7 +71,7 @@ export function useServicios() {
     }, []);
 
     // Crear servicio
-    const crearServicio = async (datos: Omit<Servicio, 'id'>) => {
+    const crearServicio = async (datos: Omit<Servicio, 'id' | 'fechaCreacion'>) => {
         try {
             await addDoc(collection(db, COLECCION), {
                 ...datos,
@@ -114,9 +114,11 @@ export function useServicios() {
     const guardarServicio = async (servicio: Servicio) => {
         const esNuevo = !servicio.id || servicio.id === '';
         if (esNuevo) {
-            const { id: _id, ...datos } = servicio;
+            // Nuevo: omitir id y fechaCreacion, Firestore los genera
+            const { id: _id, fechaCreacion: _fc, ...datos } = servicio;
             await crearServicio(datos);
         } else {
+            // Edicion: actualizar doc existente
             await actualizarServicio(servicio.id, servicio);
         }
     };
