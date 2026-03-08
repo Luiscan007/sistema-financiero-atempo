@@ -2,533 +2,561 @@
 
 /**
  * app/inventario/page.tsx
- * Gestión completa de inventario/productos con CRUD y alertas de stock
+ * Catalogo de servicios: paquetes de clases y alquiler de espacios
+ * Precios en USD con conversion automatica a Bs segun tasa BCV
  */
 
 import { useState } from 'react';
 import {
-    Plus, Search, Package, Edit2, Trash2, AlertTriangle, Filter,
-    Download, Upload, Tags, BarChart3, ChevronDown, ChevronUp, X,
-    CheckCircle2, XCircle,
+    Plus, Search, Edit2, Trash2, Tag, Clock,
+    BookOpen, Home, CheckCircle2, X, DollarSign,
+    Users, Calendar, ToggleLeft, ToggleRight,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useTasas } from '@/components/providers/TasasProvider';
-import { formatBs, formatUSD } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 
-// Tipos
-interface Producto {
+// ─── Tipos ────────────────────────────────────────────────────────────────────
+
+type TipoServicio = 'paquete_clases' | 'alquiler';
+
+interface Servicio {
     id: string;
     nombre: string;
-    codigo: string;
+    tipo: TipoServicio;
     categoria: string;
     descripcion: string;
-    precioBs: number;
-    precioLista2?: number;
-    precioMayorista?: number;
-    stock: number;
-    stockMinimo: number;
-    unidad: string;
-    proveedor?: string;
+    precioUSD: number;          // precio base en dolares
+    duracionHoras?: number;     // para alquiler: horas incluidas
+    clasesIncluidas?: number;   // para paquetes: # de clases
+    frecuenciaSemana?: number;  // clases por semana
+    vigenciaDias?: number;      // dias de validez del paquete
     activo: boolean;
     fechaCreacion: string;
 }
 
-// Datos demo
-const PRODUCTOS_DEMO: Producto[] = [];
+const SERVICIOS_DEMO: Servicio[] = [];
+const CATEGORIAS_DEFAULT: string[] = [];
 
-const CATEGORIAS_DEFAULT: string[] = []; // Agrega tus propias categorias
-const UNIDADES = ['unidad', 'kg', 'litro', 'caja', 'paquete', 'docena', 'gramo', 'ml'];
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-// Modal de producto
-function ModalProducto({
-    producto,
+function formatUSD(n: number) {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }).format(n);
+}
+function formatBs(n: number) {
+    return new Intl.NumberFormat('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n) + ' Bs';
+}
+
+// ─── Badge tipo servicio ───────────────────────────────────────────────────────
+
+function BadgeTipo({ tipo }: { tipo: TipoServicio }) {
+    if (tipo === 'paquete_clases') {
+        return (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-500/15 text-blue-400 border border-blue-500/20">
+                <BookOpen className="w-3 h-3" /> Paquete
+            </span>
+        );
+    }
+    return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-purple-500/15 text-purple-400 border border-purple-500/20">
+            <Home className="w-3 h-3" /> Alquiler
+        </span>
+    );
+}
+
+// ─── Modal crear / editar servicio ────────────────────────────────────────────
+
+function ModalServicio({
+    servicio,
     onCerrar,
     onGuardar,
     tasaBCV,
     categorias,
     onNuevaCategoria,
 }: {
-    producto: Partial<Producto> | null;
+    servicio: Partial<Servicio> | null;
     onCerrar: () => void;
-    onGuardar: (p: Producto) => void;
+    onGuardar: (s: Servicio) => void;
     tasaBCV: number;
     categorias: string[];
     onNuevaCategoria: (c: string) => void;
 }) {
-    const [form, setForm] = useState<Partial<Producto>>(producto || {
-        nombre: '', codigo: '', categoria: '', descripcion: '',
-        precioBs: 0, stock: 0, stockMinimo: 5, unidad: 'unidad', activo: true,
+    const esEdicion = !!(servicio as Servicio)?.id;
+    const [form, setForm] = useState<Partial<Servicio>>(servicio || {
+        nombre: '',
+        tipo: 'paquete_clases',
+        categoria: '',
+        descripcion: '',
+        precioUSD: 0,
+        clasesIncluidas: undefined,
+        frecuenciaSemana: undefined,
+        vigenciaDias: 30,
+        duracionHoras: undefined,
+        activo: true,
     });
-    const [nuevaCategoria, setNuevaCategoria] = useState('');
-    const [mostrarNueva, setMostrarNueva] = useState(false);
+    const [nuevaCat, setNuevaCat] = useState('');
+    const [mostrarNuevaCat, setMostrarNuevaCat] = useState(false);
 
-    const actualizar = (campo: string, valor: any) => setForm(prev => ({ ...prev, [campo]: valor }));
-    const esEdicion = !!(producto as any)?.id;
+    const set = (campo: keyof Servicio, valor: unknown) =>
+        setForm(prev => ({ ...prev, [campo]: valor }));
+
+    const preciosBs = (form.precioUSD || 0) * tasaBCV;
 
     const guardar = () => {
-        if (!form.nombre || !form.codigo || !form.precioBs) {
-            toast.error('Completa los campos requeridos');
-            return;
-        }
+        if (!form.nombre?.trim()) { toast.error('Ingresa el nombre del servicio'); return; }
+        if (!form.precioUSD || form.precioUSD <= 0) { toast.error('El precio debe ser mayor a 0'); return; }
         onGuardar({
             ...form,
-            id: (producto as any)?.id || Date.now().toString(),
-            fechaCreacion: (producto as any)?.fechaCreacion || new Date().toISOString().split('T')[0],
-        } as Producto);
-        toast.success(esEdicion ? 'Producto actualizado' : 'Producto creado');
+            id: (servicio as Servicio)?.id || Date.now().toString(),
+            fechaCreacion: (servicio as Servicio)?.fechaCreacion || new Date().toISOString().split('T')[0],
+        } as Servicio);
+        toast.success(esEdicion ? 'Servicio actualizado' : 'Servicio creado');
         onCerrar();
     };
 
     return (
-        <div className="modal-overlay">
-            <div className="glass-card w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-                {/* Header modal */}
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <div className="bg-card border border-border rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
+
+                {/* Header */}
                 <div className="flex items-center justify-between p-6 border-b border-border">
                     <h3 className="text-lg font-semibold">
-                        {esEdicion ? 'Editar Producto' : 'Nuevo Producto'}
+                        {esEdicion ? 'Editar Servicio' : 'Nuevo Servicio'}
                     </h3>
-                    <button onClick={onCerrar} className="text-muted-foreground hover:text-foreground">
-                        <X className="w-5 h-5" />
+                    <button onClick={onCerrar} className="p-1.5 hover:bg-muted rounded-lg transition-colors">
+                        <X className="w-4 h-4" />
                     </button>
                 </div>
 
-                <div className="p-6 space-y-4">
-                    {/* Info básica */}
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="col-span-2">
-                            <label className="text-xs text-muted-foreground mb-1 block">Nombre del producto *</label>
-                            <input
-                                className="input-sistema"
-                                value={form.nombre || ''}
-                                onChange={(e) => actualizar('nombre', e.target.value)}
-                                placeholder="Nombre del producto"
-                            />
-                        </div>
-                        <div>
-                            <label className="text-xs text-muted-foreground mb-1 block">Código *</label>
-                            <input
-                                className="input-sistema font-mono"
-                                value={form.codigo || ''}
-                                onChange={(e) => actualizar('codigo', e.target.value)}
-                                placeholder="001"
-                            />
-                        </div>
-                        <div>
-                            <label className="text-xs text-muted-foreground mb-1 block">Categoría</label>
-                            {!mostrarNueva ? (
-                                <div className="flex gap-2">
-                                    <select
-                                        className="input-sistema flex-1"
-                                        value={form.categoria || ''}
-                                        onChange={(e) => actualizar('categoria', e.target.value)}
-                                    >
-                                        <option value="">Seleccionar...</option>
-                                        {categorias.map((c) => <option key={c} value={c}>{c}</option>)}
-                                    </select>
-                                    <button
-                                        type="button"
-                                        onClick={() => setMostrarNueva(true)}
-                                        className="px-3 py-2 bg-blue-500/10 border border-blue-500/30 text-blue-400 rounded-lg text-xs hover:bg-blue-500/20 transition-all whitespace-nowrap"
-                                        title="Agregar nueva categoría"
-                                    >
-                                        + Nueva
-                                    </button>
-                                </div>
-                            ) : (
-                                <div className="flex gap-2">
-                                    <input
-                                        type="text"
-                                        className="input-sistema flex-1"
-                                        placeholder="Nombre de categoría..."
-                                        value={nuevaCategoria}
-                                        onChange={(e) => setNuevaCategoria(e.target.value)}
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter' && nuevaCategoria.trim()) {
-                                                onNuevaCategoria(nuevaCategoria.trim());
-                                                actualizar('categoria', nuevaCategoria.trim());
-                                                setNuevaCategoria('');
-                                                setMostrarNueva(false);
-                                            }
-                                            if (e.key === 'Escape') setMostrarNueva(false);
-                                        }}
-                                        autoFocus
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            if (nuevaCategoria.trim()) {
-                                                onNuevaCategoria(nuevaCategoria.trim());
-                                                actualizar('categoria', nuevaCategoria.trim());
-                                                setNuevaCategoria('');
-                                            }
-                                            setMostrarNueva(false);
-                                        }}
-                                        className="px-3 py-2 bg-green-500/10 border border-green-500/30 text-green-400 rounded-lg text-xs hover:bg-green-500/20 transition-all"
-                                    >
-                                        ✓ Agregar
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => { setMostrarNueva(false); setNuevaCategoria(''); }}
-                                        className="px-3 py-2 bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg text-xs hover:bg-red-500/20 transition-all"
-                                    >
-                                        ✕
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                        <div className="col-span-2">
-                            <label className="text-xs text-muted-foreground mb-1 block">Descripción</label>
-                            <textarea
-                                className="input-sistema resize-none"
-                                rows={2}
-                                value={form.descripcion || ''}
-                                onChange={(e) => actualizar('descripcion', e.target.value)}
-                                placeholder="Descripción del producto..."
-                            />
+                <div className="p-6 space-y-5">
+
+                    {/* Tipo de servicio */}
+                    <div>
+                        <label className="text-xs text-muted-foreground mb-2 block">Tipo de servicio</label>
+                        <div className="grid grid-cols-2 gap-3">
+                            {([
+                                { value: 'paquete_clases', label: 'Paquete de Clases', icon: BookOpen, color: 'blue' },
+                                { value: 'alquiler', label: 'Alquiler de Espacio', icon: Home, color: 'purple' },
+                            ] as const).map(({ value, label, icon: Icon, color }) => (
+                                <button
+                                    key={value}
+                                    type="button"
+                                    onClick={() => set('tipo', value)}
+                                    className={cn(
+                                        'flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all text-sm font-medium',
+                                        form.tipo === value
+                                            ? color === 'blue'
+                                                ? 'border-blue-500 bg-blue-500/10 text-blue-400'
+                                                : 'border-purple-500 bg-purple-500/10 text-purple-400'
+                                            : 'border-border text-muted-foreground hover:border-muted-foreground'
+                                    )}
+                                >
+                                    <Icon className="w-5 h-5" />
+                                    {label}
+                                </button>
+                            ))}
                         </div>
                     </div>
 
-                    {/* Precios */}
-                    <div className="border-t border-border pt-4">
-                        <h4 className="text-sm font-medium mb-3">Precios</h4>
+                    {/* Nombre */}
+                    <div>
+                        <label className="text-xs text-muted-foreground mb-1 block">Nombre del servicio *</label>
+                        <input
+                            className="input-sistema"
+                            placeholder={form.tipo === 'paquete_clases' ? 'Ej: Mensualidad 4 clases/semana' : 'Ej: Alquiler salon principal 1h'}
+                            value={form.nombre || ''}
+                            onChange={e => set('nombre', e.target.value)}
+                        />
+                    </div>
+
+                    {/* Categoria */}
+                    <div>
+                        <label className="text-xs text-muted-foreground mb-1 block">Categoria</label>
+                        {!mostrarNuevaCat ? (
+                            <div className="flex gap-2">
+                                <select
+                                    className="input-sistema flex-1"
+                                    value={form.categoria || ''}
+                                    onChange={e => set('categoria', e.target.value)}
+                                >
+                                    <option value="">Sin categoria</option>
+                                    {categorias.map(c => <option key={c} value={c}>{c}</option>)}
+                                </select>
+                                <button type="button" onClick={() => setMostrarNuevaCat(true)}
+                                    className="px-3 py-2 bg-blue-500/10 border border-blue-500/30 text-blue-400 rounded-lg text-xs hover:bg-blue-500/20 transition-all whitespace-nowrap">
+                                    + Nueva
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="flex gap-2">
+                                <input className="input-sistema flex-1" placeholder="Nombre de categoria..."
+                                    value={nuevaCat} onChange={e => setNuevaCat(e.target.value)}
+                                    onKeyDown={e => {
+                                        if (e.key === 'Enter' && nuevaCat.trim()) {
+                                            onNuevaCategoria(nuevaCat.trim());
+                                            set('categoria', nuevaCat.trim());
+                                            setNuevaCat(''); setMostrarNuevaCat(false);
+                                        }
+                                        if (e.key === 'Escape') setMostrarNuevaCat(false);
+                                    }} autoFocus />
+                                <button type="button" onClick={() => {
+                                    if (nuevaCat.trim()) { onNuevaCategoria(nuevaCat.trim()); set('categoria', nuevaCat.trim()); setNuevaCat(''); }
+                                    setMostrarNuevaCat(false);
+                                }} className="px-3 py-2 bg-green-500/10 border border-green-500/30 text-green-400 rounded-lg text-xs hover:bg-green-500/20">
+                                    Agregar
+                                </button>
+                                <button type="button" onClick={() => { setMostrarNuevaCat(false); setNuevaCat(''); }}
+                                    className="px-3 py-2 bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg text-xs hover:bg-red-500/20">
+                                    X
+                                </button>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Descripcion */}
+                    <div>
+                        <label className="text-xs text-muted-foreground mb-1 block">Descripcion</label>
+                        <textarea className="input-sistema resize-none" rows={2}
+                            placeholder="Describe que incluye este servicio..."
+                            value={form.descripcion || ''}
+                            onChange={e => set('descripcion', e.target.value)} />
+                    </div>
+
+                    {/* PRECIO - USD con conversion a Bs */}
+                    <div className="border border-border rounded-xl p-4 bg-muted/20">
+                        <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                            <DollarSign className="w-4 h-4 text-green-400" />
+                            Precio
+                        </h4>
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="text-xs text-muted-foreground mb-1 block">Precio Base (Bs) *</label>
-                                <input
-                                    type="number"
-                                    className="input-sistema font-mono"
-                                    value={form.precioBs || ''}
-                                    onChange={(e) => actualizar('precioBs', parseFloat(e.target.value) || 0)}
-                                    placeholder="0.00"
-                                />
-                                {form.precioBs && tasaBCV > 0 && (
-                                    <p className="text-xs text-blue-400 font-mono mt-0.5">
-                                        ≈ {formatUSD((form.precioBs || 0) / tasaBCV)}
-                                    </p>
-                                )}
-                            </div>
-                            <div>
-                                <label className="text-xs text-muted-foreground mb-1 block">Precio Lista 2 (Bs)</label>
-                                <input
-                                    type="number"
-                                    className="input-sistema font-mono"
-                                    value={form.precioLista2 || ''}
-                                    onChange={(e) => actualizar('precioLista2', parseFloat(e.target.value) || 0)}
-                                    placeholder="0.00"
-                                />
-                            </div>
-                            <div>
-                                <label className="text-xs text-muted-foreground mb-1 block">Precio Mayorista (Bs)</label>
-                                <input
-                                    type="number"
-                                    className="input-sistema font-mono"
-                                    value={form.precioMayorista || ''}
-                                    onChange={(e) => actualizar('precioMayorista', parseFloat(e.target.value) || 0)}
-                                    placeholder="0.00"
-                                />
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Stock */}
-                    <div className="border-t border-border pt-4">
-                        <h4 className="text-sm font-medium mb-3">Stock e Inventario</h4>
-                        <div className="grid grid-cols-3 gap-4">
-                            <div>
-                                <label className="text-xs text-muted-foreground mb-1 block">Stock actual</label>
-                                <input
-                                    type="number"
-                                    className="input-sistema"
-                                    value={form.stock ?? ''}
-                                    onChange={(e) => actualizar('stock', parseInt(e.target.value) || 0)}
-                                    placeholder="0"
-                                />
-                            </div>
-                            <div>
-                                <label className="text-xs text-muted-foreground mb-1 block">Stock mínimo</label>
-                                <input
-                                    type="number"
-                                    className="input-sistema"
-                                    value={form.stockMinimo ?? ''}
-                                    onChange={(e) => actualizar('stockMinimo', parseInt(e.target.value) || 0)}
-                                    placeholder="5"
-                                />
-                            </div>
-                            <div>
-                                <label className="text-xs text-muted-foreground mb-1 block">Unidad de medida</label>
-                                <select
-                                    className="input-sistema"
-                                    value={form.unidad || 'unidad'}
-                                    onChange={(e) => actualizar('unidad', e.target.value)}
-                                >
-                                    {UNIDADES.map((u) => <option key={u} value={u}>{u}</option>)}
-                                </select>
-                            </div>
-                            <div className="col-span-2">
-                                <label className="text-xs text-muted-foreground mb-1 block">Proveedor</label>
-                                <input
-                                    className="input-sistema"
-                                    value={form.proveedor || ''}
-                                    onChange={(e) => actualizar('proveedor', e.target.value)}
-                                    placeholder="Nombre del proveedor"
-                                />
-                            </div>
-                            <div className="flex items-center gap-2 mt-4">
-                                <div
-                                    className={cn(
-                                        'w-10 h-6 rounded-full cursor-pointer transition-colors flex items-center px-0.5',
-                                        form.activo ? 'bg-green-500 justify-end' : 'bg-muted justify-start'
-                                    )}
-                                    onClick={() => actualizar('activo', !form.activo)}
-                                >
-                                    <div className="w-5 h-5 bg-white rounded-full shadow-md" />
+                                <label className="text-xs text-muted-foreground mb-1 block">Precio (USD) *</label>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-green-400 text-sm font-bold">$</span>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        className="input-sistema pl-7"
+                                        placeholder="0.00"
+                                        value={form.precioUSD || ''}
+                                        onChange={e => set('precioUSD', parseFloat(e.target.value) || 0)}
+                                    />
                                 </div>
-                                <span className="text-sm">{form.activo ? 'Activo' : 'Inactivo'}</span>
+                            </div>
+                            <div>
+                                <label className="text-xs text-muted-foreground mb-1 block">Equivale en Bs (BCV)</label>
+                                <div className="input-sistema bg-muted/40 flex items-center font-mono text-sm text-amber-400 font-semibold cursor-default select-none">
+                                    {preciosBs > 0 ? formatBs(preciosBs) : '0.00 Bs'}
+                                </div>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                    Tasa: {tasaBCV.toFixed(2)} Bs/$
+                                </p>
                             </div>
                         </div>
                     </div>
 
-                    {/* Botones */}
-                    <div className="flex justify-end gap-3 pt-2">
-                        <button onClick={onCerrar} className="btn-secondary">Cancelar</button>
-                        <button onClick={guardar} className="btn-primary">
-                            <CheckCircle2 className="w-4 h-4" />
-                            {esEdicion ? 'Actualizar' : 'Crear Producto'}
+                    {/* Campos especificos segun tipo */}
+                    {form.tipo === 'paquete_clases' ? (
+                        <div className="border border-border rounded-xl p-4 bg-muted/20">
+                            <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                                <BookOpen className="w-4 h-4 text-blue-400" />
+                                Detalles del paquete
+                            </h4>
+                            <div className="grid grid-cols-3 gap-3">
+                                <div>
+                                    <label className="text-xs text-muted-foreground mb-1 block">N. de clases</label>
+                                    <input type="number" min="0" className="input-sistema"
+                                        placeholder="0"
+                                        value={form.clasesIncluidas || ''}
+                                        onChange={e => set('clasesIncluidas', parseInt(e.target.value) || undefined)} />
+                                </div>
+                                <div>
+                                    <label className="text-xs text-muted-foreground mb-1 block">Clases/semana</label>
+                                    <input type="number" min="1" max="7" className="input-sistema"
+                                        placeholder="0"
+                                        value={form.frecuenciaSemana || ''}
+                                        onChange={e => set('frecuenciaSemana', parseInt(e.target.value) || undefined)} />
+                                </div>
+                                <div>
+                                    <label className="text-xs text-muted-foreground mb-1 block">Vigencia (dias)</label>
+                                    <input type="number" min="1" className="input-sistema"
+                                        placeholder="30"
+                                        value={form.vigenciaDias || ''}
+                                        onChange={e => set('vigenciaDias', parseInt(e.target.value) || undefined)} />
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="border border-border rounded-xl p-4 bg-muted/20">
+                            <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                                <Clock className="w-4 h-4 text-purple-400" />
+                                Detalles del alquiler
+                            </h4>
+                            <div>
+                                <label className="text-xs text-muted-foreground mb-1 block">Duracion (horas)</label>
+                                <input type="number" min="0.5" step="0.5" className="input-sistema w-1/2"
+                                    placeholder="1"
+                                    value={form.duracionHoras || ''}
+                                    onChange={e => set('duracionHoras', parseFloat(e.target.value) || undefined)} />
+                                <p className="text-xs text-muted-foreground mt-1">El precio se aplica por esta duracion</p>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Activo toggle */}
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="text-sm font-medium">Estado del servicio</p>
+                            <p className="text-xs text-muted-foreground">Los inactivos no aparecen en el POS</p>
+                        </div>
+                        <button type="button" onClick={() => set('activo', !form.activo)}
+                            className={cn('flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all',
+                                form.activo ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-muted text-muted-foreground border border-border')}>
+                            {form.activo
+                                ? <><ToggleRight className="w-4 h-4" /> Activo</>
+                                : <><ToggleLeft className="w-4 h-4" /> Inactivo</>}
                         </button>
                     </div>
+                </div>
+
+                {/* Footer */}
+                <div className="flex gap-3 p-6 border-t border-border">
+                    <button onClick={onCerrar} className="flex-1 btn-secondary py-2.5 text-sm justify-center">
+                        Cancelar
+                    </button>
+                    <button onClick={guardar} className="flex-1 btn-primary py-2.5 text-sm justify-center">
+                        <CheckCircle2 className="w-4 h-4" />
+                        {esEdicion ? 'Guardar cambios' : 'Crear Servicio'}
+                    </button>
                 </div>
             </div>
         </div>
     );
 }
 
-// ============================
-// PÁGINA PRINCIPAL
-// ============================
-export default function InventarioPage() {
-    const { tasas } = useTasas();
-    const [productos, setProductos] = useState<Producto[]>(PRODUCTOS_DEMO);
-    const [busqueda, setBusqueda] = useState('');
-    const [categoriaFiltro, setCategoriaFiltro] = useState('Todos');
-    const [categoriasDinamicas, setCategoriasDinamicas] = useState<string[]>(CATEGORIAS_DEFAULT);
-    const [soloStockBajo, setSoloStockBajo] = useState(false);
-    const [soloActivos, setSoloActivos] = useState(false);
-    const [modalProducto, setModalProducto] = useState<Partial<Producto> | null | undefined>(undefined);
+// ─── Pagina principal ──────────────────────────────────────────────────────────
 
-    const productosFiltrados = productos.filter((p) => {
-        const matchBusqueda = p.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
-            p.codigo.includes(busqueda);
-        const matchCategoria = categoriaFiltro === 'Todos' || p.categoria === categoriaFiltro;
-        const matchStock = !soloStockBajo || p.stock < p.stockMinimo;
-        const matchActivo = !soloActivos || p.activo;
-        return matchBusqueda && matchCategoria && matchStock && matchActivo;
+export default function CatalogoPage() {
+    const { tasas } = useTasas();
+    const [servicios, setServicios] = useState<Servicio[]>(SERVICIOS_DEMO);
+    const [busqueda, setBusqueda] = useState('');
+    const [filtroTipo, setFiltroTipo] = useState<'todos' | TipoServicio>('todos');
+    const [filtroCategoria, setFiltroCategoria] = useState('Todos');
+    const [filtroActivo, setFiltroActivo] = useState<'todos' | 'activos' | 'inactivos'>('todos');
+    const [modalServicio, setModalServicio] = useState<Partial<Servicio> | null | undefined>(undefined);
+    const [categoriasDinamicas, setCategoriasDinamicas] = useState<string[]>(CATEGORIAS_DEFAULT);
+
+    const serviciosFiltrados = servicios.filter(s => {
+        const matchBusqueda = !busqueda || s.nombre.toLowerCase().includes(busqueda.toLowerCase()) || s.descripcion?.toLowerCase().includes(busqueda.toLowerCase());
+        const matchTipo = filtroTipo === 'todos' || s.tipo === filtroTipo;
+        const matchCat = filtroCategoria === 'Todos' || s.categoria === filtroCategoria;
+        const matchActivo = filtroActivo === 'todos' || (filtroActivo === 'activos' ? s.activo : !s.activo);
+        return matchBusqueda && matchTipo && matchCat && matchActivo;
     });
 
-    const stockBajoCount = productos.filter((p) => p.stock < p.stockMinimo).length;
-
-    const eliminarProducto = (id: string) => {
-        setProductos(productos.filter((p) => p.id !== id));
-        toast.success('Producto eliminado');
+    const guardarServicio = (s: Servicio) => {
+        setServicios(prev => {
+            const idx = prev.findIndex(x => x.id === s.id);
+            if (idx >= 0) { const n = [...prev]; n[idx] = s; return n; }
+            return [...prev, s];
+        });
     };
 
-    const guardarProducto = (producto: Producto) => {
-        const existe = productos.find((p) => p.id === producto.id);
-        if (existe) {
-            setProductos(productos.map((p) => p.id === producto.id ? producto : p));
-        } else {
-            setProductos([...productos, producto]);
-        }
+    const eliminarServicio = (id: string) => {
+        setServicios(prev => prev.filter(s => s.id !== id));
+        toast.success('Servicio eliminado');
     };
+
+    const totalActivos = servicios.filter(s => s.activo).length;
+    const totalPaquetes = servicios.filter(s => s.tipo === 'paquete_clases').length;
+    const totalAlquileres = servicios.filter(s => s.tipo === 'alquiler').length;
 
     return (
-        <div className="space-y-6 animate-fade-in">
+        <div className="p-4 lg:p-6 space-y-6">
+
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold">Inventario</h1>
-                    <p className="text-muted-foreground text-sm mt-0.5">
-                        {productos.length} productos · {stockBajoCount > 0 && (
-                            <span className="text-red-400 font-medium">{stockBajoCount} con stock bajo</span>
-                        )}
+                    <h1 className="text-2xl font-bold">Catalogo de Servicios</h1>
+                    <p className="text-sm text-muted-foreground mt-0.5">
+                        Paquetes de clases y alquiler de espacios
                     </p>
                 </div>
-                <div className="flex items-center gap-2">
-                    <button className="btn-secondary text-sm">
-                        <Upload className="w-4 h-4" /> Importar CSV
-                    </button>
-                    <button className="btn-secondary text-sm">
-                        <Download className="w-4 h-4" /> Exportar
-                    </button>
-                    <button
-                        className="btn-primary text-sm"
-                        onClick={() => setModalProducto({})}
-                    >
-                        <Plus className="w-4 h-4" /> Nuevo Producto
-                    </button>
-                </div>
-            </div>
-
-            {/* Alerta stock bajo */}
-            {stockBajoCount > 0 && (
-                <div
-                    className="flex items-center gap-3 p-4 bg-red-500/10 border border-red-500/30 rounded-xl cursor-pointer hover:bg-red-500/15 transition-colors"
-                    onClick={() => setSoloStockBajo(!soloStockBajo)}
-                >
-                    <AlertTriangle className="w-5 h-5 text-red-400" />
-                    <div className="flex-1">
-                        <p className="text-sm font-semibold text-red-400">
-                            ⚠️ {stockBajoCount} productos con stock bajo
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                            Haz clic para filtrar solo los productos con stock por debajo del mínimo
-                        </p>
-                    </div>
-                    {soloStockBajo && <X className="w-4 h-4 text-muted-foreground" />}
-                </div>
-            )}
-
-            {/* Filtros */}
-            <div className="flex flex-wrap items-center gap-3">
-                <div className="relative flex-1 min-w-48">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <input
-                        className="input-sistema pl-10"
-                        placeholder="Buscar por nombre o código..."
-                        value={busqueda}
-                        onChange={(e) => setBusqueda(e.target.value)}
-                    />
-                </div>
-                <select
-                    className="input-sistema w-auto"
-                    value={categoriaFiltro}
-                    onChange={(e) => setCategoriaFiltro(e.target.value)}
-                >
-                    {['Todos', ...categoriasDinamicas].map((c) => <option key={c} value={c}>{c}</option>)}
-                </select>
-                <button
-                    className={cn(
-                        'btn-secondary text-sm',
-                        soloActivos && 'border-green-500/40 text-green-400 bg-green-500/10'
-                    )}
-                    onClick={() => setSoloActivos(!soloActivos)}
-                >
-                    <CheckCircle2 className="w-4 h-4" />
-                    Solo activos
+                <button onClick={() => setModalServicio({})} className="btn-primary text-sm py-2.5">
+                    <Plus className="w-4 h-4" />
+                    Nuevo Servicio
                 </button>
             </div>
 
-            {/* Tabla de productos */}
-            <div className="card-sistema overflow-hidden p-0">
-                <div className="overflow-x-auto">
-                    <table className="tabla-sistema">
-                        <thead>
-                            <tr>
-                                <th>Código</th>
-                                <th>Producto</th>
-                                <th>Categoría</th>
-                                <th>Precio (Bs)</th>
-                                <th>Precio (USD)</th>
-                                <th>Stock</th>
-                                <th>Estado</th>
-                                <th>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {productosFiltrados.map((producto) => {
-                                const stockBajo = producto.stock < producto.stockMinimo;
-                                return (
-                                    <tr key={producto.id}>
-                                        <td>
-                                            <span className="font-mono text-xs text-muted-foreground">{producto.codigo}</span>
-                                        </td>
-                                        <td>
-                                            <div>
-                                                <p className="font-medium">{producto.nombre}</p>
-                                                <p className="text-xs text-muted-foreground">{producto.unidad}</p>
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <span className="badge badge-blue">{producto.categoria}</span>
-                                        </td>
-                                        <td>
-                                            <span className="font-mono text-sm">{formatBs(producto.precioBs)}</span>
-                                        </td>
-                                        <td>
-                                            <span className="font-mono text-sm text-muted-foreground">
-                                                {formatUSD(producto.precioBs / tasas.bcv)}
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <div className="flex items-center gap-2">
-                                                <span
-                                                    className={cn(
-                                                        'font-semibold',
-                                                        stockBajo ? 'text-red-400' : 'text-green-400'
-                                                    )}
-                                                >
-                                                    {producto.stock}
-                                                </span>
-                                                {stockBajo && (
-                                                    <AlertTriangle className="w-3.5 h-3.5 text-red-400" />
-                                                )}
-                                                <span className="text-xs text-muted-foreground">
-                                                    / min {producto.stockMinimo}
-                                                </span>
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <span className={cn(
-                                                'badge',
-                                                producto.activo ? 'badge-green' : 'badge-gray'
-                                            )}>
-                                                {producto.activo ? 'Activo' : 'Inactivo'}
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <div className="flex items-center gap-2">
-                                                <button
-                                                    className="text-muted-foreground hover:text-blue-400 transition-colors"
-                                                    onClick={() => setModalProducto(producto)}
-                                                >
-                                                    <Edit2 className="w-4 h-4" />
-                                                </button>
-                                                <button
-                                                    className="text-muted-foreground hover:text-red-400 transition-colors"
-                                                    onClick={() => eliminarProducto(producto.id)}
-                                                >
-                                                    <Trash2 className="w-4 h-4" />
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-
-                    {productosFiltrados.length === 0 && (
-                        <div className="text-center py-12 text-muted-foreground">
-                            <Package className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                            <p>No se encontraron productos</p>
+            {/* KPIs */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                {[
+                    { label: 'Total servicios', valor: servicios.length, icon: Tag, color: 'text-blue-400' },
+                    { label: 'Activos', valor: totalActivos, icon: CheckCircle2, color: 'text-green-400' },
+                    { label: 'Paquetes de clases', valor: totalPaquetes, icon: BookOpen, color: 'text-blue-400' },
+                    { label: 'Alquileres', valor: totalAlquileres, icon: Home, color: 'text-purple-400' },
+                ].map(({ label, valor, icon: Icon, color }) => (
+                    <div key={label} className="kpi-card">
+                        <div className="flex items-center justify-between mb-2">
+                            <p className="text-xs text-muted-foreground">{label}</p>
+                            <Icon className={cn('w-4 h-4', color)} />
                         </div>
-                    )}
+                        <p className="text-2xl font-bold">{valor}</p>
+                    </div>
+                ))}
+            </div>
+
+            {/* Filtros */}
+            <div className="glass-card p-4">
+                <div className="flex flex-col sm:flex-row gap-3">
+                    <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <input className="input-sistema pl-9 w-full" placeholder="Buscar servicio..."
+                            value={busqueda} onChange={e => setBusqueda(e.target.value)} />
+                    </div>
+                    <select className="input-sistema sm:w-44" value={filtroTipo}
+                        onChange={e => setFiltroTipo(e.target.value as typeof filtroTipo)}>
+                        <option value="todos">Todos los tipos</option>
+                        <option value="paquete_clases">Paquetes de clases</option>
+                        <option value="alquiler">Alquileres</option>
+                    </select>
+                    <select className="input-sistema sm:w-44" value={filtroCategoria}
+                        onChange={e => setFiltroCategoria(e.target.value)}>
+                        <option value="Todos">Todas las categorias</option>
+                        {categoriasDinamicas.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                    <select className="input-sistema sm:w-36" value={filtroActivo}
+                        onChange={e => setFiltroActivo(e.target.value as typeof filtroActivo)}>
+                        <option value="todos">Todos</option>
+                        <option value="activos">Activos</option>
+                        <option value="inactivos">Inactivos</option>
+                    </select>
                 </div>
             </div>
 
-            {/* Modal de producto */}
-            {modalProducto !== undefined && (
-                <ModalProducto
-                    producto={modalProducto}
-                    onCerrar={() => setModalProducto(undefined)}
-                    onGuardar={guardarProducto}
+            {/* Lista de servicios */}
+            {serviciosFiltrados.length === 0 ? (
+                <div className="glass-card p-12 text-center">
+                    <Tag className="w-12 h-12 text-muted-foreground mx-auto mb-4 opacity-40" />
+                    <p className="text-muted-foreground font-medium">
+                        {servicios.length === 0 ? 'Aun no tienes servicios registrados' : 'No hay servicios que coincidan'}
+                    </p>
+                    {servicios.length === 0 && (
+                        <button onClick={() => setModalServicio({})} className="btn-primary text-sm mt-4">
+                            <Plus className="w-4 h-4" /> Crear primer servicio
+                        </button>
+                    )}
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                    {serviciosFiltrados.map(servicio => {
+                        const precioBs = servicio.precioUSD * tasas.bcv;
+                        return (
+                            <div key={servicio.id} className={cn(
+                                'glass-card p-5 flex flex-col gap-3 transition-all hover:border-border/80',
+                                !servicio.activo && 'opacity-60'
+                            )}>
+                                {/* Top row */}
+                                <div className="flex items-start justify-between gap-2">
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                                            <BadgeTipo tipo={servicio.tipo} />
+                                            {servicio.categoria && (
+                                                <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                                                    {servicio.categoria}
+                                                </span>
+                                            )}
+                                            {!servicio.activo && (
+                                                <span className="text-xs text-red-400 bg-red-500/10 px-2 py-0.5 rounded-full border border-red-500/20">
+                                                    Inactivo
+                                                </span>
+                                            )}
+                                        </div>
+                                        <h3 className="font-semibold text-sm leading-tight">{servicio.nombre}</h3>
+                                    </div>
+                                    <div className="flex gap-1 shrink-0">
+                                        <button onClick={() => setModalServicio(servicio)}
+                                            className="p-1.5 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground">
+                                            <Edit2 className="w-3.5 h-3.5" />
+                                        </button>
+                                        <button onClick={() => eliminarServicio(servicio.id)}
+                                            className="p-1.5 hover:bg-red-500/10 rounded-lg transition-colors text-muted-foreground hover:text-red-400">
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Descripcion */}
+                                {servicio.descripcion && (
+                                    <p className="text-xs text-muted-foreground leading-relaxed">{servicio.descripcion}</p>
+                                )}
+
+                                {/* Detalles especificos */}
+                                <div className="flex flex-wrap gap-2 text-xs">
+                                    {servicio.tipo === 'paquete_clases' && (
+                                        <>
+                                            {servicio.clasesIncluidas && (
+                                                <span className="flex items-center gap-1 bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded-full border border-blue-500/20">
+                                                    <Users className="w-3 h-3" />
+                                                    {servicio.clasesIncluidas} clases
+                                                </span>
+                                            )}
+                                            {servicio.frecuenciaSemana && (
+                                                <span className="flex items-center gap-1 bg-muted text-muted-foreground px-2 py-0.5 rounded-full">
+                                                    <Calendar className="w-3 h-3" />
+                                                    {servicio.frecuenciaSemana}x/semana
+                                                </span>
+                                            )}
+                                            {servicio.vigenciaDias && (
+                                                <span className="flex items-center gap-1 bg-muted text-muted-foreground px-2 py-0.5 rounded-full">
+                                                    <Clock className="w-3 h-3" />
+                                                    {servicio.vigenciaDias} dias
+                                                </span>
+                                            )}
+                                        </>
+                                    )}
+                                    {servicio.tipo === 'alquiler' && servicio.duracionHoras && (
+                                        <span className="flex items-center gap-1 bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded-full border border-purple-500/20">
+                                            <Clock className="w-3 h-3" />
+                                            {servicio.duracionHoras}h de duracion
+                                        </span>
+                                    )}
+                                </div>
+
+                                {/* Precio */}
+                                <div className="mt-auto pt-3 border-t border-border flex items-end justify-between">
+                                    <div>
+                                        <p className="text-xs text-muted-foreground mb-0.5">Precio</p>
+                                        <p className="text-xl font-bold text-green-400 font-mono">
+                                            {formatUSD(servicio.precioUSD)}
+                                        </p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-xs text-muted-foreground mb-0.5">Equivale a</p>
+                                        <p className="text-sm font-semibold text-amber-400 font-mono">
+                                            {formatBs(precioBs)}
+                                        </p>
+                                        <p className="text-xs text-muted-foreground">tasa {tasas.bcv.toFixed(2)}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+
+            {/* Modal */}
+            {modalServicio !== undefined && (
+                <ModalServicio
+                    servicio={modalServicio}
+                    onCerrar={() => setModalServicio(undefined)}
+                    onGuardar={guardarServicio}
                     tasaBCV={tasas.bcv}
                     categorias={categoriasDinamicas}
                     onNuevaCategoria={(c) => {
                         if (!categoriasDinamicas.includes(c)) {
                             setCategoriasDinamicas(prev => [...prev, c]);
-                            toast.success(`Categoria "${c}" agregada`);
                         }
                     }}
                 />
