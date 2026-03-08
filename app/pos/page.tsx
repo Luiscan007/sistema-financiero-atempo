@@ -185,10 +185,11 @@ export default function POSPage() {
     const tarifaActual = tasaSeleccionada === 'bcv' ? tasas.bcv : tasas.paralelo;
 
     const serviciosFiltrados = todosServicios.filter(s => {
-        if (!s.activo) return false;
+        // activo === undefined (docs viejos) se trata como activo=true
+        if (s.activo === false) return false;
         const matchBusqueda = !busqueda ||
-            s.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
-            s.descripcion?.toLowerCase().includes(busqueda.toLowerCase());
+            (s.nombre || '').toLowerCase().includes(busqueda.toLowerCase()) ||
+            (s.descripcion || '').toLowerCase().includes(busqueda.toLowerCase());
         const matchTipo = filtroTipo === 'todos' || s.tipo === filtroTipo;
         return matchBusqueda && matchTipo;
     });
@@ -306,7 +307,12 @@ export default function POSPage() {
 
                 {/* Grid de servicios */}
                 <div className="flex-1 overflow-y-auto p-4">
-                    {todosServicios.length === 0 ? (
+                    {cargandoServicios ? (
+                        <div className="flex flex-col items-center justify-center h-full py-16">
+                            <Loader2 className="w-8 h-8 animate-spin text-blue-400 mb-3" />
+                            <p className="text-sm text-muted-foreground">Cargando servicios...</p>
+                        </div>
+                    ) : todosServicios.length === 0 ? (
                         <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground py-16">
                             <div className="w-16 h-16 bg-muted/30 rounded-2xl flex items-center justify-center mb-4">
                                 <BookOpen className="w-8 h-8 opacity-30" />
@@ -320,7 +326,8 @@ export default function POSPage() {
                     ) : serviciosFiltrados.length === 0 ? (
                         <div className="text-center py-12 text-muted-foreground">
                             <Search className="w-10 h-10 mx-auto mb-3 opacity-20" />
-                            <p className="text-sm">No se encontraron servicios</p>
+                            <p className="text-sm font-medium">Sin resultados</p>
+                            <p className="text-xs mt-1 opacity-70">Prueba con otro nombre o cambia el filtro</p>
                         </div>
                     ) : (
                         <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
