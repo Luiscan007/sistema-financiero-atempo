@@ -283,17 +283,31 @@ function ModalServicio({
                     )}
 
                     {/* Activo toggle */}
-                    <div className="flex items-center justify-between">
+                    <div className={cn(
+                        'flex items-center justify-between p-3 rounded-xl border transition-all',
+                        form.activo
+                            ? 'bg-green-500/10 border-green-500/30'
+                            : 'bg-red-500/10 border-red-500/30'
+                    )}>
                         <div>
-                            <p className="text-sm font-medium">Estado del servicio</p>
-                            <p className="text-xs text-muted-foreground">Los inactivos no aparecen en el POS</p>
+                            <p className={cn('text-sm font-semibold', form.activo ? 'text-green-400' : 'text-red-400')}>
+                                {form.activo ? 'Activo' : 'Inactivo'}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                                {form.activo
+                                    ? 'Visible en el Punto de Venta'
+                                    : 'NO aparece en el Punto de Venta'}
+                            </p>
                         </div>
                         <button type="button" onClick={() => set('activo', !form.activo)}
-                            className={cn('flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all',
-                                form.activo ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-muted text-muted-foreground border border-border')}>
-                            {form.activo
-                                ? <><ToggleRight className="w-4 h-4" /> Activo</>
-                                : <><ToggleLeft className="w-4 h-4" /> Inactivo</>}
+                            className={cn(
+                                'relative w-12 h-6 rounded-full transition-all duration-300',
+                                form.activo ? 'bg-green-500' : 'bg-muted'
+                            )}>
+                            <span className={cn(
+                                'absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all duration-300',
+                                form.activo ? 'left-7' : 'left-1'
+                            )} />
                         </button>
                     </div>
                 </div>
@@ -334,11 +348,11 @@ export default function CatalogoPage() {
             || (s.descripcion || '').toLowerCase().includes(busqueda.toLowerCase());
         const matchTipo = filtroTipo === 'todos' || s.tipo === filtroTipo;
         const matchCat = filtroCategoria === 'Todos' || s.categoria === filtroCategoria;
-        const matchActivo = filtroActivo === 'todos' || (filtroActivo === 'activos' ? s.activo : !s.activo);
+        const matchActivo = filtroActivo === 'todos' || (filtroActivo === 'activos' ? s.activo !== false : s.activo === false);
         return matchBusqueda && matchTipo && matchCat && matchActivo;
     });
 
-    const totalActivos = servicios.filter(s => s.activo).length;
+    const totalActivos = servicios.filter(s => s.activo !== false).length;
     const totalPaquetes = servicios.filter(s => s.tipo === 'paquete_clases').length;
     const totalAlquileres = servicios.filter(s => s.tipo === 'alquiler').length;
 
