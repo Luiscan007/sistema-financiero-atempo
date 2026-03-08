@@ -16,12 +16,13 @@ import {
 import toast from 'react-hot-toast';
 import { useCarritoStore } from '@/lib/store';
 import { useTasas } from '@/components/providers/TasasProvider';
-import { formatBs, formatUSD, BANCOS_VENEZOLANOS, generarNumeroRecibo } from '@/lib/utils';
+import { BANCOS_VENEZOLANOS, generarNumeroRecibo } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 import type { PagoMetodo } from '@/lib/store';
 
 // ─── Tipos e importacion desde hook compartido ───────────────────────────────
-import { useServicios, type Servicio, type TipoServicio } from '@/lib/useServicios';
+import { useServicios } from '@/lib/useServicios';
+import type { Servicio, TipoServicio } from '@/lib/useServicios';
 
 // ─── Helpers de formato ───────────────────────────────────────────────────────
 
