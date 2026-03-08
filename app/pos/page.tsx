@@ -21,7 +21,7 @@ import { cn } from '@/lib/utils';
 import type { PagoMetodo } from '@/lib/store';
 
 // ─── Tipos e importacion desde hook compartido ───────────────────────────────
-import { useServicios, type Servicio, type TipoServicio } from '@/hooks/useServicios';
+import { useServicios, type Servicio, type TipoServicio } from '@/lib/useServicios';
 
 // ─── Helpers de formato ───────────────────────────────────────────────────────
 
