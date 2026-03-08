@@ -2,74 +2,75 @@
 
 /**
  * components/layout/AppLayout.tsx
- * Layout principal del sistema con sidebar colapsable y top bar
+ * Layout principal con sidebar, topbar y toggle de tema claro/oscuro
  */
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-    LayoutDashboard,
-    ShoppingCart,
-    Package,
-    Receipt,
-    TrendingUp,
-    BookOpen,
-    Users,
-    Settings,
-    DollarSign,
-    ChevronLeft,
-    ChevronRight,
-    LogOut,
-    Bell,
-    RefreshCw,
-    Menu,
-    X,
-    Activity,
-    AlertTriangle,
-    Wifi,
-    WifiOff,
+    LayoutDashboard, ShoppingCart, Package, Receipt,
+    TrendingUp, BookOpen, Users, Settings, DollarSign,
+    ChevronLeft, ChevronRight, LogOut, Bell, RefreshCw,
+    Menu, X, Activity, AlertTriangle, WifiOff, Sun, Moon,
 } from 'lucide-react';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { useTasas } from '@/components/providers/TasasProvider';
 import { formatBs, formatUSD, colorBrecha, nivelBrecha } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 
-// Items del sidebar
 const NAV_ITEMS = [
     {
         titulo: 'Principal',
         items: [
-            { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, modulo: 'dashboard' },
-            { label: 'Punto de Venta', href: '/pos', icon: ShoppingCart, modulo: 'pos' },
+            { label: 'Dashboard',      href: '/dashboard',    icon: LayoutDashboard },
+            { label: 'Punto de Venta', href: '/pos',          icon: ShoppingCart },
         ],
     },
     {
-        titulo: 'Gestión',
+        titulo: 'Gestion',
         items: [
-            { label: 'Inventario', href: '/inventario', icon: Package, modulo: 'inventario' },
-            { label: 'Ventas', href: '/ventas', icon: Receipt, modulo: 'ventas' },
-            { label: 'Gastos', href: '/gastos', icon: TrendingUp, modulo: 'gastos' },
-            { label: 'Contabilidad', href: '/contabilidad', icon: BookOpen, modulo: 'contabilidad' },
+            { label: 'Inventario',    href: '/inventario',   icon: Package },
+            { label: 'Ventas',        href: '/ventas',       icon: Receipt },
+            { label: 'Gastos',        href: '/gastos',       icon: TrendingUp },
+            { label: 'Contabilidad',  href: '/contabilidad', icon: BookOpen },
         ],
     },
     {
         titulo: 'Finanzas',
         items: [
-            { label: 'Tasas y Cambio', href: '/cambio', icon: DollarSign, modulo: 'cambio' },
-            { label: 'Clientes', href: '/clientes', icon: Users, modulo: 'clientes' },
+            { label: 'Tasas y Cambio', href: '/cambio',      icon: DollarSign },
+            { label: 'Clientes',       href: '/clientes',    icon: Users },
         ],
     },
     {
         titulo: 'Sistema',
         items: [
-            { label: 'Configuración', href: '/configuracion', icon: Settings, modulo: 'configuracion' },
+            { label: 'Configuracion', href: '/configuracion', icon: Settings },
         ],
     },
 ];
 
-interface AppLayoutProps {
-    children: React.ReactNode;
+interface AppLayoutProps { children: React.ReactNode; }
+
+// Hook para persisitir tema en localStorage
+function useTema() {
+    const [tema, setTema] = useState<'dark' | 'light'>('dark');
+
+    useEffect(() => {
+        const guardado = localStorage.getItem('atempo-tema') as 'dark' | 'light' | null;
+        if (guardado) setTema(guardado);
+    }, []);
+
+    useEffect(() => {
+        const html = document.documentElement;
+        html.classList.remove('dark', 'light');
+        html.classList.add(tema);
+        localStorage.setItem('atempo-tema', tema);
+    }, [tema]);
+
+    const toggleTema = () => setTema(t => t === 'dark' ? 'light' : 'dark');
+    return { tema, toggleTema };
 }
 
 export default function AppLayout({ children }: AppLayoutProps) {
@@ -78,30 +79,21 @@ export default function AppLayout({ children }: AppLayoutProps) {
     const [online, setOnline] = useState(true);
     const pathname = usePathname();
     const router = useRouter();
-    const { usuario, perfil, cargando: cargandoAuth, logout } = useAuth();
+    const { perfil, logout } = useAuth();
     const { tasas, cargando: cargandoTasas, refrescar, ultimaActualizacion } = useTasas();
+    const { tema, toggleTema } = useTema();
 
-    // Detectar conexión online/offline
     useEffect(() => {
-        const handleOnline = () => setOnline(true);
+        const handleOnline  = () => setOnline(true);
         const handleOffline = () => setOnline(false);
-
-        window.addEventListener('online', handleOnline);
+        window.addEventListener('online',  handleOnline);
         window.addEventListener('offline', handleOffline);
         setOnline(navigator.onLine);
-
         return () => {
-            window.removeEventListener('online', handleOnline);
+            window.removeEventListener('online',  handleOnline);
             window.removeEventListener('offline', handleOffline);
         };
     }, []);
-
-    // GUARDIA DE AUTENTICACION - redirige si no hay sesion
-    useEffect(() => {
-        if (!cargandoAuth && !usuario) {
-            router.replace('/auth');
-        }
-    }, [usuario, cargandoAuth, router]);
 
     const handleLogout = async () => {
         await logout();
@@ -110,222 +102,197 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
     const brechaAlta = tasas.brechaUSD > 50;
 
-    // Pantalla de carga mientras Firebase verifica la sesion
-    if (cargandoAuth) {
-        return (
-            <div className="flex h-screen items-center justify-center bg-background">
-                <div className="flex flex-col items-center gap-4">
-                    <div className="w-10 h-10 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
-                    <p className="text-sm text-muted-foreground">Verificando sesion...</p>
-                </div>
+    // Sidebar compartido (desktop + mobile)
+    const SidebarContent = ({ mobile = false }: { mobile?: boolean }) => (
+        <>
+            {/* Logo */}
+            <div className={cn(
+                'flex items-center border-b border-white/10 flex-shrink-0',
+                mobile || sidebarAbierto ? 'justify-between p-4' : 'justify-center p-3'
+            )}>
+                {(mobile || sidebarAbierto) ? (
+                    <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 bg-gradient-to-br from-blue-400 to-blue-700 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20 flex-shrink-0">
+                            <Activity className="w-5 h-5 text-white" />
+                        </div>
+                        <div>
+                            <p className="text-sm font-bold text-white tracking-wide">ATEMPO</p>
+                            <p className="text-[11px] text-white/40 font-medium">Sistema Financiero</p>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="w-9 h-9 bg-gradient-to-br from-blue-400 to-blue-700 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
+                        <Activity className="w-5 h-5 text-white" />
+                    </div>
+                )}
+                {mobile ? (
+                    <button onClick={() => setMobileMenuAbierto(false)}
+                        className="text-white/40 hover:text-white/80 p-1 rounded-lg hover:bg-white/10 transition-all">
+                        <X className="w-5 h-5" />
+                    </button>
+                ) : sidebarAbierto ? (
+                    <button onClick={() => setSidebarAbierto(false)}
+                        className="text-white/30 hover:text-white/70 p-1 rounded-lg hover:bg-white/10 transition-all">
+                        <ChevronLeft className="w-4 h-4" />
+                    </button>
+                ) : (
+                    <button onClick={() => setSidebarAbierto(true)}
+                        className="text-white/30 hover:text-white/70 p-1 rounded-lg hover:bg-white/10 transition-all -mr-1">
+                        <ChevronRight className="w-4 h-4" />
+                    </button>
+                )}
             </div>
-        );
-    }
 
-    // Si no hay usuario tras cargar, no renderizar nada (el useEffect redirige)
-    if (!usuario) return null;
+            {/* Nav */}
+            <nav className="flex-1 overflow-y-auto p-3 space-y-0.5 no-scrollbar">
+                {NAV_ITEMS.map((grupo) => (
+                    <div key={grupo.titulo} className="mb-3">
+                        {(mobile || sidebarAbierto) && (
+                            <p className="text-[10px] font-semibold uppercase tracking-widest text-white/25 px-3 py-1.5 mb-0.5">
+                                {grupo.titulo}
+                            </p>
+                        )}
+                        {!mobile && !sidebarAbierto && (
+                            <div className="border-t border-white/10 my-2" />
+                        )}
+                        {grupo.items.map((item) => {
+                            const activo = pathname.startsWith(item.href);
+                            const Icon = item.icon;
+                            return (
+                                <Link
+                                    key={item.href}
+                                    href={item.href}
+                                    onClick={() => mobile && setMobileMenuAbierto(false)}
+                                    className={cn(
+                                        'sidebar-link',
+                                        activo && 'active',
+                                        !mobile && !sidebarAbierto && 'justify-center px-2'
+                                    )}
+                                    title={(!mobile && !sidebarAbierto) ? item.label : undefined}
+                                >
+                                    <Icon className="w-[18px] h-[18px] flex-shrink-0" />
+                                    {(mobile || sidebarAbierto) && (
+                                        <span>{item.label}</span>
+                                    )}
+                                </Link>
+                            );
+                        })}
+                    </div>
+                ))}
+            </nav>
+
+            {/* Footer sidebar */}
+            <div className="p-3 border-t border-white/10 space-y-1 flex-shrink-0">
+                {!online && (
+                    <div className={cn(
+                        'flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20',
+                        !mobile && !sidebarAbierto && 'justify-center px-2'
+                    )}>
+                        <WifiOff className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                        {(mobile || sidebarAbierto) && <span className="text-xs text-amber-400">Sin conexion</span>}
+                    </div>
+                )}
+                {perfil && (
+                    <div className={cn(
+                        'flex items-center gap-3 px-3 py-2',
+                        !mobile && !sidebarAbierto && 'justify-center'
+                    )}>
+                        <div className="w-8 h-8 rounded-full bg-blue-500/25 border border-blue-400/30 flex items-center justify-center flex-shrink-0">
+                            <span className="text-xs font-bold text-blue-300">
+                                {perfil.nombre.charAt(0).toUpperCase()}
+                            </span>
+                        </div>
+                        {(mobile || sidebarAbierto) && (
+                            <div className="flex-1 min-w-0">
+                                <p className="text-sm font-semibold text-white/90 truncate">{perfil.nombre}</p>
+                                <p className="text-[11px] text-white/35 capitalize">{perfil.rol}</p>
+                            </div>
+                        )}
+                    </div>
+                )}
+                <button
+                    onClick={handleLogout}
+                    className={cn(
+                        'w-full flex items-center gap-3 px-3 py-2 text-white/35 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-all text-sm font-medium',
+                        !mobile && !sidebarAbierto && 'justify-center px-2'
+                    )}
+                    title="Cerrar sesion"
+                >
+                    <LogOut className="w-4 h-4 flex-shrink-0" />
+                    {(mobile || sidebarAbierto) && <span>Cerrar sesion</span>}
+                </button>
+            </div>
+        </>
+    );
 
     return (
         <div className="flex h-screen bg-background overflow-hidden">
-            {/* ============================
-          SIDEBAR DESKTOP
-          ============================ */}
-            <aside
-                className={cn(
-                    'hidden lg:flex flex-col bg-card border-r border-border transition-all duration-300 ease-in-out flex-shrink-0',
-                    sidebarAbierto ? 'w-64' : 'w-16'
-                )}
-            >
-                {/* Logo / Header */}
-                <div className="flex items-center justify-between p-4 border-b border-border">
-                    {sidebarAbierto && (
-                        <div className="flex items-center gap-2 animate-fade-in">
-                            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-700 rounded-lg flex items-center justify-center">
-                                <Activity className="w-4 h-4 text-white" />
-                            </div>
-                            <div>
-                                <p className="text-sm font-bold text-foreground">ATEMPO</p>
-                                <p className="text-xs text-muted-foreground">Sistema Financiero</p>
-                            </div>
-                        </div>
-                    )}
-                    {!sidebarAbierto && (
-                        <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-700 rounded-lg flex items-center justify-center mx-auto">
-                            <Activity className="w-4 h-4 text-white" />
-                        </div>
-                    )}
-                    <button
-                        onClick={() => setSidebarAbierto(!sidebarAbierto)}
-                        className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded"
-                        title={sidebarAbierto ? 'Colapsar sidebar' : 'Expandir sidebar'}
-                    >
-                        {sidebarAbierto ? (
-                            <ChevronLeft className="w-4 h-4" />
-                        ) : (
-                            <ChevronRight className="w-4 h-4" />
-                        )}
-                    </button>
-                </div>
 
-                {/* Navegación */}
-                <nav className="flex-1 overflow-y-auto p-3 space-y-1">
-                    {NAV_ITEMS.map((grupo) => (
-                        <div key={grupo.titulo} className="mb-4">
-                            {sidebarAbierto && (
-                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2 mb-2">
-                                    {grupo.titulo}
-                                </p>
-                            )}
-                            {grupo.items.map((item) => {
-                                const activo = pathname.startsWith(item.href);
-                                const Icon = item.icon;
-                                return (
-                                    <Link
-                                        key={item.href}
-                                        href={item.href}
-                                        className={cn(
-                                            'sidebar-link',
-                                            activo && 'active',
-                                            !sidebarAbierto && 'justify-center px-2'
-                                        )}
-                                        title={!sidebarAbierto ? item.label : undefined}
-                                    >
-                                        <Icon className="w-5 h-5 flex-shrink-0" />
-                                        {sidebarAbierto && (
-                                            <span className="text-sm font-medium">{item.label}</span>
-                                        )}
-                                    </Link>
-                                );
-                            })}
-                        </div>
-                    ))}
-                </nav>
-
-                {/* Footer del sidebar */}
-                <div className="p-3 border-t border-border space-y-2">
-                    {/* Indicador offline */}
-                    {!online && (
-                        <div className={cn(
-                            'flex items-center gap-2 px-3 py-2 rounded-lg bg-yellow-500/10 border border-yellow-500/30',
-                            !sidebarAbierto && 'justify-center px-2'
-                        )}>
-                            <WifiOff className="w-4 h-4 text-yellow-400 flex-shrink-0" />
-                            {sidebarAbierto && <span className="text-xs text-yellow-400">Modo offline</span>}
-                        </div>
-                    )}
-
-                    {/* Info del usuario */}
-                    {perfil && (
-                        <div className={cn(
-                            'flex items-center gap-3 px-3 py-2',
-                            !sidebarAbierto && 'justify-center'
-                        )}>
-                            <div className="w-8 h-8 rounded-full bg-blue-500/20 border border-blue-500/40 flex items-center justify-center flex-shrink-0">
-                                <span className="text-xs font-semibold text-blue-400">
-                                    {perfil.nombre.charAt(0).toUpperCase()}
-                                </span>
-                            </div>
-                            {sidebarAbierto && (
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-medium truncate">{perfil.nombre}</p>
-                                    <p className="text-xs text-muted-foreground capitalize">{perfil.rol}</p>
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                    <button
-                        onClick={handleLogout}
-                        className={cn(
-                            'w-full flex items-center gap-3 px-3 py-2 text-muted-foreground hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all duration-200',
-                            !sidebarAbierto && 'justify-center px-2'
-                        )}
-                        title="Cerrar sesión"
-                    >
-                        <LogOut className="w-4 h-4 flex-shrink-0" />
-                        {sidebarAbierto && <span className="text-sm">Cerrar sesión</span>}
-                    </button>
-                </div>
+            {/* SIDEBAR DESKTOP */}
+            <aside className={cn(
+                'hidden lg:flex flex-col flex-shrink-0 transition-all duration-300 ease-in-out',
+                'bg-[hsl(var(--sidebar-bg))]',
+                sidebarAbierto ? 'w-60' : 'w-[60px]'
+            )}>
+                <SidebarContent />
             </aside>
 
-            {/* ============================
-          CONTENIDO PRINCIPAL
-          ============================ */}
+            {/* CONTENIDO PRINCIPAL */}
             <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-                {/* TOP BAR con Widget de Tasas */}
-                <header className="bg-card border-b border-border px-4 py-3 flex items-center gap-3 flex-shrink-0">
-                    {/* Botón menú móvil */}
+
+                {/* TOP BAR */}
+                <header className="bg-[hsl(var(--topbar-bg))] border-b border-border px-4 py-2.5 flex items-center gap-3 flex-shrink-0">
+
+                    {/* Boton menu movil */}
                     <button
-                        className="lg:hidden text-muted-foreground hover:text-foreground"
+                        className="lg:hidden text-muted-foreground hover:text-foreground p-1.5 hover:bg-muted rounded-lg transition-all"
                         onClick={() => setMobileMenuAbierto(true)}
                     >
                         <Menu className="w-5 h-5" />
                     </button>
 
-                    {/* Widget de Tasas - SIEMPRE VISIBLE */}
-                    <div className="flex-1 flex items-center gap-2 overflow-x-auto no-scrollbar">
+                    {/* Widget tasas */}
+                    <div className="flex-1 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
                         {cargandoTasas ? (
-                            // Skeleton mientras carga
                             <div className="flex gap-2">
-                                {[1, 2, 3, 4].map((i) => (
-                                    <div key={i} className="skeleton h-7 w-32 rounded-lg" />
-                                ))}
+                                {[1,2,3,4].map(i => <div key={i} className="skeleton h-7 w-28 rounded-lg" />)}
                             </div>
                         ) : (
-                            <div className="flex items-center gap-2 flex-nowrap">
-                                {/* BCV */}
+                            <div className="flex items-center gap-1.5 flex-nowrap">
                                 <div className="tasa-widget">
                                     <span className="text-muted-foreground text-xs">BCV</span>
                                     <span className="text-blue-400 font-semibold">
                                         Bs {tasas.bcv.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                     </span>
                                 </div>
-
-                                {/* Paralelo */}
                                 <div className="tasa-widget">
                                     <span className="text-muted-foreground text-xs">Paralelo</span>
-                                    <span className="text-yellow-400 font-semibold">
+                                    <span className="text-amber-400 font-semibold">
                                         Bs {tasas.paralelo.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                     </span>
                                 </div>
-
-                                {/* Brecha - Parpadea si > 50% */}
-                                <div className={cn(
-                                    'tasa-widget',
-                                    brechaAlta && 'animate-pulse border-red-500/40 bg-red-500/10'
-                                )}>
+                                <div className={cn('tasa-widget', brechaAlta && 'border-red-500/40 bg-red-500/10 animate-pulse')}>
                                     <span className="text-muted-foreground text-xs">Brecha</span>
-                                    <span className={cn(
-                                        'font-semibold',
-                                        tasas.brechaUSD > 50 ? 'text-red-500' : tasas.brechaUSD > 20 ? 'text-yellow-400' : 'text-green-400'
-                                    )}>
+                                    <span className={cn('font-semibold',
+                                        tasas.brechaUSD > 50 ? 'text-red-400' :
+                                        tasas.brechaUSD > 20 ? 'text-amber-400' : 'text-emerald-400')}>
                                         {tasas.brechaUSD.toFixed(1)}%
                                     </span>
-                                    {brechaAlta && (
-                                        <AlertTriangle className="w-3 h-3 text-red-400" />
-                                    )}
+                                    {brechaAlta && <AlertTriangle className="w-3 h-3 text-red-400" />}
                                 </div>
-
-                                {/* USDT */}
                                 <div className="tasa-widget">
                                     <span className="text-muted-foreground text-xs">USDT</span>
-                                    <span className="text-green-400 font-semibold">
-                                        ${tasas.usdtUsd.toFixed(4)}
-                                    </span>
+                                    <span className="text-emerald-400 font-semibold">${tasas.usdtUsd.toFixed(4)}</span>
                                 </div>
-
-                                {/* EUR */}
                                 <div className="tasa-widget hidden xl:flex">
-                                    <span className="text-muted-foreground text-xs">EUR/BCV</span>
+                                    <span className="text-muted-foreground text-xs">EUR</span>
                                     <span className="text-purple-400 font-semibold">
                                         Bs {tasas.eurBcv.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                     </span>
                                 </div>
-
-                                {/* Última actualización */}
                                 {ultimaActualizacion && (
-                                    <div className="tasa-widget hidden md:flex text-muted-foreground">
-                                        <span className="text-xs">
+                                    <div className="tasa-widget hidden md:flex">
+                                        <span className="text-muted-foreground text-xs">
                                             {ultimaActualizacion.toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' })}
                                         </span>
                                     </div>
@@ -334,106 +301,55 @@ export default function AppLayout({ children }: AppLayoutProps) {
                         )}
                     </div>
 
-                    {/* Botones de acción */}
-                    <div className="flex items-center gap-2 flex-shrink-0">
+                    {/* Acciones derecha */}
+                    <div className="flex items-center gap-1 flex-shrink-0">
+
                         {/* Indicador online */}
-                        <div className={cn(
-                            'w-2 h-2 rounded-full',
-                            online ? 'bg-green-400' : 'bg-yellow-400'
-                        )} title={online ? 'En línea' : 'Sin conexión'} />
+                        <div className={cn('w-2 h-2 rounded-full flex-shrink-0',
+                            online ? 'bg-emerald-400' : 'bg-amber-400')}
+                            title={online ? 'En linea' : 'Sin conexion'} />
 
                         {/* Refrescar tasas */}
-                        <button
-                            onClick={refrescar}
-                            className="text-muted-foreground hover:text-foreground transition-colors p-1.5 hover:bg-white/5 rounded-lg"
-                            title="Actualizar tasas"
-                            disabled={cargandoTasas}
-                        >
+                        <button onClick={refrescar} disabled={cargandoTasas}
+                            className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-all"
+                            title="Actualizar tasas">
                             <RefreshCw className={cn('w-4 h-4', cargandoTasas && 'animate-spin')} />
                         </button>
 
+                        {/* TOGGLE TEMA */}
+                        <button
+                            onClick={toggleTema}
+                            className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-all relative group"
+                            title={tema === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+                        >
+                            {tema === 'dark' ? (
+                                <Sun className="w-4 h-4 transition-transform group-hover:rotate-45 group-hover:scale-110" />
+                            ) : (
+                                <Moon className="w-4 h-4 transition-transform group-hover:-rotate-12 group-hover:scale-110" />
+                            )}
+                        </button>
+
                         {/* Notificaciones */}
-                        <button className="text-muted-foreground hover:text-foreground transition-colors p-1.5 hover:bg-white/5 rounded-lg relative">
+                        <button className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-all relative">
                             <Bell className="w-4 h-4" />
-                            <span className="absolute top-0.5 right-0.5 w-2 h-2 bg-red-500 rounded-full" />
+                            <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-red-500 rounded-full" />
                         </button>
                     </div>
                 </header>
 
-                {/* Contenido de la página */}
+                {/* Pagina */}
                 <main className="flex-1 overflow-y-auto p-6">
                     {children}
                 </main>
             </div>
 
-            {/* ============================
-          SIDEBAR MÓVIL (overlay)
-          ============================ */}
+            {/* SIDEBAR MOVIL */}
             {mobileMenuAbierto && (
                 <div className="lg:hidden fixed inset-0 z-50 flex">
-                    {/* Overlay oscuro */}
-                    <div
-                        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-                        onClick={() => setMobileMenuAbierto(false)}
-                    />
-
-                    {/* Sidebar móvil */}
-                    <aside className="relative w-72 bg-card border-r border-border flex flex-col animate-slide-in">
-                        {/* Header */}
-                        <div className="flex items-center justify-between p-4 border-b border-border">
-                            <div className="flex items-center gap-2">
-                                <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-700 rounded-lg flex items-center justify-center">
-                                    <Activity className="w-4 h-4 text-white" />
-                                </div>
-                                <div>
-                                    <p className="text-sm font-bold">ATEMPO</p>
-                                    <p className="text-xs text-muted-foreground">Sistema Financiero</p>
-                                </div>
-                            </div>
-                            <button
-                                onClick={() => setMobileMenuAbierto(false)}
-                                className="text-muted-foreground hover:text-foreground"
-                            >
-                                <X className="w-5 h-5" />
-                            </button>
-                        </div>
-
-                        {/* Nav */}
-                        <nav className="flex-1 overflow-y-auto p-3">
-                            {NAV_ITEMS.map((grupo) => (
-                                <div key={grupo.titulo} className="mb-4">
-                                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2 mb-2">
-                                        {grupo.titulo}
-                                    </p>
-                                    {grupo.items.map((item) => {
-                                        const activo = pathname.startsWith(item.href);
-                                        const Icon = item.icon;
-                                        return (
-                                            <Link
-                                                key={item.href}
-                                                href={item.href}
-                                                onClick={() => setMobileMenuAbierto(false)}
-                                                className={cn('sidebar-link', activo && 'active')}
-                                            >
-                                                <Icon className="w-5 h-5" />
-                                                <span className="text-sm font-medium">{item.label}</span>
-                                            </Link>
-                                        );
-                                    })}
-                                </div>
-                            ))}
-                        </nav>
-
-                        {/* Footer */}
-                        <div className="p-3 border-t border-border">
-                            <button
-                                onClick={handleLogout}
-                                className="w-full flex items-center gap-3 px-3 py-2 text-muted-foreground hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
-                            >
-                                <LogOut className="w-4 h-4" />
-                                <span className="text-sm">Cerrar sesión</span>
-                            </button>
-                        </div>
+                    <div className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+                        onClick={() => setMobileMenuAbierto(false)} />
+                    <aside className="relative w-72 flex flex-col animate-slide-in bg-[hsl(220_20%_9%)]">
+                        <SidebarContent mobile />
                     </aside>
                 </div>
             )}
