@@ -74,8 +74,8 @@ export function useServicios() {
     const crearServicio = async (datos: Omit<Servicio, 'id' | 'fechaCreacion'>) => {
         try {
             await addDoc(collection(db, COLECCION), {
-                activo: true, // default siempre activo
-                ...datos,     // sobreescribe si viene explicitamente
+                ...datos,
+                activo: datos.activo !== false, // true por defecto, respeta si viene false
                 fechaCreacion: serverTimestamp(),
             });
             toast.success('Servicio creado');
