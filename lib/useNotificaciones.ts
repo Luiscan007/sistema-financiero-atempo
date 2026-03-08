@@ -70,23 +70,38 @@ export function useNotificaciones() {
         return () => unsub();
     }, []);
 
-    // Escuchar ventas nuevas y crear notificacion automaticamente
+    // Escuchar ventas nuevas y crear notificacion (con dedup por ventaId)
     useEffect(() => {
-        // Solo ventas de los ultimos 5 minutos para no re-notificar historico
-        const cincoMinAtras = new Date(Date.now() - 5 * 60 * 1000);
+        // Ignorar ventas anteriores al arranque del hook
+        const arranque = Timestamp.fromDate(new Date());
+        let inicializado = false;
+
         const q = query(
             collection(db, 'ventas'),
-            where('fechaTimestamp', '>=', Timestamp.fromDate(cincoMinAtras)),
             orderBy('fechaTimestamp', 'desc'),
-            limit(5)
+            limit(1)
         );
 
         const unsub = onSnapshot(q, (snap) => {
+            // El primer snapshot es el estado inicial - ignorarlo
+            if (!inicializado) {
+                inicializado = true;
+                return;
+            }
+
             snap.docChanges().forEach(async (change) => {
                 if (change.type !== 'added') return;
                 const venta = change.doc.data();
-                // Crear notificacion de venta nueva
+                const ventaId = change.doc.id;
+
+                // Verificar que no existe ya una notif para esta ventaId
                 try {
+                    const { getDocs } = await import('firebase/firestore');
+                    const existentes = await getDocs(
+                        query(collection(db, COLECCION), where('meta.ventaId', '==', ventaId))
+                    );
+                    if (!existentes.empty) return; // ya existe, no duplicar
+
                     await addDoc(collection(db, COLECCION), {
                         tipo:           'venta',
                         titulo:         'Nueva venta registrada',
@@ -95,14 +110,14 @@ export function useNotificaciones() {
                         fecha:          new Date().toLocaleString('es-VE'),
                         fechaTimestamp: serverTimestamp(),
                         meta: {
-                            ventaId:       change.doc.id,
+                            ventaId,
                             numeroRecibo:  venta.numeroRecibo,
                             total:         venta.total,
                             metodoPago:    venta.metodoPago,
                         },
                     });
                 } catch {
-                    // Silencioso si ya existe o falla
+                    // Silencioso
                 }
             });
         });
