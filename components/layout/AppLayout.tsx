@@ -98,10 +98,10 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
     // GUARDIA DE AUTENTICACION - redirige si no hay sesion
     useEffect(() => {
-        if (!cargando && !usuario) {
+        if (!cargandoAuth && !usuario) {
             router.replace('/auth');
         }
-    }, [usuario, cargando, router]);
+    }, [usuario, cargandoAuth, router]);
 
     const handleLogout = async () => {
         await logout();
