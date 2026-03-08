@@ -37,7 +37,7 @@ interface Producto {
 // Datos demo
 const PRODUCTOS_DEMO: Producto[] = [];
 
-const CATEGORIAS_DEFAULT = ['Bebidas', 'Panadería', 'Aceites', 'Harinas', 'Básicos', 'Granos', 'Lácteos', 'Café', 'Higiene'];
+const CATEGORIAS_DEFAULT: string[] = []; // Agrega tus propias categorias
 const UNIDADES = ['unidad', 'kg', 'litro', 'caja', 'paquete', 'docena', 'gramo', 'ml'];
 
 // Modal de producto
