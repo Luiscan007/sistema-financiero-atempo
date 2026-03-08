@@ -81,12 +81,13 @@ function ModalServicio({
     const guardar = () => {
         if (!form.nombre?.trim()) { toast.error('Ingresa el nombre del servicio'); return; }
         if (!form.precioUSD || form.precioUSD <= 0) { toast.error('El precio debe ser mayor a 0'); return; }
+        // Para servicios nuevos pasamos id vacio - el hook detecta esto y usa addDoc
+        // Para edicion pasamos el id existente - el hook usa updateDoc
         onGuardar({
             ...form,
-            id: (servicio as Servicio)?.id || Date.now().toString(),
-            fechaCreacion: (servicio as Servicio)?.fechaCreacion || new Date().toISOString().split('T')[0],
+            id: (servicio as Servicio)?.id || '',
+            fechaCreacion: (servicio as Servicio)?.fechaCreacion || '',
         } as Servicio);
-        toast.success(esEdicion ? 'Servicio actualizado' : 'Servicio creado');
         onCerrar();
     };
 
