@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { useTasas } from '@/components/providers/TasasProvider';
 import { cn } from '@/lib/utils';
-import { useServicios, type Servicio, type TipoServicio } from '@/hooks/useServicios';
+import { useServicios, type Servicio, type TipoServicio } from '@/lib/useServicios';
 
 const CATEGORIAS_DEFAULT: string[] = [];
 
@@ -349,14 +349,12 @@ export default function CatalogoPage() {
         <div className="p-4 lg:p-6 space-y-6">
 
             {/* Loading */}
-            {cargando && (
+            {cargando ? (
                 <div className="flex items-center justify-center py-20">
                     <Loader2 className="w-8 h-8 animate-spin text-blue-400" />
                     <span className="ml-3 text-muted-foreground">Cargando servicios...</span>
                 </div>
-            )}
-
-            {!cargando && (
+            ) : (
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold">Catalogo de Servicios</h1>
@@ -528,7 +526,7 @@ export default function CatalogoPage() {
             )}
 
             </div>
-            )} {/* end !cargando */}
+            )} {/* end cargando ternary */}
 
             {/* Modal */}
             {modalServicio !== undefined && (
