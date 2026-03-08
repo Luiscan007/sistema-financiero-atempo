@@ -13,7 +13,8 @@ import {
 } from 'lucide-react';
 import { useTasas } from '@/components/providers/TasasProvider';
 import { cn } from '@/lib/utils';
-import { useServicios, type Servicio, type TipoServicio } from '@/lib/useServicios';
+import { useServicios } from '@/lib/useServicios';
+import type { Servicio, TipoServicio } from '@/lib/useServicios';
 import toast from 'react-hot-toast';
 
 const CATEGORIAS_DEFAULT: string[] = [];
