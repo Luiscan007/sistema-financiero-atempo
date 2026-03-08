@@ -349,13 +349,13 @@ export default function CatalogoPage() {
         <div className="p-4 lg:p-6 space-y-6">
 
             {/* Loading */}
-            {cargando ? (
+            {cargando && (
                 <div className="flex items-center justify-center py-20">
                     <Loader2 className="w-8 h-8 animate-spin text-blue-400" />
                     <span className="ml-3 text-muted-foreground">Cargando servicios...</span>
                 </div>
-            ) : (
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            )}
+            {!cargando && <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold">Catalogo de Servicios</h1>
                     <p className="text-sm text-muted-foreground mt-0.5">
@@ -525,8 +525,8 @@ export default function CatalogoPage() {
                 </div>
             )}
 
-            </div>
-            )} {/* end cargando ternary */}
+            </div>}
+            {/* end !cargando section */}
 
             {/* Modal */}
             {modalServicio !== undefined && (
