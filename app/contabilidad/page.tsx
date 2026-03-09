@@ -73,7 +73,7 @@ export default function ContabilidadPage() {
         ventas.forEach(v => {
             const k = mesKey(v.fecha || '');
             if (keys.includes(k)) {
-                ingresosPorMes[k] = (ingresosPorMes[k] || 0) + (v.totalBs || 0);
+                ingresosPorMes[k] = (ingresosPorMes[k] || 0) + (v.total || 0);
             }
         });
 
