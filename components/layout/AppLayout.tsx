@@ -13,7 +13,7 @@ import {
     TrendingUp, BookOpen, Users, Settings, DollarSign,
     ChevronLeft, ChevronRight, LogOut, Bell, RefreshCw,
     Menu, X, Activity, AlertTriangle, WifiOff, Sun, Moon,
-    GraduationCap, ClipboardList,
+    GraduationCap, ClipboardList, Wallet, CalendarDays,
 } from 'lucide-react';
 import PanelNotificaciones from '@/components/ui/PanelNotificaciones';
 import { useNotificaciones } from '@/lib/useNotificaciones';
@@ -44,6 +44,13 @@ const NAV_ITEMS = [
             { label: 'Ventas',        href: '/ventas',       icon: Receipt },
             { label: 'Gastos',        href: '/gastos',       icon: TrendingUp },
             { label: 'Contabilidad',  href: '/contabilidad', icon: BookOpen },
+        ],
+    },
+    {
+        titulo: 'Cobros',
+        items: [
+            { label: 'Cuentas por Cobrar', href: '/cuentas', icon: Wallet },
+            { label: 'Agenda',             href: '/agenda',  icon: CalendarDays },
         ],
     },
     {
