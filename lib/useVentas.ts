@@ -52,6 +52,7 @@ export interface Venta {
     metodoPago: MetodoPagoVenta[];
     usuarioId: string;
     usuarioNombre: string;
+    fechaTimestamp?: Timestamp;
 }
 
 const COLECCION = 'ventas';
@@ -76,6 +77,7 @@ export function useVentas() {
                     fecha: data.fechaTimestamp instanceof Timestamp
                         ? data.fechaTimestamp.toDate().toLocaleString('es-VE')
                         : data.fecha || '',
+                    fechaTimestamp: data.fechaTimestamp instanceof Timestamp ? data.fechaTimestamp : undefined,
                 } as Venta;
             });
             setVentas(datos);
