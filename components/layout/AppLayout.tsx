@@ -13,7 +13,7 @@ import {
     TrendingUp, BookOpen, Users, Settings, DollarSign,
     ChevronLeft, ChevronRight, LogOut, Bell, RefreshCw,
     Menu, X, Activity, AlertTriangle, WifiOff, Sun, Moon,
-    GraduationCap, ClipboardList, Wallet, CalendarDays,
+    GraduationCap, ClipboardList, Wallet, CalendarDays, LayoutGrid,
 } from 'lucide-react';
 import PanelNotificaciones from '@/components/ui/PanelNotificaciones';
 import { useNotificaciones } from '@/lib/useNotificaciones';
@@ -28,6 +28,12 @@ const NAV_ITEMS = [
         items: [
             { label: 'Dashboard',      href: '/dashboard',    icon: LayoutDashboard },
             { label: 'Punto de Venta', href: '/pos',          icon: ShoppingCart },
+        ],
+    },
+    {
+        titulo: 'Vista General',
+        items: [
+            { label: 'Estudio en Vivo', href: '/estudio', icon: LayoutGrid },
         ],
     },
     {
