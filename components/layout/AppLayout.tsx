@@ -13,6 +13,7 @@ import {
     TrendingUp, BookOpen, Users, Settings, DollarSign,
     ChevronLeft, ChevronRight, LogOut, Bell, RefreshCw,
     Menu, X, Activity, AlertTriangle, WifiOff, Sun, Moon,
+    GraduationCap, ClipboardList,
 } from 'lucide-react';
 import PanelNotificaciones from '@/components/ui/PanelNotificaciones';
 import { useNotificaciones } from '@/lib/useNotificaciones';
@@ -30,6 +31,13 @@ const NAV_ITEMS = [
         ],
     },
     {
+        titulo: 'Academia',
+        items: [
+            { label: 'Alumnos',       href: '/clientes',    icon: GraduationCap },
+            { label: 'Asistencia',    href: '/asistencia',  icon: ClipboardList },
+        ],
+    },
+    {
         titulo: 'Gestion',
         items: [
             { label: 'Inventario',    href: '/inventario',   icon: Package },
@@ -42,7 +50,6 @@ const NAV_ITEMS = [
         titulo: 'Finanzas',
         items: [
             { label: 'Tasas y Cambio', href: '/cambio',      icon: DollarSign },
-            { label: 'Clientes',       href: '/clientes',    icon: Users },
         ],
     },
     {
