@@ -154,7 +154,7 @@ function ModalPaquete({
         fechaVencimiento: '',
         montoPagado:      0,
         montoUSD:         0,
-        tipoPaquete:      'paquete_clases' as const,
+        tipoPaquete:      'paquete_clases' as 'paquete_clases' | 'alquiler' | 'mensualidad' | 'otro',
     });
     const set = (k: string, v: any) => setForm(p => ({ ...p, [k]: v }));
 
@@ -170,7 +170,7 @@ function ModalPaquete({
             clasesTotal:  s.clasesIncluidas || 0,
             montoPagado:  Math.round(montoUSD * (tasas.bcv || 1)),
             montoUSD,
-            tipoPaquete:  s.tipo === 'alquiler' ? 'alquiler' : 'paquete_clases',
+            tipoPaquete:  (s.tipo === 'alquiler' ? 'alquiler' : 'paquete_clases') as 'paquete_clases' | 'alquiler' | 'mensualidad' | 'otro',
         }));
     };
 
