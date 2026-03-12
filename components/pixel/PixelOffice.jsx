@@ -507,7 +507,7 @@ export default function PixelOffice({
         setMessages(prev=>[...prev, {
           from: agent.id, name: agent.name, role: agent.role,
           emoji: agent.emoji, color: agent.color,
-          text:"[Error de conexión]", ts:new Date(), type:"agente"
+          text:`⚠ ${err?.message || "Error desconocido"}`, ts:new Date(), type:"agente"
         }]);
       }
     }
