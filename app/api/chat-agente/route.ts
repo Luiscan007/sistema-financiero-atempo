@@ -1,49 +1,46 @@
 /**
  * app/api/chat-agente/route.ts
- * Proxy para agentes IA usando Gemini Flash (gratuito)
+ * Proxy para agentes IA usando Gemini 2.0 Flash
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+
+const MODEL = 'gemini-2.0-flash';
 
 export async function POST(req: NextRequest) {
   try {
     const { system, messages } = await req.json();
 
     const apiKey = process.env.GEMINI_API_KEY;
-
-    // Diagnóstico: devolver error descriptivo si no hay key
     if (!apiKey) {
       return NextResponse.json(
-        { error: 'GEMINI_API_KEY no encontrada. Ve a Vercel → Settings → Environment Variables y agrégala, luego redeploy.' },
+        { error: 'GEMINI_API_KEY no configurada en Vercel → Settings → Environment Variables' },
         { status: 500 }
       );
     }
 
-    // Gemini requiere al menos un mensaje "user" — proteger contra historial vacío
+    // Convertir historial al formato Gemini
+    // Gemini no acepta mensajes consecutivos del mismo rol
     const rawContents = messages.map((m: { role: string; content: string }) => ({
       role: m.role === 'assistant' ? 'model' : 'user',
       parts: [{ text: m.content }],
     }));
 
-    // Gemini no acepta que el primer mensaje sea "model", ni dos del mismo rol seguidos
-    // Filtrar y asegurar que empiece con "user"
     const contents: { role: string; parts: { text: string }[] }[] = [];
     for (const msg of rawContents) {
       const last = contents[contents.length - 1];
       if (last && last.role === msg.role) {
-        // Fusionar mensajes del mismo rol
         last.parts[0].text += '\n' + msg.parts[0].text;
       } else {
         contents.push(msg);
       }
     }
-    // Si empieza con model, agregar un user vacío al inicio
     if (contents.length === 0 || contents[0].role === 'model') {
       contents.unshift({ role: 'user', parts: [{ text: 'Hola' }] });
     }
 
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -55,15 +52,16 @@ export async function POST(req: NextRequest) {
       }
     );
 
+    const data = await response.json();
+
     if (!response.ok) {
-      const err = await response.text();
+      const errMsg = data?.error?.message || JSON.stringify(data);
       return NextResponse.json(
-        { error: `Gemini error ${response.status}: ${err}` },
+        { error: `Gemini ${response.status}: ${errMsg}` },
         { status: response.status }
       );
     }
 
-    const data = await response.json();
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '...';
     return NextResponse.json({ text });
 
