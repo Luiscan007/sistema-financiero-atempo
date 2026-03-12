@@ -251,22 +251,17 @@ function drawCafeCounter(ctx,x,y,w){
   ctx.fillStyle="#8B5A30";ctx.fillRect(x,y+20,w,3);
 }
 
-// ─── CLAUDE API CALL con retry automático ────────────────────────────────────
-async function callClaude(systemPrompt, messages, retries = 3) {
-  for (let attempt = 0; attempt < retries; attempt++) {
-    if (attempt > 0) await new Promise(r => setTimeout(r, 4000 * attempt));
-    const res = await fetch("/api/chat-agente", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ system: systemPrompt, messages }),
-    });
-    if (res.status === 429) continue; // rate limit → reintentar
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    if (data.error) throw new Error(data.error);
-    return data.text || "...";
-  }
-  throw new Error("Límite de Gemini alcanzado, intenta en un momento");
+// ─── GEMINI API CALL (via proxy) ─────────────────────────────────────────────
+async function callClaude(systemPrompt, messages) {
+  const res = await fetch("/api/chat-agente", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ system: systemPrompt, messages }),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data.text || "...";
 }
 
 // ─── AGENTE CONFIG ───────────────────────────────────────────────────────────
@@ -495,8 +490,6 @@ export default function PixelOffice({
         const newUserMsg = { role:"user", content: text };
         const allMessages = [...history, newUserMsg];
 
-        // Delay entre agentes para no saturar el rate limit gratuito
-        if (agentsToRespond.indexOf(agent) > 0) await new Promise(r => setTimeout(r, 4000));
         const reply = await callClaude(systemPrompt, allMessages);
 
         // Actualizar historial del agente
