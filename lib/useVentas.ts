@@ -75,7 +75,7 @@ export function useVentas() {
                     ...data,
                     id: d.id,
                     fecha: data.fechaTimestamp instanceof Timestamp
-                        ? data.fechaTimestamp.toDate().toLocaleString('es-VE')
+                        ? data.fechaTimestamp.toDate().toISOString().split('T')[0]
                         : data.fecha || '',
                     fechaTimestamp: data.fechaTimestamp instanceof Timestamp ? data.fechaTimestamp : undefined,
                 } as Venta;
