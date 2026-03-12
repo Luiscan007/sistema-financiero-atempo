@@ -472,10 +472,16 @@ export default function PixelOffice({
     setMessages(prev=>[...prev, { from:"jefe", text, ts:new Date(), type:"jefe" }]);
     setInput("");
 
-    // Construir estado de otros agentes para contexto compartido
-    const agentsToRespond = targetAgentId
-      ? AGENT_INFO.filter(a=>a.id===targetAgentId)
-      : AGENT_INFO; // todos responden si no hay target
+    // Si no hay agente seleccionado, responde solo 1 agente relevante (evita rate limit)
+    let agentsToRespond;
+    if (targetAgentId) {
+      agentsToRespond = AGENT_INFO.filter(a=>a.id===targetAgentId);
+    } else {
+      // Elegir el agente más relevante según alertas activas, o uno aleatorio
+      const conAlerta = AGENT_INFO.filter(a => getAgentAlert(a.id, studioData));
+      const pool = conAlerta.length > 0 ? conAlerta : AGENT_INFO;
+      agentsToRespond = [pool[Math.floor(Math.random() * pool.length)]];
+    }
 
     for (const agent of agentsToRespond) {
       setLoadingAgent(agent.id);
@@ -671,11 +677,13 @@ export default function PixelOffice({
           {/* Botones rápidos */}
           <div style={{display:"flex",gap:"5px",marginBottom:"8px",flexWrap:"wrap"}}>
             {[
-              {label:"📊 Reporte general", msg:"Dame un reporte rápido del estado del estudio hoy."},
-              {label:"⚠️ Alertas", msg:"¿Qué alertas o problemas activos hay que deba atender?"},
-              {label:"💬 Coordinación", msg:"Coordínense entre ustedes y dígame qué acciones tomar hoy."},
+              {label:"💰 Luna: Finanzas", msg:"Dame un reporte de ventas y finanzas de hoy.", agente:"fin"},
+              {label:"🎓 Marco: Alumnos", msg:"¿Cómo está el estado de los alumnos hoy?", agente:"alm"},
+              {label:"📋 Sofia: Cobros", msg:"¿Hay cuentas vencidas o pendientes urgentes?", agente:"cob"},
+              {label:"✅ Diego: Asistencia", msg:"¿Cuántos alumnos están presentes hoy?", agente:"asi"},
+              {label:"📊 Ana: Gastos", msg:"¿Cómo van los gastos del mes?", agente:"gas"},
             ].map(q=>(
-              <button key={q.label} onClick={()=>sendMessage(q.msg, selected)}
+              <button key={q.label} onClick={()=>sendMessage(q.msg, q.agente)}
                 style={{fontSize:"9px",padding:"4px 10px",borderRadius:"6px",
                   background:"#0F172A",border:"1px solid #1E293B",color:"#64748B",
                   cursor:"pointer",transition:"all 0.1s",whiteSpace:"nowrap"}}
