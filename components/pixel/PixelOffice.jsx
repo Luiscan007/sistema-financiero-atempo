@@ -251,20 +251,17 @@ function drawCafeCounter(ctx,x,y,w){
   ctx.fillStyle="#8B5A30";ctx.fillRect(x,y+20,w,3);
 }
 
-// ─── CLAUDE API CALL ────────────────────────────────────────────────────────
+// ─── CLAUDE API CALL (via proxy server-side) ────────────────────────────────
 async function callClaude(systemPrompt, messages) {
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
+  const res = await fetch("/api/chat-agente", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 1000,
-      system: systemPrompt,
-      messages,
-    }),
+    body: JSON.stringify({ system: systemPrompt, messages }),
   });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
-  return data.content?.[0]?.text || "...";
+  if (data.error) throw new Error(data.error);
+  return data.text || "...";
 }
 
 // ─── AGENTE CONFIG ───────────────────────────────────────────────────────────
