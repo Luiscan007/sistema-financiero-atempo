@@ -490,6 +490,8 @@ export default function PixelOffice({
         const newUserMsg = { role:"user", content: text };
         const allMessages = [...history, newUserMsg];
 
+        // Delay entre agentes para no saturar el rate limit gratuito
+        if (agentsToRespond.indexOf(agent) > 0) await new Promise(r => setTimeout(r, 1500));
         const reply = await callClaude(systemPrompt, allMessages);
 
         // Actualizar historial del agente
