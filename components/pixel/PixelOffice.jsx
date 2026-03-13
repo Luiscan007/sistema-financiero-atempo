@@ -826,46 +826,49 @@ function LectorDocumentos() {
     setCargando(true);
     setResultado("");
 
+    const esImagen = archivo.type.startsWith("image/");
+    const esTexto  = !esImagen;
+
+    const system = `Eres ${selAgente.name}, agente de ATEMPO especializado en analizar documentos financieros venezolanos.
+Eres preciso, detallado y organizas la información de forma clara. Respondes siempre en español.
+Cuando analizas una factura o recibo: extrae proveedor, cliente, RIF/cédula, fecha, items con cantidades y precios, subtotal, IVA, total en Bs y/o USD.
+Presenta la información organizada con separadores claros.`;
+
     try {
-      // Leer el archivo como texto o base64
       const reader = new FileReader();
+
       reader.onload = async (ev) => {
-        const contenido = ev.target.result;
-        const esImagen = archivo.type.startsWith("image/");
-        const esPDF = archivo.type === "application/pdf";
+        const result = ev.target.result;
 
-        let prompt = "";
+        let body;
         if (esImagen) {
-          prompt = `El jefe te ha enviado una imagen de un documento (factura, recibo, contrato, etc.) para que la analices.
-Transcribe TODO el contenido visible: fechas, montos, nombres, conceptos, RIF/cédula, totales.
-Organiza la información de forma clara. Si es una factura venezolana, identifica: proveedor, cliente, items, subtotal, IVA, total en Bs y/o USD.
-Responde en español.
-
-Nombre del archivo: ${archivo.name}
-Tipo: ${archivo.type}
-Nota: El contenido está en base64 — analiza el contexto del nombre y tipo de archivo para dar contexto.`;
+          // Extraer base64 puro (quitar el prefijo data:...)
+          const base64 = result.split(",")[1];
+          body = {
+            system,
+            messages: [{ role: "user", content: "Analiza y transcribe completamente este documento. Extrae todos los datos relevantes: fechas, montos, nombres, conceptos, totales. Si es una factura venezolana identifica todos sus campos." }],
+            imageBase64: base64,
+            imageMime: archivo.type,
+          };
         } else {
-          prompt = `El jefe te ha enviado un documento para que analices y transcribas su contenido.
+          const texto = typeof result === "string" ? result.substring(0, 8000) : "";
+          body = {
+            system,
+            messages: [{
+              role: "user",
+              content: `Analiza y transcribe este documento.
+Archivo: ${archivo.name}
 
-Nombre del archivo: ${archivo.name}
-Tamaño: ${(archivo.size/1024).toFixed(1)} KB
-
-CONTENIDO DEL DOCUMENTO:
-${typeof contenido === 'string' ? contenido.substring(0, 8000) : '[Archivo binario no legible como texto]'}
-
-Transcribe y organiza toda la información relevante. Si es una factura: proveedor, cliente, items, montos, totales.
-Si es otro tipo de documento: resume y extrae los datos clave.
-Responde en español.`;
+CONTENIDO:
+${texto}`
+            }],
+          };
         }
 
         const res = await fetch("/api/chat-agente", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            system: `Eres ${selAgente.name}, agente de ATEMPO especializado en analizar documentos financieros venezolanos. 
-Eres preciso, detallado y organizas la información de forma clara. Respondes siempre en español.`,
-            messages: [{ role: "user", content: prompt }],
-          }),
+          body: JSON.stringify(body),
         });
 
         const data = await res.json();
@@ -874,7 +877,9 @@ Eres preciso, detallado y organizas la información de forma clara. Respondes si
         setCargando(false);
       };
 
-      if (archivo.type.startsWith("image/") || archivo.type === "application/pdf") {
+      reader.onerror = () => { setResultado("⚠ Error leyendo el archivo"); setCargando(false); };
+
+      if (esImagen) {
         reader.readAsDataURL(archivo);
       } else {
         reader.readAsText(archivo, "utf-8");
