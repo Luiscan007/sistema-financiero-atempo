@@ -1,13 +1,15 @@
 /**
  * app/api/chat-agente/route.ts
- * Proxy para agentes IA usando Groq (gratuito)
+ * Proxy para agentes IA usando Groq
+ * - Texto: llama-3.1-8b-instant (rápido)
+ * - Imágenes: meta-llama/llama-4-scout-17b-16e-instruct (visión)
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(req: NextRequest) {
   try {
-    const { system, messages } = await req.json();
+    const { system, messages, imageBase64, imageMime } = await req.json();
 
     const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) {
@@ -17,6 +19,42 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Si viene imagen, usar modelo con visión
+    const model = imageBase64
+      ? 'meta-llama/llama-4-scout-17b-16e-instruct'
+      : 'llama-3.3-70b-versatile';
+
+    // Construir mensajes — si hay imagen, el último mensaje user lleva la imagen
+    let groqMessages;
+    if (imageBase64) {
+      const lastUserMsg = messages[messages.length - 1];
+      const prevMessages = messages.slice(0, -1);
+      groqMessages = [
+        { role: 'system', content: system },
+        ...prevMessages,
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'image_url',
+              image_url: {
+                url: `data:${imageMime || 'image/jpeg'};base64,${imageBase64}`,
+              },
+            },
+            {
+              type: 'text',
+              text: lastUserMsg?.content || 'Analiza este documento',
+            },
+          ],
+        },
+      ];
+    } else {
+      groqMessages = [
+        { role: 'system', content: system },
+        ...messages,
+      ];
+    }
+
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -24,13 +62,10 @@ export async function POST(req: NextRequest) {
         'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'llama-3.1-8b-instant',
-        max_tokens: 300,
+        model,
+        max_tokens: 1024,
         temperature: 0.7,
-        messages: [
-          { role: 'system', content: system },
-          ...messages,
-        ],
+        messages: groqMessages,
       }),
     });
 
