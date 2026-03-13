@@ -940,9 +940,7 @@ Eres preciso, detallado y organizas la información de forma clara. Respondes si
             <>
               <span style={{fontSize:"28px"}}>{archivo ? "📄" : "📂"}</span>
               <span style={{fontSize:"9px",color:"#475569",textAlign:"center",lineHeight:"1.4"}}>
-                {archivo ? archivo.name : "Click o arrastra aquí
-Factura · Recibo · PDF
-Imagen · TXT · CSV"}
+                {archivo ? archivo.name : "Click o arrastra aquí · Factura · Recibo · PDF · Imagen · TXT · CSV"}
               </span>
             </>
           )}
