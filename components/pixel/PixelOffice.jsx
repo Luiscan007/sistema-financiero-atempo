@@ -266,11 +266,14 @@ async function callClaude(systemPrompt, messages) {
 
 // ─── AGENTE CONFIG ───────────────────────────────────────────────────────────
 const AGENT_INFO = [
-  { id:"fin",  name:"Luna",  role:"Finanzas",   emoji:"💰", color:"#EF4444", shirt:"#C83030" },
-  { id:"alm",  name:"Marco", role:"Alumnos",    emoji:"🎓", color:"#818CF8", shirt:"#3050C8" },
-  { id:"cob",  name:"Sofia", role:"Cobros",     emoji:"📋", color:"#34D399", shirt:"#30A040" },
-  { id:"asi",  name:"Diego", role:"Asistencia", emoji:"✅", color:"#F472B6", shirt:"#C03030" },
-  { id:"gas",  name:"Ana",   role:"Gastos",     emoji:"📊", color:"#FBBF24", shirt:"#C8A030" },
+  { id:"ceo",  name:"Víctor", role:"CEO",        emoji:"👑", color:"#F59E0B", shirt:"#92400E" },
+  { id:"fin",  name:"Luna",   role:"Finanzas",   emoji:"💰", color:"#EF4444", shirt:"#C83030" },
+  { id:"alm",  name:"Marco",  role:"Alumnos",    emoji:"🎓", color:"#818CF8", shirt:"#3050C8" },
+  { id:"cob",  name:"Sofia",  role:"Cobros",     emoji:"📋", color:"#34D399", shirt:"#30A040" },
+  { id:"asi",  name:"Diego",  role:"Asistencia", emoji:"✅", color:"#F472B6", shirt:"#C03030" },
+  { id:"gas",  name:"Ana",    role:"Gastos",     emoji:"📊", color:"#FBBF24", shirt:"#C8A030" },
+  { id:"inv",  name:"Carlos", role:"Inventario", emoji:"📦", color:"#38BDF8", shirt:"#0369A1" },
+  { id:"pos",  name:"Valeria",role:"Ventas/POS", emoji:"🛒", color:"#FB923C", shirt:"#C2410C" },
 ];
 
 function buildSystemPrompt(agent, studioData, otherAgents) {
@@ -341,28 +344,47 @@ export default function PixelOffice({
     {id:"cafetín",      x:676, y:0,   w:284, h:200, floor:"tile", wall:"#2E1A08", accent:"#A07020", label:"Cafetín ☕"},
     {id:"oficina_admin",x:0,   y:202, w:320, h:218, floor:"wood", wall:"#102018", accent:"#208040", label:"Admin 🖥️"},
     {id:"oficina_conta",x:322, y:202, w:318, h:218, floor:"dark", wall:"#18082E", accent:"#8020A0", label:"Contabilidad 📊"},
-    {id:"hall",         x:642, y:202, w:318, h:218, floor:"tile", wall:"#181828", accent:"#303858", label:""},
+    {id:"hall",         x:642, y:202, w:318, h:218, floor:"tile", wall:"#181028", accent:"#F59E0B", label:"Despacho CEO 👑"},
   ];
 
   const CHAR_CONFIGS = [
+    // CEO — oficina propia (hall), traje oscuro, cabello canoso
+    {id:"ceo", name:"Víctor", role:"CEO", roomId:"hall",
+     skin:"#D4A574",hair:"#8A8A8A",shirt:"#92400E",pants:"#1A1A2E",
+     alertMsg:undefined, statValue:"CEO", initState:"sit",
+     isCEO:true},
+    // Finanzas — contabilidad, cabello negro liso
     {id:"fin", name:"Luna",  role:"Finanzas",   roomId:"oficina_conta",
      skin:"#F5C5A3",hair:"#1A0808",shirt:"#C83030",pants:"#2A3A5A",
      alertMsg:ventasHoy===0?"Sin ventas hoy":undefined,
      statValue:ventasHoy>0?`Bs ${(ventasHoy/1000).toFixed(0)}k`:"-", initState:ventasHoy>0?"sit":"idle"},
+    // Alumnos — admin, cabello castaño, piel morena
     {id:"alm", name:"Marco", role:"Alumnos",    roomId:"oficina_admin",
-     skin:"#C8906A",hair:"#1A0E02",shirt:"#3050C8",pants:"#2A3018",
+     skin:"#C8906A",hair:"#3D1C02",shirt:"#3050C8",pants:"#2A3018",
      alertMsg:conPocasClases>0?`${conPocasClases} con pocas clases`:undefined,
      statValue:String(alumnosActivos), initState:conPocasClases>0?"alert":alumnosActivos>0?"sit":"idle"},
+    // Cobros — contabilidad, cabello blanco platino
     {id:"cob", name:"Sofia", role:"Cobros",     roomId:"oficina_conta",
-     skin:"#F0DCC0",hair:"#D8D0C8",shirt:"#30A040",pants:"#1A2040",
+     skin:"#F0DCC0",hair:"#E8E8E8",shirt:"#30A040",pants:"#1A2040",
      alertMsg:cuentasVencidas>0?`${cuentasVencidas} vencidas`:undefined,
      statValue:cuentasVencidas>0?`${cuentasVencidas}!`:"OK", initState:cuentasVencidas>0?"alert":"idle"},
+    // Asistencia — salon A, piel oscura, cabello afro
     {id:"asi", name:"Diego", role:"Asistencia", roomId:"salon_a",
-     skin:"#1A0A05",hair:"#0A0505",shirt:"#C03030",pants:"#1A2030",
+     skin:"#2A1005",hair:"#0A0505",shirt:"#E05020",pants:"#1A2030",
      alertMsg:undefined, statValue:String(presentesHoy), initState:presentesHoy>0?"walk":"idle"},
+    // Gastos — cafetín, cabello castaño ondulado
     {id:"gas", name:"Ana",   role:"Gastos",     roomId:"cafetín",
-     skin:"#F5C5A3",hair:"#3D1C02",shirt:"#C8A030",pants:"#3A2018",
+     skin:"#F5C5A3",hair:"#6B3A1F",shirt:"#C8A030",pants:"#3A2018",
      alertMsg:undefined, statValue:gastosMes>0?`${(gastosMes/1000).toFixed(0)}k`:"-", initState:"idle"},
+    // Inventario — admin, cabello negro, camisa azul petróleo
+    {id:"inv", name:"Carlos", role:"Inventario", roomId:"oficina_admin",
+     skin:"#D4956A",hair:"#1A0A02",shirt:"#0369A1",pants:"#1E3A5F",
+     alertMsg:undefined, statValue:"Stock", initState:"walk"},
+    // POS/Ventas — cafetín/hall, cabello rojizo, dinámica
+    {id:"pos", name:"Valeria",role:"Ventas/POS", roomId:"cafetín",
+     skin:"#F2C4A0",hair:"#8B2500",shirt:"#C2410C",pants:"#2A1808",
+     alertMsg:ventasHoy===0?"Sin ventas":undefined,
+     statValue:ventasHoy>0?`${(ventasHoy/1000).toFixed(0)}k`:"$0", initState:"walk"},
   ];
 
   useEffect(() => {
@@ -409,34 +431,74 @@ export default function PixelOffice({
       drawChair(ctx,490,336); drawDesk(ctx,484,322,68); drawMonitor(ctx,494,296);
       drawPainting(ctx,548,248); drawPlant(ctx,614,290,true); drawPlant(ctx,614,375);
       // Hall status panel
-      ctx.fillStyle="#080C18"; ctx.fillRect(654,214,300,92);
-      ctx.strokeStyle="#1E3060"; ctx.lineWidth=2; ctx.strokeRect(654,214,300,92);
-      ctx.fillStyle="#0C1424"; ctx.fillRect(658,218,292,84);
-      ctx.fillStyle="#1E4080"; ctx.font="bold 10px monospace"; ctx.textAlign="left";
-      ctx.fillText("> ATEMPO STATUS",668,232);
+      // Despacho CEO — fondo dorado
+      ctx.fillStyle="#1A1000"; ctx.fillRect(644,202,316,218);
+      ctx.fillStyle="#2A1800"; ctx.fillRect(648,206,308,210);
+      // Mesa CEO
+      drawDesk(ctx,750,300,100); drawChair(ctx,770,320);
+      drawMonitor(ctx,780,274); drawPlant(ctx,900,310,true);
+      drawShelf(ctx,648,248,60,true);
+      // Panel status CEO
+      ctx.fillStyle="#0A0800"; ctx.fillRect(654,214,280,78);
+      ctx.strokeStyle="#F59E0B"; ctx.lineWidth=1.5; ctx.strokeRect(654,214,280,78);
+      ctx.fillStyle="#0F0A00"; ctx.fillRect(656,216,276,74);
+      ctx.fillStyle="#F59E0B"; ctx.font="bold 9px monospace"; ctx.textAlign="left";
+      ctx.fillText("▸ ATEMPO STATUS",664,228);
       spritesRef.current.forEach((sp,i)=>{
-        const iy=244+i*14; const pulse=Math.sin(tick*0.12+i)>0;
-        ctx.fillStyle=sp.state==="alert"?(pulse?"#EF4444":"#7F1D1D"):sp.shirt;
-        ctx.beginPath(); ctx.ellipse(668,iy,4,4,0,0,Math.PI*2); ctx.fill();
-        ctx.fillStyle="#6A7A8A"; ctx.font="9px monospace"; ctx.textAlign="left"; ctx.fillText(sp.role,678,iy+3);
-        if(sp.statValue){ctx.fillStyle=sp.shirt;ctx.font="bold 9px monospace";ctx.textAlign="right";ctx.fillText(sp.statValue,940,iy+3);}
+        const col = i < 4 ? 0 : 1;
+        const row = i < 4 ? i : i-4;
+        const ix = 664 + col*138;
+        const iy = 238 + row*12;
+        const pulse=Math.sin(tick*0.12+i)>0;
+        ctx.fillStyle=sp.state==="alert"?(pulse?"#EF4444":"#7F1D1D"):sp.isCEO?"#F59E0B":sp.shirt;
+        ctx.beginPath(); ctx.ellipse(ix,iy,3,3,0,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle=sp.isCEO?"#F59E0B":"#5A6A7A"; ctx.font=sp.isCEO?"bold 8px monospace":"8px monospace";
+        ctx.textAlign="left"; ctx.fillText(sp.name,ix+7,iy+3);
+        if(sp.statValue&&!sp.isCEO){
+          ctx.fillStyle=sp.shirt; ctx.font="7px monospace"; ctx.textAlign="right";
+          ctx.fillText(sp.statValue,ix+130,iy+3);
+        }
       });
-      [660,698,736].forEach(cx=>drawChair(ctx,cx,330)); drawPlant(ctx,920,260);
+      drawPlant(ctx,920,260);
       // Sprites
-      spritesRef.current=spritesRef.current.map(sp=>{
+      spritesRef.current=spritesRef.current.map((sp,_,arr)=>{
         if(sp.waitTimer>0) return{...sp,state:"sit",waitTimer:sp.waitTimer-1};
         const dx=sp.target.x-sp.pos.x, dy=sp.target.y-sp.pos.y;
         const dist=Math.sqrt(dx*dx+dy*dy);
         if(dist>3){
-          const speed=sp.alertMsg?1.8:1.0;
+          const speed=sp.alertMsg?2.0:sp.isCEO?0.7:1.1;
           return{...sp,pos:{x:sp.pos.x+(dx/dist)*speed,y:sp.pos.y+(dy/dist)*speed},state:sp.alertMsg?"alert":"walk"};
         }
         let{sitTimer}=sp; sitTimer--;
         if(sitTimer<=0){
           const base=ROOMS.find(r=>r.id===sp.roomId);
-          const dest=Math.random()<0.1?ROOMS.find(r=>r.id==="cafetín"):base;
+          // CEO se queda casi siempre en su despacho, ocasionalmente visita oficinas
+          if(sp.isCEO){
+            const ceoRoom = Math.random()<0.85 ? ROOMS.find(r=>r.id==="hall") : ROOMS.find(r=>r.id==="oficina_conta");
+            const tx=ceoRoom.x+160+Math.random()*80, ty=ceoRoom.y+80+Math.random()*60;
+            return{...sp,target:{x:tx,y:ty},state:"walk",sitTimer:300+Math.random()*400,waitTimer:120+Math.random()*200};
+          }
+          // Agentes con alerta van al CEO a reportar
+          if(sp.alertMsg && Math.random()<0.3){
+            const ceo=arr.find(s=>s.id==="ceo");
+            if(ceo){
+              const tx=ceo.pos.x+30+Math.random()*20, ty=ceo.pos.y+20;
+              return{...sp,target:{x:tx,y:ty},state:"alert",sitTimer:120+Math.random()*100,waitTimer:0};
+            }
+          }
+          // Agentes se visitan entre sí (20% probabilidad)
+          if(Math.random()<0.2){
+            const otros=arr.filter(s=>s.id!==sp.id&&!s.isCEO);
+            const colega=otros[Math.floor(Math.random()*otros.length)];
+            if(colega){
+              const tx=colega.pos.x+20+Math.random()*30, ty=colega.pos.y+10;
+              return{...sp,target:{x:tx,y:ty},state:"walk",sitTimer:80+Math.random()*120,waitTimer:40};
+            }
+          }
+          // Ir al cafetín (15%) o a su sala base
+          const dest=Math.random()<0.15?ROOMS.find(r=>r.id==="cafetín"):base;
           const m=30, tx=dest.x+m+Math.random()*(dest.w-m*2), ty=dest.y+70+Math.random()*(dest.h-110);
-          return{...sp,target:{x:tx,y:ty},state:"walk",sitTimer:180+Math.random()*200,waitTimer:dest.id.startsWith("oficina")?80+Math.random()*120:0};
+          return{...sp,target:{x:tx,y:ty},state:"walk",sitTimer:160+Math.random()*220,waitTimer:dest.id.startsWith("oficina")?60+Math.random()*100:0};
         }
         return{...sp,state:sp.alertMsg?"alert":"sit",sitTimer};
       });
@@ -472,16 +534,10 @@ export default function PixelOffice({
     setMessages(prev=>[...prev, { from:"jefe", text, ts:new Date(), type:"jefe" }]);
     setInput("");
 
-    // Si no hay agente seleccionado, responde solo 1 agente relevante (evita rate limit)
-    let agentsToRespond;
-    if (targetAgentId) {
-      agentsToRespond = AGENT_INFO.filter(a=>a.id===targetAgentId);
-    } else {
-      // Elegir el agente más relevante según alertas activas, o uno aleatorio
-      const conAlerta = AGENT_INFO.filter(a => getAgentAlert(a.id, studioData));
-      const pool = conAlerta.length > 0 ? conAlerta : AGENT_INFO;
-      agentsToRespond = [pool[Math.floor(Math.random() * pool.length)]];
-    }
+    // Todos los agentes responden, o solo el seleccionado
+    const agentsToRespond = targetAgentId
+      ? AGENT_INFO.filter(a=>a.id===targetAgentId)
+      : AGENT_INFO;
 
     for (const agent of agentsToRespond) {
       setLoadingAgent(agent.id);
@@ -677,13 +733,11 @@ export default function PixelOffice({
           {/* Botones rápidos */}
           <div style={{display:"flex",gap:"5px",marginBottom:"8px",flexWrap:"wrap"}}>
             {[
-              {label:"💰 Luna: Finanzas", msg:"Dame un reporte de ventas y finanzas de hoy.", agente:"fin"},
-              {label:"🎓 Marco: Alumnos", msg:"¿Cómo está el estado de los alumnos hoy?", agente:"alm"},
-              {label:"📋 Sofia: Cobros", msg:"¿Hay cuentas vencidas o pendientes urgentes?", agente:"cob"},
-              {label:"✅ Diego: Asistencia", msg:"¿Cuántos alumnos están presentes hoy?", agente:"asi"},
-              {label:"📊 Ana: Gastos", msg:"¿Cómo van los gastos del mes?", agente:"gas"},
+              {label:"📊 Reporte general", msg:"Dame un reporte completo del estado del estudio hoy. Cada uno desde su área."},
+              {label:"⚠️ Alertas activas", msg:"¿Qué problemas o alertas hay que deba atender urgentemente?"},
+              {label:"💬 Plan de hoy", msg:"Coordínense y dígame qué acciones concretas debo tomar hoy."},
             ].map(q=>(
-              <button key={q.label} onClick={()=>sendMessage(q.msg, q.agente)}
+              <button key={q.label} onClick={()=>sendMessage(q.msg, selected || null)}
                 style={{fontSize:"9px",padding:"4px 10px",borderRadius:"6px",
                   background:"#0F172A",border:"1px solid #1E293B",color:"#64748B",
                   cursor:"pointer",transition:"all 0.1s",whiteSpace:"nowrap"}}
@@ -720,6 +774,10 @@ export default function PixelOffice({
         </div>
       </div>
 
+
+      {/* ── LECTOR DE DOCUMENTOS / FACTURAS ── */}
+      <LectorDocumentos />
+
       <style>{`
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
         @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.2} }
@@ -728,27 +786,252 @@ export default function PixelOffice({
   );
 }
 
+
+// ── LECTOR DE DOCUMENTOS / FACTURAS ─────────────────────────────────────────
+function LectorDocumentos() {
+  const [archivo, setArchivo] = useState(null);
+  const [preview, setPreview] = useState(null);   // data URL para imágenes
+  const [resultado, setResultado] = useState("");
+  const [cargando, setCargando] = useState(false);
+  const [agente, setAgente] = useState("fin");
+  const inputRef = useRef(null);
+
+  const AGENTES = [
+    {id:"fin", name:"Luna",  emoji:"💰", color:"#EF4444"},
+    {id:"alm", name:"Marco", emoji:"🎓", color:"#818CF8"},
+    {id:"cob", name:"Sofia", emoji:"📋", color:"#34D399"},
+    {id:"asi", name:"Diego", emoji:"✅", color:"#F472B6"},
+    {id:"gas", name:"Ana",   emoji:"📊", color:"#FBBF24"},
+  ];
+
+  const selAgente = AGENTES.find(a=>a.id===agente);
+
+  const handleFile = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setArchivo(file);
+    setResultado("");
+    // Preview solo para imágenes
+    if (file.type.startsWith("image/")) {
+      const reader = new FileReader();
+      reader.onload = ev => setPreview(ev.target.result);
+      reader.readAsDataURL(file);
+    } else {
+      setPreview(null);
+    }
+  };
+
+  const leerDocumento = async () => {
+    if (!archivo) return;
+    setCargando(true);
+    setResultado("");
+
+    try {
+      // Leer el archivo como texto o base64
+      const reader = new FileReader();
+      reader.onload = async (ev) => {
+        const contenido = ev.target.result;
+        const esImagen = archivo.type.startsWith("image/");
+        const esPDF = archivo.type === "application/pdf";
+
+        let prompt = "";
+        if (esImagen) {
+          prompt = `El jefe te ha enviado una imagen de un documento (factura, recibo, contrato, etc.) para que la analices.
+Transcribe TODO el contenido visible: fechas, montos, nombres, conceptos, RIF/cédula, totales.
+Organiza la información de forma clara. Si es una factura venezolana, identifica: proveedor, cliente, items, subtotal, IVA, total en Bs y/o USD.
+Responde en español.
+
+Nombre del archivo: ${archivo.name}
+Tipo: ${archivo.type}
+Nota: El contenido está en base64 — analiza el contexto del nombre y tipo de archivo para dar contexto.`;
+        } else {
+          prompt = `El jefe te ha enviado un documento para que analices y transcribas su contenido.
+
+Nombre del archivo: ${archivo.name}
+Tamaño: ${(archivo.size/1024).toFixed(1)} KB
+
+CONTENIDO DEL DOCUMENTO:
+${typeof contenido === 'string' ? contenido.substring(0, 8000) : '[Archivo binario no legible como texto]'}
+
+Transcribe y organiza toda la información relevante. Si es una factura: proveedor, cliente, items, montos, totales.
+Si es otro tipo de documento: resume y extrae los datos clave.
+Responde en español.`;
+        }
+
+        const res = await fetch("/api/chat-agente", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            system: `Eres ${selAgente.name}, agente de ATEMPO especializado en analizar documentos financieros venezolanos. 
+Eres preciso, detallado y organizas la información de forma clara. Respondes siempre en español.`,
+            messages: [{ role: "user", content: prompt }],
+          }),
+        });
+
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        setResultado(data.text || "Sin resultado");
+        setCargando(false);
+      };
+
+      if (archivo.type.startsWith("image/") || archivo.type === "application/pdf") {
+        reader.readAsDataURL(archivo);
+      } else {
+        reader.readAsText(archivo, "utf-8");
+      }
+    } catch(err) {
+      setResultado(`⚠ Error: ${err.message}`);
+      setCargando(false);
+    }
+  };
+
+  const copiar = () => {
+    if (resultado) navigator.clipboard.writeText(resultado);
+  };
+
+  return (
+    <div style={{borderTop:"2px solid #1E293B",marginTop:"2px"}}>
+      {/* Header */}
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",
+        padding:"10px 16px",background:"#0A0F1E",borderBottom:"1px solid #0F172A"}}>
+        <div style={{display:"flex",alignItems:"center",gap:"8px"}}>
+          <div style={{width:"8px",height:"8px",borderRadius:"50%",background:"#818CF8",boxShadow:"0 0 6px #818CF8"}}/>
+          <span style={{fontSize:"10px",color:"#475569",letterSpacing:"0.1em"}}>LECTOR DE DOCUMENTOS Y FACTURAS</span>
+        </div>
+        {/* Selector de agente */}
+        <div style={{display:"flex",gap:"4px"}}>
+          {AGENTES.map(a=>(
+            <button key={a.id} onClick={()=>setAgente(a.id)}
+              style={{fontSize:"9px",padding:"2px 8px",borderRadius:"4px",border:"1px solid",
+                borderColor:agente===a.id?a.color:"#1E293B",
+                background:agente===a.id?a.color+"18":"transparent",
+                color:agente===a.id?a.color:"#475569",cursor:"pointer"}}>
+              {a.emoji} {a.name}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{padding:"14px 16px",background:"#060A12",display:"flex",gap:"14px",flexWrap:"wrap"}}>
+        {/* Drop zone */}
+        <div
+          onClick={()=>inputRef.current?.click()}
+          onDragOver={e=>{e.preventDefault();e.currentTarget.style.borderColor=selAgente.color;}}
+          onDragLeave={e=>{e.currentTarget.style.borderColor="#1E293B";}}
+          onDrop={e=>{
+            e.preventDefault();
+            e.currentTarget.style.borderColor="#1E293B";
+            const file=e.dataTransfer.files?.[0];
+            if(file){setArchivo(file);setResultado("");
+              if(file.type.startsWith("image/")){const r=new FileReader();r.onload=ev=>setPreview(ev.target.result);r.readAsDataURL(file);}
+              else setPreview(null);
+            }
+          }}
+          style={{width:"200px",minHeight:"140px",border:"2px dashed #1E293B",borderRadius:"10px",
+            display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
+            gap:"8px",cursor:"pointer",background:"#0A0F1E",transition:"border-color 0.2s",flexShrink:0}}>
+          <input ref={inputRef} type="file" style={{display:"none"}}
+            accept=".pdf,.png,.jpg,.jpeg,.txt,.csv,.xml"
+            onChange={handleFile}/>
+          {preview ? (
+            <img src={preview} alt="preview"
+              style={{maxWidth:"180px",maxHeight:"120px",borderRadius:"6px",objectFit:"contain"}}/>
+          ) : (
+            <>
+              <span style={{fontSize:"28px"}}>{archivo ? "📄" : "📂"}</span>
+              <span style={{fontSize:"9px",color:"#475569",textAlign:"center",lineHeight:"1.4"}}>
+                {archivo ? archivo.name : "Click o arrastra aquí
+Factura · Recibo · PDF
+Imagen · TXT · CSV"}
+              </span>
+            </>
+          )}
+          {archivo && !preview && (
+            <span style={{fontSize:"8px",color:"#334155"}}>{(archivo.size/1024).toFixed(1)} KB</span>
+          )}
+        </div>
+
+        {/* Panel derecho */}
+        <div style={{flex:1,display:"flex",flexDirection:"column",gap:"8px",minWidth:"200px"}}>
+          <div style={{display:"flex",gap:"8px"}}>
+            <button onClick={leerDocumento} disabled={!archivo||cargando}
+              style={{flex:1,padding:"8px",borderRadius:"6px",border:"none",
+                background:!archivo||cargando?"#1E293B":selAgente.color+"30",
+                color:!archivo||cargando?"#334155":selAgente.color,
+                cursor:!archivo||cargando?"not-allowed":"pointer",
+                fontSize:"11px",fontWeight:"bold",
+                border:`1px solid ${!archivo||cargando?"#1E293B":selAgente.color+"50"}`}}>
+              {cargando ? "⏳ Analizando..." : `${selAgente.emoji} Analizar con ${selAgente.name}`}
+            </button>
+            {resultado && (
+              <button onClick={copiar}
+                style={{padding:"8px 12px",borderRadius:"6px",border:"1px solid #1E293B",
+                  background:"#0F172A",color:"#64748B",cursor:"pointer",fontSize:"10px"}}>
+                📋 Copiar
+              </button>
+            )}
+          </div>
+
+          {/* Resultado */}
+          <div style={{flex:1,background:"#0A0F1A",border:`1px solid ${resultado?"#1E3A5F":"#0F172A"}`,
+            borderRadius:"8px",padding:"10px 12px",minHeight:"100px",maxHeight:"200px",overflowY:"auto"}}>
+            {cargando ? (
+              <div style={{display:"flex",alignItems:"center",gap:"8px",color:"#475569",fontSize:"11px"}}>
+                <span style={{animation:"blink 1s infinite"}}>●●●</span>
+                <span>{selAgente.name} está leyendo el documento...</span>
+              </div>
+            ) : resultado ? (
+              <pre style={{fontSize:"10px",color:"#CBD5E1",lineHeight:"1.6",
+                whiteSpace:"pre-wrap",wordBreak:"break-word",margin:0,fontFamily:"'Courier New',monospace"}}>
+                {resultado}
+              </pre>
+            ) : (
+              <div style={{color:"#1E293B",fontSize:"10px",fontStyle:"italic"}}>
+                El resultado de la transcripción aparecerá aquí...
+              </div>
+            )}
+          </div>
+
+          {archivo && (
+            <div style={{fontSize:"8px",color:"#334155",letterSpacing:"0.05em"}}>
+              ARCHIVO: {archivo.name} · {archivo.type || "tipo desconocido"} · {(archivo.size/1024).toFixed(1)}KB
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── HELPERS ──────────────────────────────────────────────────────────────────
 function getAgentAlert(id, d) {
+  if(id==="ceo")  return (d.ventasHoy===0||d.cuentasVencidas>0)?"Atención requerida":undefined;
   if(id==="fin")  return d.ventasHoy===0?"Sin ventas hoy":undefined;
   if(id==="alm")  return d.conPocasClases>0?`${d.conPocasClases} pocas clases`:undefined;
   if(id==="cob")  return d.cuentasVencidas>0?`${d.cuentasVencidas} vencidas`:undefined;
+  if(id==="pos")  return d.ventasHoy===0?"Sin ventas":undefined;
   return undefined;
 }
 function getAgentVal(id, d) {
-  if(id==="fin")  return `Bs ${(d.ventasHoy/1000).toFixed(0)}k`;
+  if(id==="ceo")  return "Dirección general";
+  if(id==="fin")  return `Bs ${(d.ventasHoy/1000).toFixed(0)}k hoy`;
   if(id==="alm")  return `${d.alumnosActivos} activos`;
-  if(id==="cob")  return d.cuentasVencidas>0?`${d.cuentasVencidas} cuentas`:"Sin vencidas";
+  if(id==="cob")  return d.cuentasVencidas>0?`${d.cuentasVencidas} vencidas`:"Al día ✓";
   if(id==="asi")  return `${d.presentesHoy} presentes`;
   if(id==="gas")  return `Bs ${(d.gastosMes/1000).toFixed(0)}k mes`;
+  if(id==="inv")  return "Stock OK";
+  if(id==="pos")  return d.ventasHoy>0?`Bs ${(d.ventasHoy/1000).toFixed(0)}k`:"Sin ventas";
   return "-";
 }
 function getAgentSummary(id, d) {
+  if(id==="ceo")  return "Supervisando operaciones generales";
   if(id==="fin")  return d.ventasHoy>0?`Ventas hoy: Bs ${d.ventasHoy.toLocaleString("es-VE")}`:"Sin ventas hoy";
   if(id==="alm")  return `${d.alumnosActivos} activos, ${d.conPocasClases} con pocas clases`;
   if(id==="cob")  return `${d.cuentasVencidas} cuentas vencidas`;
   if(id==="asi")  return `${d.presentesHoy} presentes hoy`;
   if(id==="gas")  return `Gastos del mes: Bs ${d.gastosMes.toLocaleString("es-VE")}`;
+  if(id==="inv")  return "Monitoreando stock e inventario";
+  if(id==="pos")  return d.ventasHoy>0?`POS activo: Bs ${d.ventasHoy.toLocaleString("es-VE")}`:"POS sin ventas";
   return "OK";
 }
 
