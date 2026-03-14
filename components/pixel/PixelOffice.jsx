@@ -266,11 +266,11 @@ async function callClaude(systemPrompt, messages) {
 
 // ─── AGENTE CONFIG ───────────────────────────────────────────────────────────
 const AGENT_INFO = [
-  { id:"ceo",  name:"Víctor", role:"CEO",        emoji:"👑", color:"#F59E0B", shirt:"#92400E" },
+  { id:"ceo",  name:"Luisito", role:"CEO",        emoji:"👑", color:"#F59E0B", shirt:"#92400E" },
   { id:"fin",  name:"Luna",   role:"Finanzas",   emoji:"💰", color:"#EF4444", shirt:"#C83030" },
   { id:"alm",  name:"Marco",  role:"Alumnos",    emoji:"🎓", color:"#818CF8", shirt:"#3050C8" },
   { id:"cob",  name:"Sofia",  role:"Cobros",     emoji:"📋", color:"#34D399", shirt:"#30A040" },
-  { id:"asi",  name:"Diego",  role:"Asistencia", emoji:"✅", color:"#F472B6", shirt:"#C03030" },
+  { id:"asi",  name:"Héctor",  role:"Asistencia", emoji:"✅", color:"#F472B6", shirt:"#C03030" },
   { id:"gas",  name:"Ana",    role:"Gastos",     emoji:"📊", color:"#FBBF24", shirt:"#C8A030" },
   { id:"inv",  name:"Carlos", role:"Inventario", emoji:"📦", color:"#38BDF8", shirt:"#0369A1" },
   { id:"pos",  name:"Valeria",role:"Ventas/POS", emoji:"🛒", color:"#FB923C", shirt:"#C2410C" },
@@ -349,7 +349,7 @@ export default function PixelOffice({
 
   const CHAR_CONFIGS = [
     // CEO — oficina propia (hall), traje oscuro, cabello canoso
-    {id:"ceo", name:"Víctor", role:"CEO", roomId:"hall",
+    {id:"ceo", name:"Luisito", role:"CEO", roomId:"hall",
      skin:"#D4A574",hair:"#8A8A8A",shirt:"#92400E",pants:"#1A1A2E",
      alertMsg:undefined, statValue:"CEO", initState:"sit",
      isCEO:true},
@@ -369,7 +369,7 @@ export default function PixelOffice({
      alertMsg:cuentasVencidas>0?`${cuentasVencidas} vencidas`:undefined,
      statValue:cuentasVencidas>0?`${cuentasVencidas}!`:"OK", initState:cuentasVencidas>0?"alert":"idle"},
     // Asistencia — salon A, piel oscura, cabello afro
-    {id:"asi", name:"Diego", role:"Asistencia", roomId:"salon_a",
+    {id:"asi", name:"Héctor", role:"Asistencia", roomId:"salon_a",
      skin:"#2A1005",hair:"#0A0505",shirt:"#E05020",pants:"#1A2030",
      alertMsg:undefined, statValue:String(presentesHoy), initState:presentesHoy>0?"walk":"idle"},
     // Gastos — cafetín, cabello castaño ondulado
@@ -804,7 +804,7 @@ function LectorDocumentos() {
     {id:"fin", name:"Luna",  emoji:"💰", color:"#EF4444"},
     {id:"alm", name:"Marco", emoji:"🎓", color:"#818CF8"},
     {id:"cob", name:"Sofia", emoji:"📋", color:"#34D399"},
-    {id:"asi", name:"Diego", emoji:"✅", color:"#F472B6"},
+    {id:"asi", name:"Héctor", emoji:"✅", color:"#F472B6"},
     {id:"gas", name:"Ana",   emoji:"📊", color:"#FBBF24"},
   ];
 
