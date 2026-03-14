@@ -280,6 +280,15 @@ function buildSystemPrompt(agent, studioData, otherAgents) {
   const others = otherAgents.map(a => `- ${a.name} (${a.role}): ${a.statusSummary}`).join("\n");
   const d = studioData.datosCompletos;
 
+  const serviciosTexto = d && d.servicios && d.servicios.lista && d.servicios.lista.length > 0
+    ? d.servicios.lista.map(s =>
+        `  • ${s.nombre} [${s.tipo}]${s.activo ? "" : " (INACTIVO)"}: $${s.precioUSD} USD` +
+        (s.clasesIncluidas ? ` — ${s.clasesIncluidas} clases` : "") +
+        (s.frecuenciaSemana ? `, ${s.frecuenciaSemana}x/semana` : "") +
+        (s.descripcion ? ` | ${s.descripcion}` : "")
+      ).join("\n")
+    : "  (sin servicios/paquetes registrados en el sistema)";
+
   const inventarioTexto = d && d.inventario && d.inventario.productos && d.inventario.productos.length > 0
     ? d.inventario.productos.map(p =>
         `  • ${p.nombre}${p.categoria ? ` [${p.categoria}]` : ""}: Bs ${(p.precioBs||0).toLocaleString("es-VE")} — Stock: ${p.stock} ${p.unidad||"und"} (mín: ${p.stockMinimo})`
@@ -321,6 +330,9 @@ function buildSystemPrompt(agent, studioData, otherAgents) {
 ${pocasClasesTexto}
 
 ✅ ASISTENCIA HOY: ${studioData.presentesHoy} presentes
+
+🛍 CATÁLOGO DE SERVICIOS Y PAQUETES REALES (${(d&&d.servicios&&d.servicios.total)||0} servicios):
+${serviciosTexto}
 
 📦 INVENTARIO Y PRODUCTOS REALES (${(d&&d.inventario&&d.inventario.totalProductos)||0} productos):
 ${inventarioTexto}
