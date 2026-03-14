@@ -1,11 +1,11 @@
-// app/whatsapp/layout.tsx
 import type { Metadata } from 'next';
+import AppLayout from '@/components/layout/AppLayout';
 
 export const metadata: Metadata = {
-  title: 'WhatsApp — ATEMPO',
-  description: 'Consulta a los agentes IA desde WhatsApp',
+    title: 'WhatsApp | ATEMPO Sistema Financiero',
+    description: 'Consulta a los agentes IA desde WhatsApp',
 };
 
 export default function WhatsAppLayout({ children }: { children: React.ReactNode }) {
-  return <>{children}</>;
+    return <AppLayout>{children}</AppLayout>;
 }
