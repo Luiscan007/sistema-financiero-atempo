@@ -13,7 +13,7 @@ import {
     TrendingUp, BookOpen, Users, Settings, DollarSign,
     ChevronLeft, ChevronRight, LogOut, Bell, RefreshCw,
     Menu, X, Activity, AlertTriangle, WifiOff, Sun, Moon,
-    GraduationCap, ClipboardList, Wallet, CalendarDays, LayoutGrid, Scale,
+    GraduationCap, ClipboardList, Wallet, CalendarDays, LayoutGrid, Scale, MessageSquare,
 } from 'lucide-react';
 import PanelNotificaciones from '@/components/ui/PanelNotificaciones';
 import { useNotificaciones } from '@/lib/useNotificaciones';
@@ -70,6 +70,7 @@ const NAV_ITEMS = [
         titulo: 'Sistema',
         items: [
             { label: 'Configuracion', href: '/configuracion', icon: Settings },
+            { label: 'WhatsApp', href: '/whatsapp', icon: MessageSquare, modulo: 'whatsapp' },
         ],
     },
 ];
