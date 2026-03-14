@@ -14,6 +14,7 @@ import { useGastos }        from '@/lib/useGastos';
 import { useCuentasCobrar } from '@/lib/useCuentasCobrar';
 import { useAsistencia }    from '@/lib/useAsistencia';
 import { useProductos }     from '@/lib/useProductos';
+import { useServicios }     from '@/hooks/useServicios';
 import { Loader2 }          from 'lucide-react';
 
 // Tipo para datosCompletos — evita error de TypeScript con PixelOffice.jsx
@@ -26,8 +27,9 @@ export default function EstudioPage() {
   const { cuentas,   cargando: cC  } = useCuentasCobrar();
   const { registros, cargando: cAs } = useAsistencia();
   const { productos, cargando: cP  } = useProductos();
+  const { servicios, cargando: cS  } = useServicios();
 
-  const cargando = cA || cV || cG || cC || cAs || cP;
+  const cargando = cA || cV || cG || cC || cAs || cP || cS;
 
   const hoy       = new Date().toISOString().split('T')[0];
   const mesActual = hoy.substring(0, 7);
@@ -112,6 +114,17 @@ export default function EstudioPage() {
     unidad:      p.unidad || 'und',
   })), [productosActivos]);
 
+  // Resumen de servicios/paquetes para los agentes
+  const resumenServicios = servicios.map(s => ({
+    nombre:            s.nombre,
+    tipo:              s.tipo,
+    precioUSD:         s.precioUSD,
+    clasesIncluidas:   s.clasesIncluidas,
+    frecuenciaSemana:  s.frecuenciaSemana,
+    activo:            s.activo,
+    descripcion:       s.descripcion,
+  }));
+
   if (cargando) return (
     <div className="flex items-center justify-center py-32">
       <Loader2 className="w-8 h-8 animate-spin text-blue-400" />
@@ -168,6 +181,11 @@ export default function EstudioPage() {
             asistencia: {
               presentesHoy,
               totalRegistros: registros.length,
+            },
+            servicios: {
+              total:    servicios.length,
+              activos:  servicios.filter(s => s.activo).length,
+              lista:    resumenServicios,
             },
             inventario: {
               totalProductos:  productosActivos.length,
