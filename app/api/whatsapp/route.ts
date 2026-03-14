@@ -89,11 +89,11 @@ async function callGroq(system: string, messages: { role: string; content: strin
 type AgentId = 'ceo' | 'fin' | 'alm' | 'cob' | 'asi' | 'gas' | 'inv' | 'pos';
 
 const AGENTS: Record<AgentId, { name: string; role: string; emoji: string }> = {
-  ceo:  { name: 'Víctor',  role: 'CEO',         emoji: '👑' },
+  ceo:  { name: 'Luisito',  role: 'CEO',         emoji: '👑' },
   fin:  { name: 'Luna',    role: 'Finanzas',     emoji: '💰' },
   alm:  { name: 'Marco',   role: 'Alumnos',      emoji: '🎓' },
   cob:  { name: 'Sofia',   role: 'Cobros',       emoji: '📋' },
-  asi:  { name: 'Diego',   role: 'Asistencia',   emoji: '✅' },
+  asi:  { name: 'Héctor',   role: 'Asistencia',   emoji: '✅' },
   gas:  { name: 'Ana',     role: 'Gastos',       emoji: '📊' },
   inv:  { name: 'Carlos',  role: 'Inventario',   emoji: '📦' },
   pos:  { name: 'Valeria', role: 'Ventas/POS',   emoji: '🛒' },
@@ -105,7 +105,7 @@ function detectarAgente(texto: string): AgentId {
   if (t.includes('luna') || t.includes('finanza') || t.includes('contab') || t.includes('balance')) return 'fin';
   if (t.includes('marco') || t.includes('alumno') || t.includes('estudiante') || t.includes('inscripci')) return 'alm';
   if (t.includes('sofia') || t.includes('cobr') || t.includes('deuda') || t.includes('vencid') || t.includes('pagar')) return 'cob';
-  if (t.includes('diego') || t.includes('asistencia') || t.includes('presente') || t.includes('clase')) return 'asi';
+  if (t.includes('héctor') || t.includes('asistencia') || t.includes('presente') || t.includes('clase')) return 'asi';
   if (t.includes('ana') || t.includes('gasto') || t.includes('egreso') || t.includes('factura')) return 'gas';
   if (t.includes('carlos') || t.includes('inventario') || t.includes('stock') || t.includes('producto')) return 'inv';
   if (t.includes('valeria') || t.includes('venta') || t.includes('pos') || t.includes('caja') || t.includes('ingreso')) return 'pos';
@@ -175,7 +175,7 @@ Usa emojis con moderación. Responde siempre en español.
 
 ${contexto}`;
 
-  if (agentId === 'ceo') return base + `\nComo CEO, das visión estratégica consolidada. Puedes coordinar con tu equipo: Luna (Finanzas), Marco (Alumnos), Sofia (Cobros), Diego (Asistencia), Ana (Gastos), Carlos (Inventario), Valeria (Ventas).`;
+  if (agentId === 'ceo') return base + `\nComo CEO, das visión estratégica consolidada. Puedes coordinar con tu equipo: Luna (Finanzas), Marco (Alumnos), Sofia (Cobros), Héctor (Asistencia), Ana (Gastos), Carlos (Inventario), Valeria (Ventas).`;
   if (agentId === 'fin') return base + `\nTe especializas en finanzas, contabilidad y análisis de estados financieros del estudio.`;
   if (agentId === 'alm') return base + `\nTe especializas en gestión de alumnos, inscripciones, paquetes de clases y seguimiento académico.`;
   if (agentId === 'cob') return base + `\nTe especializas en cuentas por cobrar, deudas pendientes y gestión de pagos.`;
