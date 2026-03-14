@@ -790,10 +790,14 @@ export default function PixelOffice({
 // ── LECTOR DE DOCUMENTOS / FACTURAS ─────────────────────────────────────────
 function LectorDocumentos() {
   const [archivo, setArchivo] = useState(null);
-  const [preview, setPreview] = useState(null);   // data URL para imágenes
+  const [preview, setPreview] = useState(null);
   const [resultado, setResultado] = useState("");
   const [cargando, setCargando] = useState(false);
+  const [guardando, setGuardando] = useState(false);
   const [agente, setAgente] = useState("fin");
+  const [interpretacion, setInterpretacion] = useState(null); // {tipo, montoBs, montoUSD, categoria, descripcion, fecha, metodoPago, proveedor}
+  const [confirmando, setConfirmando] = useState(false);
+  const [registrado, setRegistrado] = useState(false);
   const inputRef = useRef(null);
 
   const AGENTES = [
@@ -811,6 +815,9 @@ function LectorDocumentos() {
     if (!file) return;
     setArchivo(file);
     setResultado("");
+    setInterpretacion(null);
+    setConfirmando(false);
+    setRegistrado(false);
     // Preview solo para imágenes
     if (file.type.startsWith("image/")) {
       const reader = new FileReader();
@@ -873,7 +880,29 @@ ${texto}`
 
         const data = await res.json();
         if (data.error) throw new Error(data.error);
-        setResultado(data.text || "Sin resultado");
+        const texto = data.text || "";
+        setResultado(texto);
+        setRegistrado(false);
+
+        // Parsear clasificación automática
+        const match = texto.match(/---CLASIFICACIÓN---([\s\S]*?)---FIN---/);
+        if (match) {
+          const bloque = match[1];
+          const get = (key) => { const m = bloque.match(new RegExp(key + ":\s*(.+)")); return m ? m[1].trim() : ""; };
+          const montoBs = parseFloat(get("MONTO_BS").replace(/[.,]/g, m => m === "." ? "." : "")) || 0;
+          const montoUSD = parseFloat(get("MONTO_USD").replace(/[.,]/g, m => m === "." ? "." : "")) || 0;
+          setInterpretacion({
+            tipo: get("TIPO").toLowerCase().includes("gasto") ? "gasto" : "ingreso",
+            montoBs,
+            montoUSD,
+            categoria: get("CATEGORIA") || "Otro",
+            descripcion: get("DESCRIPCION") || archivo.name,
+            fecha: get("FECHA") || new Date().toISOString().split("T")[0],
+            metodoPago: get("METODO_PAGO") || "transferencia",
+            proveedor: get("PROVEEDOR") || "",
+          });
+          setConfirmando(true);
+        }
         setCargando(false);
       };
 
@@ -892,6 +921,57 @@ ${texto}`
 
   const copiar = () => {
     if (resultado) navigator.clipboard.writeText(resultado);
+  };
+
+  const registrarDocumento = async () => {
+    if (!interpretacion) return;
+    setGuardando(true);
+    try {
+      const { addDoc, collection, serverTimestamp } = await import("firebase/firestore");
+      const { db } = await import("@/lib/firebase");
+
+      if (interpretacion.tipo === "gasto") {
+        await addDoc(collection(db, "gastos"), {
+          categoria: interpretacion.categoria,
+          descripcion: interpretacion.descripcion,
+          montoBs: interpretacion.montoBs,
+          montoUSD: interpretacion.montoUSD,
+          tasaUsada: interpretacion.montoUSD > 0 ? Math.round(interpretacion.montoBs / interpretacion.montoUSD) : 0,
+          metodoPago: interpretacion.metodoPago,
+          fecha: interpretacion.fecha,
+          recurrente: false,
+          proveedor: interpretacion.proveedor,
+          origenDocumento: archivo?.name || "documento",
+          fechaTimestamp: serverTimestamp(),
+        });
+      } else {
+        // Ingreso → guardar como venta de servicio
+        await addDoc(collection(db, "ventas"), {
+          numeroRecibo: `DOC-${Date.now()}`,
+          fecha: interpretacion.fecha,
+          items: [{ id: "1", nombre: interpretacion.descripcion, cantidad: 1, precio: interpretacion.montoBs, subtotal: interpretacion.montoBs, descuento: 0 }],
+          subtotal: interpretacion.montoBs,
+          descuentoGlobal: 0,
+          montoDescuento: 0,
+          total: interpretacion.montoBs,
+          totalUSD: interpretacion.montoUSD,
+          tasaUsada: interpretacion.montoUSD > 0 ? Math.round(interpretacion.montoBs / interpretacion.montoUSD) : 0,
+          tipoTasa: "bcv",
+          metodoPago: [{ tipo: interpretacion.metodoPago, monto: interpretacion.montoBs }],
+          usuarioId: "lector-docs",
+          usuarioNombre: interpretacion.proveedor || "Documento",
+          origenDocumento: archivo?.name || "documento",
+          fechaTimestamp: serverTimestamp(),
+        });
+      }
+      setRegistrado(true);
+      setConfirmando(false);
+    } catch(err) {
+      setResultado(prev => prev + `
+
+⚠ Error al registrar: ${err.message}`);
+    }
+    setGuardando(false);
   };
 
   return (
@@ -974,6 +1054,56 @@ ${texto}`
               </button>
             )}
           </div>
+
+          {/* Panel de confirmación */}
+          {confirmando && interpretacion && !registrado && (
+            <div style={{background:"#0F1A0A",border:"1px solid #22C55E40",borderRadius:"8px",padding:"10px 12px"}}>
+              <div style={{fontSize:"9px",color:"#22C55E",letterSpacing:"0.1em",marginBottom:"6px"}}>
+                ⬡ {selAgente.emoji} {selAgente.name} IDENTIFICÓ — ¿CONFIRMAS REGISTRAR?
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"4px",marginBottom:"8px"}}>
+                {[
+                  {k:"Tipo", v:interpretacion.tipo==="gasto"?"🔴 GASTO":"🟢 INGRESO"},
+                  {k:"Monto Bs", v:`Bs ${interpretacion.montoBs.toLocaleString("es-VE")}`},
+                  {k:"Categoría", v:interpretacion.categoria},
+                  {k:"Fecha", v:interpretacion.fecha},
+                  {k:"Método", v:interpretacion.metodoPago},
+                  {k:"Proveedor", v:interpretacion.proveedor||"—"},
+                ].map(({k,v})=>(
+                  <div key={k} style={{fontSize:"9px",padding:"3px 6px",background:"rgba(255,255,255,0.03)",borderRadius:"4px"}}>
+                    <span style={{color:"#475569"}}>{k}: </span>
+                    <span style={{color:"#CBD5E1",fontWeight:"bold"}}>{v}</span>
+                  </div>
+                ))}
+              </div>
+              <div style={{fontSize:"9px",color:"#64748B",marginBottom:"6px",fontStyle:"italic"}}>
+                {interpretacion.descripcion}
+              </div>
+              <div style={{display:"flex",gap:"6px"}}>
+                <button onClick={registrarDocumento} disabled={guardando}
+                  style={{flex:1,padding:"6px",borderRadius:"6px",border:"none",
+                    background:guardando?"#1E293B":"#15803D",color:"#FFF",
+                    cursor:guardando?"not-allowed":"pointer",fontSize:"10px",fontWeight:"bold"}}>
+                  {guardando?"⏳ Registrando...":"✅ Sí, registrar"}
+                </button>
+                <button onClick={()=>setConfirmando(false)}
+                  style={{flex:1,padding:"6px",borderRadius:"6px",border:"1px solid #374151",
+                    background:"transparent",color:"#9CA3AF",cursor:"pointer",fontSize:"10px"}}>
+                  ✗ Cancelar
+                </button>
+              </div>
+            </div>
+          )}
+
+          {registrado && (
+            <div style={{background:"#0A1F0A",border:"1px solid #22C55E",borderRadius:"8px",
+              padding:"10px 12px",textAlign:"center"}}>
+              <div style={{fontSize:"12px",color:"#22C55E",fontWeight:"bold"}}>✅ Registrado exitosamente</div>
+              <div style={{fontSize:"9px",color:"#475569",marginTop:"2px"}}>
+                {interpretacion?.tipo==="gasto"?"Guardado en Gastos":"Guardado en Ventas"} · visible en el módulo correspondiente
+              </div>
+            </div>
+          )}
 
           {/* Resultado */}
           <div style={{flex:1,background:"#0A0F1A",border:`1px solid ${resultado?"#1E3A5F":"#0F172A"}`,
