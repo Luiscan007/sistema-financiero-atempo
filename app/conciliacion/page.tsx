@@ -219,9 +219,19 @@ REGLAS CRÍTICAS:
       referencia: v.numeroRecibo,
     }));
 
+    // Normalizar fecha de gastos: puede venir como DD/MM/YYYY o YYYY-MM-DD
+    const normalizarFecha = (f: string): string => {
+      if (!f) return '';
+      if (f.includes('/')) {
+        const [d, m, y] = f.split('/');
+        return `${y?.substring(0,4)}-${m?.padStart(2,'0')}-${d?.padStart(2,'0')}`;
+      }
+      return f.split('T')[0]; // quitar hora si viene con timestamp
+    };
+
     const movsGastos: MovimientoSistema[] = (gastos as any[]).map((g: any) => ({
       id: g.id,
-      fecha: g.fecha,
+      fecha: normalizarFecha(g.fecha),
       descripcion: g.descripcion,
       monto: g.montoBs,
       tipo: 'egreso' as const,
