@@ -37,7 +37,12 @@ async function sendWhatsApp(to: string, body: string) {
   const from  = process.env.TWILIO_WHATSAPP_NUMBER!;
 
   // Twilio limita mensajes a 1600 caracteres
-  const chunks = body.match(/.{1,1500}/gs) || [body];
+  // Dividir en chunks de 1500 chars sin usar flag 's'
+  const chunks: string[] = [];
+  for (let i = 0; i < body.length; i += 1500) {
+    chunks.push(body.slice(i, i + 1500));
+  }
+  if (chunks.length === 0) chunks.push(body);
 
   for (const chunk of chunks) {
     await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
