@@ -13,7 +13,7 @@ import {
     TrendingUp, BookOpen, Users, Settings, DollarSign,
     ChevronLeft, ChevronRight, LogOut, Bell, RefreshCw,
     Menu, X, Activity, AlertTriangle, WifiOff, Sun, Moon,
-    GraduationCap, ClipboardList, Wallet, CalendarDays, LayoutGrid,
+    GraduationCap, ClipboardList, Wallet, CalendarDays, LayoutGrid, Scale,
 } from 'lucide-react';
 import PanelNotificaciones from '@/components/ui/PanelNotificaciones';
 import { useNotificaciones } from '@/lib/useNotificaciones';
@@ -63,6 +63,7 @@ const NAV_ITEMS = [
         titulo: 'Finanzas',
         items: [
             { label: 'Tasas y Cambio', href: '/cambio',      icon: DollarSign },
+            { label: 'Conciliación', href: '/conciliacion', icon: Scale, modulo: 'conciliacion' },
         ],
     },
     {
