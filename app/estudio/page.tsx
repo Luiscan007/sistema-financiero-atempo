@@ -14,7 +14,7 @@ import { useGastos }        from '@/lib/useGastos';
 import { useCuentasCobrar } from '@/lib/useCuentasCobrar';
 import { useAsistencia }    from '@/lib/useAsistencia';
 import { useProductos }     from '@/lib/useProductos';
-import { useServicios }     from '@/hooks/useServicios';
+import { useServicios }     from '@/lib/useServicios';
 import { Loader2 }          from 'lucide-react';
 
 // Tipo para datosCompletos — evita error de TypeScript con PixelOffice.jsx
