@@ -20,11 +20,11 @@ export default function WhatsAppPage() {
   const webhookUrl = 'https://sistema-financiero-atempo.vercel.app/api/whatsapp';
 
   const AGENTES = [
-    { emoji: '👑', name: 'Víctor (CEO)',   keywords: ['víctor', 'ceo', 'jefe', 'director', 'general'],        color: '#F59E0B' },
+    { emoji: '👑', name: 'Luisito (CEO)',   keywords: ['luisito', 'ceo', 'jefe', 'director', 'general'],        color: '#F59E0B' },
     { emoji: '💰', name: 'Luna',           keywords: ['luna', 'finanzas', 'contabilidad', 'balance'],          color: '#EF4444' },
     { emoji: '🎓', name: 'Marco',          keywords: ['marco', 'alumnos', 'estudiantes', 'inscripción'],       color: '#818CF8' },
     { emoji: '📋', name: 'Sofia',          keywords: ['sofia', 'cobros', 'deudas', 'vencidas'],                color: '#34D399' },
-    { emoji: '✅', name: 'Diego',          keywords: ['diego', 'asistencia', 'presentes', 'clases'],           color: '#F472B6' },
+    { emoji: '✅', name: 'Héctor',          keywords: ['héctor', 'asistencia', 'presentes', 'clases'],           color: '#F472B6' },
     { emoji: '📊', name: 'Ana',            keywords: ['ana', 'gastos', 'egresos', 'facturas'],                 color: '#FBBF24' },
     { emoji: '📦', name: 'Carlos',         keywords: ['carlos', 'inventario', 'stock', 'productos'],           color: '#38BDF8' },
     { emoji: '🛒', name: 'Valeria',        keywords: ['valeria', 'ventas', 'pos', 'caja'],                    color: '#FB923C' },
@@ -124,7 +124,7 @@ export default function WhatsAppPage() {
           ))}
         </div>
         <p className="text-xs text-muted-foreground mt-3">
-          💡 Si ninguna palabra clave coincide, Víctor (CEO) responde con visión general del negocio.
+          💡 Si ninguna palabra clave coincide, Luisito (CEO) responde con visión general del negocio.
           También puedes enviar imágenes de facturas o documentos — el agente las analizará automáticamente.
         </p>
       </div>
@@ -137,7 +137,7 @@ export default function WhatsAppPage() {
             { msg: 'Luna, ¿cuánto vendimos hoy?',               agente: '💰 Luna responde con ventas del día' },
             { msg: 'Marco, ¿cuántos alumnos activos tenemos?',   agente: '🎓 Marco responde con datos de alumnos' },
             { msg: 'Sofia, ¿hay cuentas vencidas?',              agente: '📋 Sofia revisa cuentas por cobrar' },
-            { msg: '¿Cómo vamos este mes?',                      agente: '👑 Víctor da resumen ejecutivo general' },
+            { msg: '¿Cómo vamos este mes?',                      agente: '👑 Luisito da resumen ejecutivo general' },
             { msg: '[Foto de factura]',                          agente: '📊 Ana analiza y clasifica el gasto' },
             { msg: 'Carlos, ¿qué productos tienen stock bajo?',  agente: '📦 Carlos revisa el inventario' },
           ].map((e, i) => (
