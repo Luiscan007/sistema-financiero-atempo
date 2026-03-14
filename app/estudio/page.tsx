@@ -6,7 +6,7 @@
  * Conectada a TODOS los datos reales de Firestore
  */
 
-import { useMemo } from 'react';
+import React, { useMemo } from 'react';
 import PixelOffice from '@/components/pixel/PixelOffice';
 import { useAlumnos }       from '@/lib/useAlumnos';
 import { useVentas }        from '@/lib/useVentas';
@@ -15,6 +15,9 @@ import { useCuentasCobrar } from '@/lib/useCuentasCobrar';
 import { useAsistencia }    from '@/lib/useAsistencia';
 import { useProductos }     from '@/lib/useProductos';
 import { Loader2 }          from 'lucide-react';
+
+// Tipo para datosCompletos — evita error de TypeScript con PixelOffice.jsx
+const PixelOfficeComponent = PixelOffice as React.ComponentType<Record<string, unknown>>;
 
 export default function EstudioPage() {
   const { alumnos,   cargando: cA  } = useAlumnos();
@@ -126,7 +129,7 @@ export default function EstudioPage() {
       </div>
 
       <div className="card-sistema p-5">
-        <PixelOffice
+        <PixelOfficeComponent
           // Datos básicos (KPIs)
           ventasHoy={ventasHoy}
           alumnosActivos={alumnosActivos}
