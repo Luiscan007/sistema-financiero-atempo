@@ -82,7 +82,7 @@ export default function EstudioPage() {
   // Lista de alumnos con pocas clases
   const alumnosPocasClases = useMemo(() => alumnos
     .filter(a => a.paqueteActivo && a.paqueteActivo.clasesRestantes <= 2 && a.estado === 'activo')
-    .map(a => ({ nombre: a.nombre || a.name || '', clasesRestantes: a.paqueteActivo?.clasesRestantes })),
+    .map(a => ({ nombre: a.nombre || '', clasesRestantes: a.paqueteActivo?.clasesRestantes })),
   [alumnos]);
 
   // ── Cuentas ──────────────────────────────────────────────────────────────────
