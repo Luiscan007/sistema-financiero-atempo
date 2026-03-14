@@ -278,29 +278,98 @@ const AGENT_INFO = [
 
 function buildSystemPrompt(agent, studioData, otherAgents) {
   const others = otherAgents.map(a => `- ${a.name} (${a.role}): ${a.statusSummary}`).join("\n");
-  return `Eres ${agent.name}, agente de ${agent.role} del Estudio ATEMPO en Venezuela.
-Eres conciso, directo y profesional. Respondes en español. Máximo 2-3 oraciones cortas.
+  const d = studioData.datosCompletos;
+
+  const inventarioTexto = d && d.inventario && d.inventario.productos && d.inventario.productos.length > 0
+    ? d.inventario.productos.map(p =>
+        `  • ${p.nombre}${p.categoria ? ` [${p.categoria}]` : ""}: Bs ${(p.precioBs||0).toLocaleString("es-VE")} — Stock: ${p.stock} ${p.unidad||"und"} (mín: ${p.stockMinimo})`
+      ).join("\n")
+    : "  (sin productos registrados en el sistema)";
+
+  const ventasTexto = d && d.ventas && d.ventas.recientes && d.ventas.recientes.length > 0
+    ? d.ventas.recientes.slice(0,5).map(v =>
+        `  • ${v.fecha}: Bs ${(v.total||0).toLocaleString("es-VE")} — ${v.item||"producto"} (${v.metodoPago||""})`
+      ).join("\n")
+    : "  (sin ventas recientes)";
+
+  const gastosTexto = d && d.gastos && d.gastos.recientes && d.gastos.recientes.length > 0
+    ? d.gastos.recientes.map(g =>
+        `  • ${g.fecha}: ${g.descripcion} — Bs ${(g.montoBs||0).toLocaleString("es-VE")} [${g.categoria}]`
+      ).join("\n")
+    : "  (sin gastos recientes)";
+
+  const pocasClasesTexto = d && d.alumnos && d.alumnos.listaPocasClases && d.alumnos.listaPocasClases.length > 0
+    ? d.alumnos.listaPocasClases.map(a => `  • ${a.nombre}: ${a.clasesRestantes} clase(s) restante(s)`).join("\n")
+    : "  Ninguno";
+
+  const stockBajoTexto = d && d.inventario && d.inventario.stockBajoCount > 0
+    ? `  ⚠ Stock bajo: ${d.inventario.stockBajoNombres.join(", ")}`
+    : "  ✓ Todo en orden";
+
+  const contexto = `ESTADO COMPLETO DEL ESTUDIO ATEMPO — ${new Date().toLocaleDateString("es-VE")}
+
+💰 FINANZAS:
+  Ventas hoy: Bs ${studioData.ventasHoy.toLocaleString("es-VE")} (${(d&&d.ventas&&d.ventas.cantidadHoy)||0} transacciones)
+  Ventas totales del mes: Bs ${((d&&d.ventas&&d.ventas.totalMes)||0).toLocaleString("es-VE")}
+  Gastos del mes: Bs ${studioData.gastosMes.toLocaleString("es-VE")}
+  Cuentas vencidas: ${studioData.cuentasVencidas} | Pendientes: ${(d&&d.cuentas&&d.cuentas.pendientes)||0}
+  Total por cobrar: Bs ${((d&&d.cuentas&&d.cuentas.totalPorCobrar)||0).toLocaleString("es-VE")}
+
+🎓 ALUMNOS:
+  Activos: ${studioData.alumnosActivos} | Inactivos: ${(d&&d.alumnos&&d.alumnos.inactivos)||0} | Total: ${(d&&d.alumnos&&d.alumnos.total)||0}
+  Con pocas clases restantes (≤2):
+${pocasClasesTexto}
+
+✅ ASISTENCIA HOY: ${studioData.presentesHoy} presentes
+
+📦 INVENTARIO Y PRODUCTOS REALES (${(d&&d.inventario&&d.inventario.totalProductos)||0} productos):
+${inventarioTexto}
+${stockBajoTexto}
+
+📊 ÚLTIMAS VENTAS:
+${ventasTexto}
+
+💸 ÚLTIMOS GASTOS:
+${gastosTexto}
+
+⚠ REGLA ABSOLUTA: Responde ÚNICAMENTE con datos del contexto anterior. NUNCA inventes productos, precios, paquetes, alumnos o montos que no estén listados arriba. Si no tienes el dato, di "no tengo esa información registrada".`;
+
+  if (agent.id === "ceo") {
+    return `Eres Luisito, CEO del Estudio ATEMPO en Venezuela. Tomas decisiones estratégicas basadas en datos reales.
+Eres directo, visionario y orientado a resultados. Respondes en español. Máximo 4 oraciones.
+Tienes autoridad sobre: Luna (Finanzas), Marco (Alumnos), Sofia (Cobros), Héctor (Asistencia), Ana (Gastos), Carlos (Inventario), Valeria (Ventas).
+
+${contexto}
+
+TU EQUIPO:
+${others}`;
+  }
+
+  const roles = {
+    fin: "Eres Luna, agente de Finanzas. Analizas ventas, ingresos, gastos y salud financiera del estudio.",
+    alm: "Eres Marco, agente de Alumnos. Gestionas inscripciones, seguimiento de clases y estado de cada alumno.",
+    cob: "Eres Sofia, agente de Cobros. Controlas cuentas por cobrar, deudas vencidas y pagos pendientes.",
+    asi: "Eres Héctor, agente de Asistencia. Controlas la asistencia diaria y el seguimiento de clases.",
+    gas: "Eres Ana, agente de Gastos. Analizas egresos, facturas y costos operativos del estudio.",
+    inv: "Eres Carlos, agente de Inventario. Controlas el stock de productos, precios y alertas de reabastecimiento.",
+    pos: "Eres Valeria, agente de Ventas/POS. Monitoreas las ventas en tiempo real y el punto de venta.",
+  };
+
+  return `${roles[agent.id] || `Eres ${agent.name}, agente de ${agent.role}`} del Estudio ATEMPO en Venezuela.
+Eres conciso, directo y profesional. Respondes en español. Máximo 3 oraciones.
 Puedes mencionar a tus compañeros por nombre si es relevante.
 
-ESTADO ACTUAL DEL ESTUDIO:
-- Ventas hoy: Bs ${studioData.ventasHoy.toLocaleString("es-VE")}
-- Alumnos activos: ${studioData.alumnosActivos}
-- Alumnos con pocas clases: ${studioData.conPocasClases}
-- Cuentas vencidas: ${studioData.cuentasVencidas}
-- Presentes hoy: ${studioData.presentesHoy}
-- Gastos del mes: Bs ${studioData.gastosMes.toLocaleString("es-VE")}
+${contexto}
 
 TUS COMPAÑEROS:
-${others}
-
-Tu área específica: ${agent.role}. Responde desde tu perspectiva profesional.
-Cuando el jefe te habla directamente, responde con tu análisis y coordínate con otros agentes si es necesario.`;
+${others}`;
 }
 
 // ─── COMPONENTE PRINCIPAL ───────────────────────────────────────────────────
 export default function PixelOffice({
   ventasHoy=0, alumnosActivos=0, cuentasVencidas=0,
-  presentesHoy=0, conPocasClases=0, gastosMes=0
+  presentesHoy=0, conPocasClases=0, gastosMes=0,
+  datosCompletos=null,
 }) {
   const canvasRef = useRef(null);
   const tickRef   = useRef(0);
@@ -316,7 +385,7 @@ export default function PixelOffice({
 
   const CW=960, CH=420;
 
-  const studioData = { ventasHoy, alumnosActivos, cuentasVencidas, presentesHoy, conPocasClases, gastosMes };
+  const studioData = { ventasHoy, alumnosActivos, cuentasVencidas, presentesHoy, conPocasClases, gastosMes, datosCompletos };
 
   // Auto-scroll chat
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior:"smooth" }); }, [messages]);
