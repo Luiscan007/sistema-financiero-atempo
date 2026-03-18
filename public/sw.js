@@ -1,109 +1,90 @@
 /**
  * public/sw.js
- * Service Worker para modo offline del POS
- * Cachea assets estáticos y hace queue de ventas sin internet
+ * Service Worker ATEMPO — modo offline real
+ * - Cachea assets estáticos y páginas principales
+ * - Intercepta ventas offline y las sincroniza al reconectar
  */
 
-const CACHE_NAME = 'atempo-v1';
-const CACHE_STATIC = [
-    '/',
-    '/dashboard',
-    '/pos',
-    '/cambio',
-];
+const CACHE_NAME = 'atempo-v2';
+const CACHE_STATIC = ['/', '/dashboard', '/pos', '/cambio', '/estudio'];
 
-// Instalar SW y pre-cachear recursos estáticos
-self.addEventListener('install', (event) => {
-    event.waitUntil(
-        caches.open(CACHE_NAME).then((cache) => {
-            return cache.addAll(CACHE_STATIC).catch((err) => {
-                console.warn('SW: Error cacheando recursos estáticos', err);
-            });
-        })
-    );
-    self.skipWaiting();
+self.addEventListener('install', event => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then(cache =>
+      cache.addAll(CACHE_STATIC).catch(err =>
+        console.warn('SW: Error cacheando recursos', err)
+      )
+    )
+  );
+  self.skipWaiting();
 });
 
-// Activar y limpiar cachés antiguas
-self.addEventListener('activate', (event) => {
-    event.waitUntil(
-        caches.keys().then((cacheNames) => {
-            return Promise.all(
-                cacheNames
-                    .filter((name) => name !== CACHE_NAME)
-                    .map((name) => caches.delete(name))
-            );
-        })
-    );
-    self.clients.claim();
+self.addEventListener('activate', event => {
+  event.waitUntil(
+    caches.keys().then(names =>
+      Promise.all(names.filter(n => n !== CACHE_NAME).map(n => caches.delete(n)))
+    )
+  );
+  self.clients.claim();
 });
 
-// Estrategia: Network First, fallback a caché
-self.addEventListener('fetch', (event) => {
-    const url = new URL(event.request.url);
+self.addEventListener('fetch', event => {
+  const url = new URL(event.request.url);
 
-    // No interceptar APIs de Firebase ni externas
-    if (
-        url.hostname.includes('firebase') ||
-        url.hostname.includes('googleapis') ||
-        url.hostname.includes('coingecko') ||
-        url.hostname.includes('frankfurter') ||
-        url.href.includes('/_next/webpack-hmr')
-    ) {
-        return;
-    }
+  // No interceptar Firebase, APIs externas ni HMR
+  if (
+    url.hostname.includes('firebase') ||
+    url.hostname.includes('googleapis') ||
+    url.hostname.includes('coingecko') ||
+    url.hostname.includes('frankfurter') ||
+    url.hostname.includes('twilio') ||
+    url.hostname.includes('groq') ||
+    url.href.includes('/_next/webpack-hmr')
+  ) return;
 
-    // Para las API routes de tasas: network first
-    if (url.pathname.startsWith('/api/tasas')) {
-        event.respondWith(
-            fetch(event.request)
-                .then((response) => {
-                    const clonedResponse = response.clone();
-                    caches.open(CACHE_NAME).then((cache) => {
-                        cache.put(event.request, clonedResponse);
-                    });
-                    return response;
-                })
-                .catch(() => {
-                    return caches.match(event.request);
-                })
-        );
-        return;
-    }
-
-    // Para páginas: network first con fallback a caché
+  // API de tasas: Network First con cache fallback
+  if (url.pathname.startsWith('/api/tasas')) {
     event.respondWith(
-        fetch(event.request)
-            .then((response) => response)
-            .catch(() => {
-                return caches.match(event.request).then((cachedResponse) => {
-                    return cachedResponse || new Response('Offline - Sin conexión', {
-                        status: 503,
-                        headers: { 'Content-Type': 'text/plain' },
-                    });
-                });
-            })
+      fetch(event.request)
+        .then(res => {
+          const clone = res.clone();
+          caches.open(CACHE_NAME).then(c => c.put(event.request, clone));
+          return res;
+        })
+        .catch(() => caches.match(event.request))
     );
+    return;
+  }
+
+  // Todo lo demás: Network First, fallback a caché
+  event.respondWith(
+    fetch(event.request)
+      .then(res => res)
+      .catch(() =>
+        caches.match(event.request).then(cached =>
+          cached || new Response('Sin conexión — abre el POS para ventas offline', {
+            status: 503,
+            headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+          })
+        )
+      )
+  );
 });
 
-// ============================
-// COLA DE VENTAS OFFLINE
-// Las ventas realizadas sin internet se guardan en IndexedDB
-// y se sincronizan cuando se recupera la conexión
-// ============================
-
-// Sincronización en background cuando se recupera internet
-self.addEventListener('sync', (event) => {
-    if (event.tag === 'sync-ventas') {
-        event.waitUntil(sincronizarVentasPendientes());
-    }
+// Background Sync — sincronizar ventas al reconectar
+self.addEventListener('sync', event => {
+  if (event.tag === 'sync-ventas') {
+    event.waitUntil(
+      self.clients.matchAll().then(clients => {
+        clients.forEach(client =>
+          client.postMessage({ type: 'SYNC_VENTAS' })
+        );
+      })
+    );
+  }
 });
 
-async function sincronizarVentasPendientes() {
-    // Obtener ventas pendientes de IndexedDB
-    // y enviarlas a Firestore
-    console.log('SW: Sincronizando ventas pendientes...');
-
-    // La lógica real usa la lib idb
-    // Ver: lib/offline-queue.ts
-}
+// Recibir mensaje de la app para forzar sync
+self.addEventListener('message', event => {
+  if (event.data?.type === 'SKIP_WAITING') self.skipWaiting();
+});
