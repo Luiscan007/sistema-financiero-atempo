@@ -4,7 +4,7 @@
  * Hook para leer productos/inventario de Firestore
  */
 import { useState, useEffect } from 'react';
-import { collection, onSnapshot, query, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, onSnapshot, query, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 export interface Producto {
@@ -25,7 +25,7 @@ export function useProductos() {
   const [cargando, setCargando]   = useState(true);
 
   useEffect(() => {
-    const q = query(collection(db, 'productos'), orderBy('nombre'));
+    const q = query(collection(db, 'productos'));
     const unsub = onSnapshot(q, (snap) => {
       setProductos(snap.docs.map(d => ({
         id:          d.id,
