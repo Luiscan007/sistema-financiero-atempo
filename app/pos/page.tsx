@@ -170,6 +170,9 @@ export default function POSPage() {
   const [ultimoRecibo, setUltimoRecibo]   = useState('');
   const [tabActiva, setTabActiva]   = useState<'productos' | 'servicios'>('productos');
 
+  const [hidratado, setHidratado] = useState(false);
+  useEffect(() => setHidratado(true), []);
+
   const { tasas } = useTasas();
   const { guardarVenta } = useVentas();
   const { productos, cargando: cargandoP } = useProductos();
@@ -184,7 +187,7 @@ export default function POSPage() {
     limpiarCarrito, setTasaUsada,
   } = useCarritoStore();
 
-  const tarifaActual = tasaSeleccionada === 'bcv' ? tasas.bcv : tasas.paralelo;
+  const tarifaActual = Math.max(1, tasaSeleccionada === 'bcv' ? (tasas.bcv || 1) : (tasas.paralelo || 1));
 
   // ── Detectar conexión ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -374,7 +377,14 @@ export default function POSPage() {
     window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank');
   };
 
-  const cargando = cargandoP || cargandoS;
+  const cargando = false; // No bloquear UI — los items aparecen cuando cargan
+
+  if (!hidratado) return (
+    <div className="flex items-center justify-center h-96">
+      <RefreshCw className="w-6 h-6 animate-spin text-blue-400 mr-2" />
+      <span className="text-muted-foreground">Cargando POS...</span>
+    </div>
+  );
 
   return (
     <div className="flex flex-col lg:flex-row gap-4 h-full -m-6 p-0">
