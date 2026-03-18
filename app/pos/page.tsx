@@ -8,7 +8,7 @@
  * - Sin internet: guarda en IndexedDB y sincroniza al reconectar
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Search, Plus, Minus, Trash2, CreditCard, Smartphone, Banknote,
   DollarSign, ArrowLeftRight, X, CheckCircle2, Printer,
@@ -171,6 +171,7 @@ export default function POSPage() {
   const [tabActiva, setTabActiva]   = useState<'productos' | 'servicios'>('productos');
 
   const [hidratado, setHidratado] = useState(false);
+  const procesandoRef = useRef(false); // bloquea doble click
   useEffect(() => setHidratado(true), []);
 
   const { tasas } = useTasas();
@@ -279,7 +280,9 @@ export default function POSPage() {
 
   // ── Procesar venta ────────────────────────────────────────────────────────
   const procesarVenta = useCallback(async () => {
-    if (items.length === 0)      { toast.error('El carrito está vacío'); return; }
+    if (procesandoRef.current) return; // evitar doble click
+    procesandoRef.current = true;
+    if (items.length === 0)      { procesandoRef.current = false; toast.error('El carrito está vacío'); return; }
     if (metodoPago.length === 0) { toast.error('Selecciona un método de pago'); return; }
 
     const totalPagado = calcularTotalPagado();
@@ -321,7 +324,8 @@ export default function POSPage() {
       if (online) {
         // ✅ ONLINE: guardar directo en Firestore
         await guardarVenta(datosVenta);
-        toast.success(`✅ Venta completada · Recibo ${numeroRecibo}`, { duration: 5000 });
+        toast.dismiss();
+        toast.success(`✅ Venta completada · Recibo ${numeroRecibo}`, { duration: 5000, id: 'venta-ok' });
       } else {
         // 📴 OFFLINE: guardar en IndexedDB
         await guardarVentaOffline({
@@ -334,7 +338,8 @@ export default function POSPage() {
           metodoPago:    datosVenta.metodoPago,
         });
         await actualizarPendientes();
-        toast.success(`📴 Venta guardada offline · Se sincronizará al reconectar`, { duration: 6000, icon: '💾' });
+        toast.dismiss();
+        toast.success(`📴 Venta guardada offline · Se sincronizará al reconectar`, { duration: 6000, icon: '💾', id: 'venta-offline' });
       }
       setUltimoRecibo(numeroRecibo);
       setVentaCompletada(true);
@@ -349,7 +354,7 @@ export default function POSPage() {
           metodoPago: datosVenta.metodoPago,
         });
         await actualizarPendientes();
-        toast.error(`Error de conexión — guardado offline como respaldo`, { duration: 5000 });
+        toast.error(`Error de conexión — guardado offline como respaldo`, { duration: 5000, id: 'venta-fallback' });
         setUltimoRecibo(numeroRecibo);
         setVentaCompletada(true);
       } catch {
@@ -357,6 +362,7 @@ export default function POSPage() {
       }
     } finally {
       setProcesando(false);
+      procesandoRef.current = false;
     }
   }, [items, metodoPago, online, calcularTotal, calcularTotalPagado, calcularSubtotal,
       calcularDescuento, descuentoGlobal, tarifaActual, tasaSeleccionada, guardarVenta]);
