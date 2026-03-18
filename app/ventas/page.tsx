@@ -8,7 +8,7 @@
 import { useState } from 'react';
 import {
     Search, Download, Receipt, CreditCard, Smartphone,
-    Banknote, DollarSign, ArrowLeftRight, Eye, TrendingUp, Loader2, X,
+    Banknote, DollarSign, ArrowLeftRight, Eye, TrendingUp, Loader2, X, Trash2, AlertTriangle,
 } from 'lucide-react';
 import { useTasas } from '@/components/providers/TasasProvider';
 import { formatBs, formatUSD } from '@/lib/utils';
@@ -65,10 +65,26 @@ function MetodosBadges({ metodos }: { metodos: Venta['metodoPago'] }) {
 
 export default function VentasPage() {
     const { tasas } = useTasas();
-    const { ventas, cargando } = useVentas();
+    const { ventas, cargando, eliminarVenta } = useVentas();
     const [busqueda, setBusqueda] = useState('');
     const [metodoPagoFiltro, setMetodoPagoFiltro] = useState('todos');
     const [ventaDetalle, setVentaDetalle] = useState<Venta | null>(null);
+    const [ventaAEliminar, setVentaAEliminar] = useState<Venta | null>(null);
+    const [eliminando, setEliminando] = useState(false);
+
+    const confirmarEliminacion = async () => {
+        if (!ventaAEliminar) return;
+        setEliminando(true);
+        try {
+            await eliminarVenta(ventaAEliminar.id);
+            setVentaAEliminar(null);
+            setVentaDetalle(null);
+        } catch (err) {
+            alert('Error al eliminar la venta');
+        } finally {
+            setEliminando(false);
+        }
+    };
 
     const ventasFiltradas = ventas.filter((v) => {
         const matchBusqueda = !busqueda
@@ -176,6 +192,7 @@ export default function VentasPage() {
                                     <th>Total (USD)</th>
                                     <th>Tasa</th>
                                     <th>Ver</th>
+                                    <th>Anular</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -211,6 +228,13 @@ export default function VentasPage() {
                                             <button className="text-muted-foreground hover:text-blue-400 transition-colors"
                                                 onClick={() => setVentaDetalle(venta)}>
                                                 <Eye className="w-4 h-4" />
+                                            </button>
+                                        </td>
+                                        <td>
+                                            <button className="text-muted-foreground hover:text-red-400 transition-colors"
+                                                onClick={() => setVentaAEliminar(venta)}
+                                                title="Anular venta">
+                                                <Trash2 className="w-4 h-4" />
                                             </button>
                                         </td>
                                     </tr>
@@ -317,9 +341,65 @@ export default function VentasPage() {
                                 <span className="font-mono">Bs {(ventaDetalle.tasaUsada || 0).toFixed(2)}</span>
                             </div>
 
-                            <button className="w-full btn-secondary mt-5 justify-center"
-                                onClick={() => setVentaDetalle(null)}>
-                                Cerrar
+                            <div className="flex gap-3 mt-5">
+                                <button className="flex-1 btn-secondary justify-center"
+                                    onClick={() => setVentaDetalle(null)}>
+                                    Cerrar
+                                </button>
+                                <button className="flex-1 justify-center flex items-center gap-2 px-4 py-2 rounded-lg border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors text-sm font-medium"
+                                    onClick={() => { setVentaAEliminar(ventaDetalle); setVentaDetalle(null); }}>
+                                    <Trash2 className="w-4 h-4" /> Anular venta
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal confirmación eliminación */}
+            {ventaAEliminar && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+                    <div className="bg-card border border-red-500/30 rounded-2xl w-full max-w-sm shadow-2xl p-6">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center shrink-0">
+                                <AlertTriangle className="w-5 h-5 text-red-400" />
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-red-400">Anular Venta</h3>
+                                <p className="text-xs text-muted-foreground">Esta acción no se puede deshacer</p>
+                            </div>
+                        </div>
+
+                        <div className="bg-muted/30 rounded-lg p-3 mb-5 space-y-1 text-sm">
+                            <div className="flex justify-between">
+                                <span className="text-muted-foreground">Recibo</span>
+                                <span className="font-mono text-blue-400">{ventaAEliminar.numeroRecibo}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-muted-foreground">Fecha</span>
+                                <span>{ventaAEliminar.fecha}</span>
+                            </div>
+                            <div className="flex justify-between font-bold">
+                                <span className="text-muted-foreground">Total</span>
+                                <span className="text-red-400 font-mono">{formatBs(ventaAEliminar.total || 0)}</span>
+                            </div>
+                        </div>
+
+                        <div className="flex gap-3">
+                            <button className="flex-1 btn-secondary justify-center"
+                                onClick={() => setVentaAEliminar(null)}
+                                disabled={eliminando}>
+                                Cancelar
+                            </button>
+                            <button
+                                className="flex-1 justify-center flex items-center gap-2 px-4 py-2 rounded-lg bg-red-500 hover:bg-red-600 text-white transition-colors text-sm font-bold disabled:opacity-50"
+                                onClick={confirmarEliminacion}
+                                disabled={eliminando}>
+                                {eliminando ? (
+                                    <><Loader2 className="w-4 h-4 animate-spin" /> Anulando...</>
+                                ) : (
+                                    <><Trash2 className="w-4 h-4" /> Sí, anular</>
+                                )}
                             </button>
                         </div>
                     </div>
