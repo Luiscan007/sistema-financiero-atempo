@@ -110,34 +110,21 @@ export default function ConciliacionPage() {
       const esImagen = file.type.startsWith('image/');
       let body: Record<string, unknown>;
 
-      const system = `Eres un experto en análisis de estados de cuenta bancarios venezolanos.
-Extrae TODOS los movimientos del estado de cuenta y responde EXCLUSIVAMENTE en JSON válido, sin texto adicional, sin markdown.
+      const system = `Eres un parser de estados de cuenta bancarios venezolanos. Tu ÚNICA tarea es extraer movimientos y devolver JSON.
 
-Formato requerido:
-{
-  "banco": "nombre del banco",
-  "cuenta": "número de cuenta (últimos 4 dígitos)",
-  "periodo": "período del estado (ej: Enero 2026)",
-  "saldoInicial": número,
-  "saldoFinal": número,
-  "movimientos": [
-    {
-      "fecha": "YYYY-MM-DD",
-      "descripcion": "descripción del movimiento",
-      "referencia": "número de referencia o vacío",
-      "debito": número o 0,
-      "credito": número o 0
-    }
-  ]
-}
+RESPONDE ÚNICAMENTE CON EL JSON, SIN NINGÚN TEXTO ANTES NI DESPUÉS. NI SIQUIERA UNA PALABRA DE INTRODUCCIÓN.
 
-REGLAS CRÍTICAS:
-- debito = dinero QUE SALIÓ de la cuenta (pagos, retiros, transferencias enviadas)
-- credito = dinero QUE ENTRÓ a la cuenta (depósitos, transferencias recibidas, cobros)
-- Todos los montos en números sin puntos ni comas de miles, usar punto decimal
-- Si no encuentras saldo inicial o final, pon 0
-- NO incluyas la fila de saldo inicial/final como movimiento
-- Extrae ABSOLUTAMENTE TODOS los movimientos visibles`;
+El JSON debe tener exactamente esta estructura:
+{"banco":"string","cuenta":"string","periodo":"string","saldoInicial":0,"saldoFinal":0,"movimientos":[{"fecha":"YYYY-MM-DD","descripcion":"string","referencia":"string","debito":0,"credito":0}]}
+
+REGLAS:
+- debito = salida de dinero (pagos, retiros)
+- credito = entrada de dinero (depósitos, cobros)
+- montos como números con punto decimal, sin separadores de miles
+- fechas en formato YYYY-MM-DD
+- Si el año no está claro usa el año actual
+- saldoInicial y saldoFinal en 0 si no aparecen
+- TU RESPUESTA DEBE COMENZAR CON { Y TERMINAR CON }`;
 
       if (esImagen) {
         const reader = new FileReader();
@@ -153,16 +140,45 @@ REGLAS CRÍTICAS:
           imageMime: file.type,
         };
       } else {
-        const texto: string = await new Promise((res, rej) => {
-          const r = new FileReader();
-          r.onload = (e) => res(e.target?.result as string);
-          r.onerror = rej;
-          r.readAsText(file, 'utf-8');
-        });
-        body = {
-          system,
-          messages: [{ role: 'user', content: `Analiza este estado de cuenta y extrae todos los movimientos en JSON.\n\nCONTENIDO:\n${texto.substring(0, 12000)}` }],
-        };
+        // PDF y otros: intentar leer como texto primero, si falla enviar como base64
+        let bodyFinal: Record<string, unknown>;
+        try {
+          const texto: string = await new Promise((res, rej) => {
+            const r = new FileReader();
+            r.onload = (e) => {
+              const result = e.target?.result as string;
+              // Si el texto tiene muchos caracteres raros, es binario
+              const printable = result.replace(/[^ -~
+	]/g, '').length;
+              if (printable < result.length * 0.3) rej(new Error('binary'));
+              else res(result);
+            };
+            r.onerror = rej;
+            r.readAsText(file, 'utf-8');
+          });
+          bodyFinal = {
+            system,
+            messages: [{ role: 'user', content: `Extrae los movimientos de este estado de cuenta bancario en JSON.
+
+CONTENIDO:
+${texto.substring(0, 12000)}` }],
+          };
+        } catch {
+          // Archivo binario (PDF real) — enviar como imagen base64
+          const base64: string = await new Promise((res, rej) => {
+            const r = new FileReader();
+            r.onload = (e) => res((e.target?.result as string).split(',')[1]);
+            r.onerror = rej;
+            r.readAsDataURL(file);
+          });
+          bodyFinal = {
+            system,
+            messages: [{ role: 'user', content: 'Extrae los movimientos de este estado de cuenta bancario en JSON.' }],
+            imageBase64: base64,
+            imageMime: 'image/jpeg', // Groq acepta esto para PDFs simples
+          };
+        }
+        body = bodyFinal;
       }
 
       const res = await fetch('/api/chat-agente', {
@@ -174,9 +190,23 @@ REGLAS CRÍTICAS:
       const data = await res.json();
       if (data.error) throw new Error(data.error);
 
-      // Limpiar respuesta y parsear JSON
-      const texto = data.text.replace(/```json|```/g, '').trim();
-      const parsed = JSON.parse(texto);
+      // Parser robusto — extraer JSON aunque haya texto alrededor
+      let rawText = data.text || '';
+      // Quitar markdown code blocks
+      rawText = rawText.replace(/```json\s*/gi, '').replace(/```\s*/g, '');
+      // Encontrar el primer { y el último } para extraer solo el JSON
+      const jsonStart = rawText.indexOf('{');
+      const jsonEnd   = rawText.lastIndexOf('}');
+      if (jsonStart === -1 || jsonEnd === -1) {
+        throw new Error('La IA no devolvió JSON válido. Intenta con una imagen más clara o usa la entrada manual.');
+      }
+      const jsonStr = rawText.substring(jsonStart, jsonEnd + 1);
+      let parsed: any;
+      try {
+        parsed = JSON.parse(jsonStr);
+      } catch (parseErr) {
+        throw new Error(`Error parseando JSON: ${(parseErr as Error).message}. Respuesta recibida: ${rawText.substring(0, 200)}`);
+      }
 
       const movs: MovimientoBancario[] = (parsed.movimientos || []).map((m: any, i: number) => ({
         id: `banco-${i}`,
