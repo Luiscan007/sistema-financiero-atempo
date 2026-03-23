@@ -1,8 +1,8 @@
 /**
  * app/api/chat-agente/route.ts
  * Proxy para agentes IA usando Groq
- * - Texto: llama-3.1-8b-instant (rápido)
- * - Imágenes: meta-llama/llama-4-scout-17b-16e-instruct (visión)
+ * - Texto/chat: llama-3.3-70b-versatile
+ * - Imágenes: meta-llama/llama-4-scout-17b-16e-instruct
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -19,13 +19,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Si viene imagen, usar modelo con visión
     const model = imageBase64
       ? 'meta-llama/llama-4-scout-17b-16e-instruct'
       : 'llama-3.3-70b-versatile';
 
-    // Construir mensajes — si hay imagen, el último mensaje user lleva la imagen
     let groqMessages;
+
     if (imageBase64) {
       const lastUserMsg = messages[messages.length - 1];
       const prevMessages = messages.slice(0, -1);
@@ -37,9 +36,7 @@ export async function POST(req: NextRequest) {
           content: [
             {
               type: 'image_url',
-              image_url: {
-                url: `data:${imageMime || 'image/jpeg'};base64,${imageBase64}`,
-              },
+              image_url: { url: `data:${imageMime || 'image/jpeg'};base64,${imageBase64}` },
             },
             {
               type: 'text',
@@ -63,8 +60,8 @@ export async function POST(req: NextRequest) {
       },
       body: JSON.stringify({
         model,
-        max_tokens: 1024,
-        temperature: 0.7,
+        max_tokens: 2048,
+        temperature: 0.3, // más determinista para JSON
         messages: groqMessages,
       }),
     });
