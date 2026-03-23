@@ -148,8 +148,11 @@ REGLAS:
             r.onload = (e) => {
               const result = e.target?.result as string;
               // Si el texto tiene muchos caracteres raros, es binario
-              const printable = result.replace(/[^ -~
-	]/g, '').length;
+              let printable = 0;
+              for (let i = 0; i < result.length; i++) {
+                const code = result.charCodeAt(i);
+                if (code >= 32 && code <= 126) printable++;
+              }
               if (printable < result.length * 0.3) rej(new Error('binary'));
               else res(result);
             };
