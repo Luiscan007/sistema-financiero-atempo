@@ -10,12 +10,10 @@ import {
     Menu, X, Activity, AlertTriangle, WifiOff, Sun, Moon,
     GraduationCap, ClipboardList, Wallet, CalendarDays, LayoutGrid, Scale, MessageSquare,
 } from 'lucide-react';
-import PanelNotificaciones from '@/components/ui/PanelNotificaciones';
-import { useNotificaciones } from '@/lib/useNotificaciones';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { useTasas } from '@/components/providers/TasasProvider';
 import { cn } from '@/lib/utils';
-// IMPORTAMOS LA LOGICA DE ROLES
+// LOGICA DE ROLES
 import { tienePermiso, RUTA_INICIO_ROL, RolUsuario } from '@/lib/roles';
 
 const NAV_ITEMS = [
@@ -99,10 +97,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
     const pathname = usePathname();
     const router = useRouter();
     const { perfil, logout } = useAuth();
-    const { tasas, cargando: cargandoTasas, refrescar, ultimaActualizacion } = useTasas();
+    const { tasas, cargando: cargandoTasas, refrescar } = useTasas();
     const { tema, toggleTema } = useTema();
-    const [panelNotifAbierto, setPanelNotifAbierto] = useState(false);
-    const { noLeidas } = useNotificaciones();
 
     // FILTRO DINÁMICO DE MENÚ SEGÚN ROL
     const navItemsFiltrados = NAV_ITEMS.map(grupo => ({
@@ -110,7 +106,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
         items: grupo.items.filter(item => tienePermiso(perfil?.rol, item.href))
     })).filter(grupo => grupo.items.length > 0);
 
-    // BLINDAJE DE RUTAS: Si intenta entrar por URL a algo que no le toca, pa' fuera
+    // BLINDAJE DE RUTAS
     useEffect(() => {
         if (perfil?.rol && !tienePermiso(perfil.rol, pathname)) {
             const rutaSegura = RUTA_INICIO_ROL[perfil.rol as RolUsuario] || '/pos';
@@ -177,7 +173,6 @@ export default function AppLayout({ children }: AppLayoutProps) {
             </div>
 
             <nav className="flex-1 overflow-y-auto p-3 space-y-0.5 no-scrollbar">
-                {/* AQUI RENDERIZAMOS LOS ITEMS FILTRADOS */}
                 {navItemsFiltrados.map((grupo) => (
                     <div key={grupo.titulo} className="mb-3">
                         {(mobile || sidebarAbierto) && (
@@ -334,14 +329,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
                                 <Moon className="w-4 h-4 transition-transform group-hover:-rotate-12" />
                             )}
                         </button>
-                        <button onClick={() => setPanelNotifAbierto(true)}
-                            className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg relative">
+                        <button className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg relative">
                             <Bell className="w-4 h-4" />
-                            {noLeidas > 0 && (
-                                <span className="absolute top-1 right-1 min-w-[16px] h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center animate-pulse">
-                                    {noLeidas > 9 ? '9+' : noLeidas}
-                                </span>
-                            )}
                         </button>
                     </div>
                 </header>
@@ -350,8 +339,6 @@ export default function AppLayout({ children }: AppLayoutProps) {
                     {children}
                 </main>
             </div>
-
-            <PanelNotificaciones abierto={panelNotifAbierto} onCerrar={() => setPanelNotifAbierto(false)} />
 
             {mobileMenuAbierto && (
                 <div className="lg:hidden fixed inset-0 z-50 flex">
