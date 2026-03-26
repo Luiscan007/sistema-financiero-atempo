@@ -13,10 +13,9 @@ export default function AuthPage() {
     const [errorMsg, setErrorMsg] = useState('');
     
     const router = useRouter();
-    // Tu hook actual de autenticación. Asumimos que tiene una función login y expone el perfil actual.
     const { login, perfil } = useAuth(); 
 
-    // Si ya está logueado y tiene rol, lo sacamos del login automáticamente
+    // Redirección automática si ya está logueado
     useEffect(() => {
         if (perfil?.rol) {
             const rutaDestino = RUTA_INICIO_ROL[perfil.rol as RolUsuario] || '/pos';
@@ -35,21 +34,19 @@ export default function AuthPage() {
         setErrorMsg('');
 
         try {
-            // Ejecutamos tu función de login de Firebase (que debe estar en tu AuthProvider)
             await login(email, password);
-            
-            // Nota: No hacemos el router.push() aquí porque el useEffect de arriba 
-            // se encargará de redirigirlo apenas el 'perfil' se actualice en el estado global.
-            
+            // Si el login es exitoso, el useEffect de arriba se encargará de la redirección
         } catch (err: any) {
             console.error('Error al iniciar sesión:', err);
-            // Manejo de errores comunes de Firebase
-            if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+            
+            // Manejo de errores de Firebase Auth
+            const codigoError = err?.code || '';
+            if (codigoError === 'auth/user-not-found' || codigoError === 'auth/wrong-password' || codigoError === 'auth/invalid-credential') {
                 setErrorMsg('Credenciales incorrectas. Verifica tu correo y contraseña.');
-            } else if (err.code === 'auth/too-many-requests') {
+            } else if (codigoError === 'auth/too-many-requests') {
                 setErrorMsg('Demasiados intentos fallidos. Intenta más tarde.');
             } else {
-                setErrorMsg('Ocurrió un error al iniciar sesión. Intenta de nuevo.');
+                setErrorMsg(err.message || 'Ocurrió un error al iniciar sesión. Intenta de nuevo.');
             }
             setCargando(false);
         }
@@ -57,7 +54,6 @@ export default function AuthPage() {
 
     return (
         <div className="min-h-screen bg-[#0A0F1C] flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden">
-            {/* Efectos de fondo geniales */}
             <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-blue-600/20 rounded-full blur-[100px] pointer-events-none" />
             <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-purple-600/10 rounded-full blur-[100px] pointer-events-none" />
 
@@ -128,3 +124,35 @@ export default function AuthPage() {
                                     className="appearance-none block w-full pl-10 pr-3 py-3 border border-slate-700/50 rounded-xl bg-slate-900/50 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all sm:text-sm"
                                     placeholder="••••••••"
                                     disabled={cargando}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="pt-2">
+                            <button
+                                type="submit"
+                                disabled={cargando}
+                                className="w-full flex justify-center items-center py-3.5 px-4 border border-transparent rounded-xl shadow-lg text-sm font-bold text-white bg-blue-600 hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 focus:ring-offset-[#111827] transition-all disabled:opacity-50 disabled:cursor-not-allowed group"
+                            >
+                                {cargando ? (
+                                    <>
+                                        <Loader2 className="animate-spin -ml-1 mr-2 h-5 w-5" />
+                                        Autenticando...
+                                    </>
+                                ) : (
+                                    'Iniciar Sesión'
+                                )}
+                            </button>
+                        </div>
+                    </form>
+
+                    <div className="mt-8 pt-6 border-t border-white/5 text-center">
+                        <p className="text-xs text-slate-500">
+                            Solo personal autorizado de Atempo.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
