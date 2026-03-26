@@ -12,7 +12,6 @@ export async function POST(req: NextRequest) {
     const isVision = !!imageBase64;
     const model = isVision ? 'llama-3.2-11b-vision-preview' : 'llama-3.3-70b-versatile';
 
-    // OJO: Al modelo de visión le quitamos el response_format porque a veces lo hace crashear
     const bodyData: any = {
       model,
       messages: isVision 
@@ -30,6 +29,7 @@ export async function POST(req: NextRequest) {
       temperature: 0.1,
     };
 
+    // Solo forzamos JSON si no es visión, para evitar colapsos
     if (!isVision) {
       bodyData.response_format = { type: "json_object" };
     }
@@ -45,7 +45,6 @@ export async function POST(req: NextRequest) {
 
     const data = await response.json();
 
-    // Si Groq nos rechaza la petición, capturamos el error real
     if (data.error) {
       console.error("Error devuelto por Groq:", data.error);
       return NextResponse.json({ error: `Groq API: ${data.error.message || 'Error desconocido'}` }, { status: 500 });
@@ -53,39 +52,36 @@ export async function POST(req: NextRequest) {
 
     let text = data.choices?.[0]?.message?.content ?? '';
 
-    // Extracción hardcore: Buscamos el primer '{' y el último '}' sin importar qué más haya escrito la IA
+    // -- BLINDAJE ANTI-NEGATIVA DE IA --
+    // Detectamos frases comunes de rechazo de imagen
+    const refusalPhrases = [
+      "unable to analyze",
+      "cannot analyze",
+      "limited to",
+      "text only",
+      "not able to see",
+      "don't have vision"
+    ];
+    
+    if (refusalPhrases.some(phrase => text.toLowerCase().includes(phrase))) {
+      return NextResponse.json({ 
+        error: `La IA rechazó esta captura de pantalla específica. A veces pasa por la calidad o filtros automáticos de Groq. Intenta tomar una nueva captura más nítida o recortada solo a la tabla de movimientos.`
+      }, { status: 422 }); // Usamos 422 (Unprocessable Entity)
+    }
+    // -- FIN BLINDAJE --
+
     const match = text.match(/\{[\s\S]*\}/);
     if (match) {
       text = match[0];
     } else {
-      // Si de verdad no hay JSON, devolvemos el texto puro para ver qué rayos dijo la IA
-      return NextResponse.json({ error: `La IA no generó un JSON. Respondió: ${text}` }, { status: 500 });
+      return NextResponse.json({ 
+        error: `Fallo de formato. La IA leyó la imagen pero no generó datos válidos para conciliación.` 
+      }, { status: 422 });
     }
 
     return NextResponse.json({ text });
   } catch (err: any) {
     console.error("Error catastrófico en chat-agente:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
-  }
-}     : [{ role: 'system', content: system }, ...messages],
-        temperature: 0.1,
-        response_format: { type: "json_object" } 
-      }),
-    });
-
-    const data = await response.json();
-    let text = data.choices?.[0]?.message?.content ?? '';
-
-    // Limpieza de emergencia: Extraer solo el objeto JSON del string
-    const firstBrace = text.indexOf('{');
-    const lastBrace = text.lastIndexOf('}');
-    if (firstBrace !== -1 && lastBrace !== -1) {
-      text = text.substring(firstBrace, lastBrace + 1);
-    }
-
-    return NextResponse.json({ text });
-  } catch (err: any) {
-    console.error("Error en chat-agente:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
