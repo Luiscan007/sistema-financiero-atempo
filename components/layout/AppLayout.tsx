@@ -96,7 +96,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
     const [online, setOnline] = useState(true);
     const pathname = usePathname();
     const router = useRouter();
-    const { perfil, logout } = useAuth();
+    const { perfil, logout } = useAuth() as { perfil: any, logout: () => void };
     const { tasas, cargando: cargandoTasas, refrescar } = useTasas();
     const { tema, toggleTema } = useTema();
 
