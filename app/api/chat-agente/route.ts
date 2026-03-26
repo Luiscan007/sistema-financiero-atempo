@@ -13,9 +13,9 @@ export async function POST(req: NextRequest) {
     }
 
     const isVision = !!imageBase64;
-    // ACTUALIZACIÓN DE MODELO: Pasamos al 90b activo
+    // ACTUALIZACIÓN DE MODELO: Usamos la versión estable sin "-preview"
     const model = isVision
-      ? 'llama-3.2-90b-vision-preview'
+      ? 'llama-3.2-11b-vision' 
       : 'llama-3.3-70b-versatile';
 
     let groqMessages;
