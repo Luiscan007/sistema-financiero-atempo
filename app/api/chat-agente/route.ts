@@ -3,33 +3,56 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function POST(req: NextRequest) {
   try {
     const { system, messages, imageBase64, imageMime } = await req.json();
-    const apiKey = process.env.GROQ_API_KEY;
 
+    const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) {
-      return NextResponse.json({ error: 'API Key de Groq no configurada' }, { status: 500 });
+      return NextResponse.json(
+        { error: 'GROQ_API_KEY no configurada' },
+        { status: 500 }
+      );
     }
 
     const isVision = !!imageBase64;
-    const model = isVision ? 'llama-3.2-11b-vision-preview' : 'llama-3.3-70b-versatile';
+    const model = isVision
+      ? 'llama-3.2-11b-vision-preview'
+      : 'llama-3.3-70b-versatile';
+
+    let groqMessages;
+
+    if (isVision) {
+      const lastUserMsg = messages[messages.length - 1];
+      const prevMessages = messages.slice(0, -1);
+      groqMessages = [
+        { role: 'system', content: system },
+        ...prevMessages,
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: lastUserMsg?.content || 'Extrae los datos en JSON',
+            },
+            {
+              type: 'image_url',
+              image_url: { url: `data:${imageMime || 'image/jpeg'};base64,${imageBase64}` },
+            },
+          ],
+        },
+      ];
+    } else {
+      groqMessages = [
+        { role: 'system', content: system },
+        ...messages,
+      ];
+    }
 
     const bodyData: any = {
       model,
-      messages: isVision 
-        ? [
-            { role: 'system', content: system },
-            { 
-              role: 'user', 
-              content: [
-                { type: 'text', text: messages[0].content },
-                { type: 'image_url', image_url: { url: `data:${imageMime};base64,${imageBase64}` } }
-              ] 
-            }
-          ]
-        : [{ role: 'system', content: system }, ...messages],
+      max_tokens: 2048,
       temperature: 0.1,
+      messages: groqMessages,
     };
 
-    // Solo forzamos JSON si no es visión, para evitar colapsos
     if (!isVision) {
       bodyData.response_format = { type: "json_object" };
     }
@@ -45,41 +68,36 @@ export async function POST(req: NextRequest) {
 
     const data = await response.json();
 
-    if (data.error) {
+    if (!response.ok) {
       console.error("Error devuelto por Groq:", data.error);
-      return NextResponse.json({ error: `Groq API: ${data.error.message || 'Error desconocido'}` }, { status: 500 });
+      return NextResponse.json(
+        { error: `Groq API: ${data.error?.message || 'Error desconocido'}` },
+        { status: response.status }
+      );
     }
 
     let text = data.choices?.[0]?.message?.content ?? '';
 
-    // -- BLINDAJE ANTI-NEGATIVA DE IA --
-    // Detectamos frases comunes de rechazo de imagen
-    const refusalPhrases = [
-      "unable to analyze",
-      "cannot analyze",
-      "limited to",
-      "text only",
-      "not able to see",
-      "don't have vision"
-    ];
-    
+    // Blindaje Anti-Rechazo
+    const refusalPhrases = ["unable to analyze", "cannot analyze", "limited to", "text only", "not able to see"];
     if (refusalPhrases.some(phrase => text.toLowerCase().includes(phrase))) {
       return NextResponse.json({ 
-        error: `La IA rechazó esta captura de pantalla específica. A veces pasa por la calidad o filtros automáticos de Groq. Intenta tomar una nueva captura más nítida o recortada solo a la tabla de movimientos.`
-      }, { status: 422 }); // Usamos 422 (Unprocessable Entity)
+        error: `La IA rechazó la imagen. Intenta con una captura más nítida de la tabla.`
+      }, { status: 422 });
     }
-    // -- FIN BLINDAJE --
 
+    // Extracción de JSON a la fuerza
     const match = text.match(/\{[\s\S]*\}/);
     if (match) {
       text = match[0];
     } else {
       return NextResponse.json({ 
-        error: `Fallo de formato. La IA leyó la imagen pero no generó datos válidos para conciliación.` 
+        error: `La IA no generó un JSON válido. Respuesta: ${text}` 
       }, { status: 422 });
     }
 
     return NextResponse.json({ text });
+
   } catch (err: any) {
     console.error("Error catastrófico en chat-agente:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
