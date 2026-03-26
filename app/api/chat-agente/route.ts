@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
     const isVision = !!imageBase64;
     // ACTUALIZACIÓN DE MODELO: Usamos la versión estable sin "-preview"
     const model = isVision
-      ? 'llama-3.2-11b-vision' 
+      ? 'meta-llama/llama-4-scout-17b-16e-instruct'
       : 'llama-3.3-70b-versatile';
 
     let groqMessages;
