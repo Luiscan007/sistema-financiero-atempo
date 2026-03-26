@@ -29,7 +29,11 @@ export default function ConciliacionBancaria() {
     setErrMsg('');
 
     try {
-      // Convertir archivo a Base64 para enviarlo a la API de Visión
+      // Bloqueo directo de PDFs porque Groq Vision no los soporta
+      if (file.type === 'application/pdf') {
+        throw new Error("El modelo de IA actual no lee PDFs nativos. Por favor, sube una captura de pantalla (JPG/PNG) del estado de cuenta.");
+      }
+
       const base64: string = await new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.readAsDataURL(file);
@@ -63,10 +67,16 @@ export default function ConciliacionBancaria() {
       });
 
       const data = await res.json();
+      
+      if (!res.ok) throw new Error(data.error || `Error del servidor HTTP ${res.status}`);
       if (data.error) throw new Error(data.error);
 
-      // Parsear el texto limpio que devuelve nuestra API corregida
-      const parsed = JSON.parse(data.text);
+      let parsed;
+      try {
+        parsed = JSON.parse(data.text);
+      } catch (parseError) {
+        throw new Error("La IA no devolvió un JSON válido. Respuesta recibida: " + data.text.substring(0, 50) + "...");
+      }
       
       const movsFormateados = (parsed.movimientos || []).map((m: any, i: number) => ({
         id: `banco-${i}-${Date.now()}`,
@@ -82,8 +92,9 @@ export default function ConciliacionBancaria() {
       setInfoBanco(parsed);
       setPaso('revisar_banco');
     } catch (err: any) {
-      console.error(err);
-      setErrMsg("No se pudo procesar el documento. Intenta con una imagen más clara o PDF de texto.");
+      console.error("Error detallado:", err);
+      // Ahora sí verás exactamente qué falló en la pantalla
+      setErrMsg(`Fallo técnico: ${err.message}`);
     } finally {
       setAnalizando(false);
     }
@@ -106,7 +117,7 @@ export default function ConciliacionBancaria() {
       {errMsg && (
         <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex items-start gap-3 text-red-400">
           <AlertCircle className="w-5 h-5 mt-0.5 shrink-0" />
-          <div className="text-sm">{errMsg}</div>
+          <div className="text-sm font-medium">{errMsg}</div>
         </div>
       )}
 
@@ -125,13 +136,13 @@ export default function ConciliacionBancaria() {
                 </div>
                 <div>
                   <h3 className="text-lg font-semibold">Subir Estado de Cuenta</h3>
-                  <p className="text-slate-400 text-sm mt-1">Imagen o PDF del estado de cuenta bancario. La IA extraerá todo automáticamente.</p>
+                  <p className="text-slate-400 text-sm mt-1">Sube una imagen (JPG/PNG) del estado de cuenta bancario.</p>
                 </div>
                 <input 
                   type="file" 
                   className="absolute inset-0 opacity-0 cursor-pointer" 
                   onChange={handleFileUpload}
-                  accept="image/*,.pdf"
+                  accept="image/png, image/jpeg, image/webp"
                 />
               </>
             )}
