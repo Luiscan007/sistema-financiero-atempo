@@ -13,7 +13,7 @@ export default function AuthPage() {
     const [errorMsg, setErrorMsg] = useState('');
     
     const router = useRouter();
-    const { login, perfil } = useAuth(); 
+    const { login, perfil } = useAuth() as { login: any, perfil: any }; 
 
     // Redirección automática si ya está logueado
     useEffect(() => {
