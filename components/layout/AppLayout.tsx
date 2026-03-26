@@ -1,10 +1,5 @@
 'use client';
 
-/**
- * components/layout/AppLayout.tsx
- * Layout principal con sidebar, topbar y toggle de tema claro/oscuro
- */
-
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -19,8 +14,9 @@ import PanelNotificaciones from '@/components/ui/PanelNotificaciones';
 import { useNotificaciones } from '@/lib/useNotificaciones';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { useTasas } from '@/components/providers/TasasProvider';
-import { formatBs, formatUSD, colorBrecha, nivelBrecha } from '@/lib/utils';
 import { cn } from '@/lib/utils';
+// IMPORTAMOS LA LOGICA DE ROLES
+import { tienePermiso, RUTA_INICIO_ROL, RolUsuario } from '@/lib/roles';
 
 const NAV_ITEMS = [
     {
@@ -77,7 +73,6 @@ const NAV_ITEMS = [
 
 interface AppLayoutProps { children: React.ReactNode; }
 
-// Hook para persisitir tema en localStorage
 function useTema() {
     const [tema, setTema] = useState<'dark' | 'light'>('dark');
 
@@ -109,6 +104,20 @@ export default function AppLayout({ children }: AppLayoutProps) {
     const [panelNotifAbierto, setPanelNotifAbierto] = useState(false);
     const { noLeidas } = useNotificaciones();
 
+    // FILTRO DINÁMICO DE MENÚ SEGÚN ROL
+    const navItemsFiltrados = NAV_ITEMS.map(grupo => ({
+        ...grupo,
+        items: grupo.items.filter(item => tienePermiso(perfil?.rol, item.href))
+    })).filter(grupo => grupo.items.length > 0);
+
+    // BLINDAJE DE RUTAS: Si intenta entrar por URL a algo que no le toca, pa' fuera
+    useEffect(() => {
+        if (perfil?.rol && !tienePermiso(perfil.rol, pathname)) {
+            const rutaSegura = RUTA_INICIO_ROL[perfil.rol as RolUsuario] || '/pos';
+            router.replace(rutaSegura);
+        }
+    }, [pathname, perfil, router]);
+
     useEffect(() => {
         const handleOnline  = () => setOnline(true);
         const handleOffline = () => setOnline(false);
@@ -128,10 +137,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
     const brechaAlta = tasas.brechaUSD > 50;
 
-    // Sidebar compartido (desktop + mobile)
     const SidebarContent = ({ mobile = false }: { mobile?: boolean }) => (
         <>
-            {/* Logo */}
             <div className={cn(
                 'flex items-center border-b border-white/10 flex-shrink-0',
                 mobile || sidebarAbierto ? 'justify-between p-4' : 'justify-center p-3'
@@ -169,9 +176,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
                 )}
             </div>
 
-            {/* Nav */}
             <nav className="flex-1 overflow-y-auto p-3 space-y-0.5 no-scrollbar">
-                {NAV_ITEMS.map((grupo) => (
+                {/* AQUI RENDERIZAMOS LOS ITEMS FILTRADOS */}
+                {navItemsFiltrados.map((grupo) => (
                     <div key={grupo.titulo} className="mb-3">
                         {(mobile || sidebarAbierto) && (
                             <p className="text-[10px] font-semibold uppercase tracking-widest text-white/25 px-3 py-1.5 mb-0.5">
@@ -207,7 +214,6 @@ export default function AppLayout({ children }: AppLayoutProps) {
                 ))}
             </nav>
 
-            {/* Footer sidebar */}
             <div className="p-3 border-t border-white/10 space-y-1 flex-shrink-0">
                 {!online && (
                     <div className={cn(
@@ -253,8 +259,6 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
     return (
         <div className="flex h-screen bg-background overflow-hidden">
-
-            {/* SIDEBAR DESKTOP */}
             <aside className={cn(
                 'hidden lg:flex flex-col flex-shrink-0 transition-all duration-300 ease-in-out',
                 'bg-[hsl(var(--sidebar-bg))]',
@@ -263,13 +267,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
                 <SidebarContent />
             </aside>
 
-            {/* CONTENIDO PRINCIPAL */}
             <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-
-                {/* TOP BAR */}
                 <header className="bg-[hsl(var(--topbar-bg))] border-b border-border px-4 py-2.5 flex items-center gap-3 flex-shrink-0">
-
-                    {/* Boton menu movil */}
                     <button
                         className="lg:hidden text-muted-foreground hover:text-foreground p-1.5 hover:bg-muted rounded-lg transition-all"
                         onClick={() => setMobileMenuAbierto(true)}
@@ -277,7 +276,6 @@ export default function AppLayout({ children }: AppLayoutProps) {
                         <Menu className="w-5 h-5" />
                     </button>
 
-                    {/* Widget tasas */}
                     <div className="flex-1 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
                         {cargandoTasas ? (
                             <div className="flex gap-2">
@@ -316,54 +314,31 @@ export default function AppLayout({ children }: AppLayoutProps) {
                                         Bs {tasas.eurBcv.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                     </span>
                                 </div>
-                                {ultimaActualizacion && (
-                                    <div className="tasa-widget hidden md:flex">
-                                        <span className="text-muted-foreground text-xs">
-                                            {ultimaActualizacion.toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' })}
-                                        </span>
-                                    </div>
-                                )}
                             </div>
                         )}
                     </div>
 
-                    {/* Acciones derecha */}
                     <div className="flex items-center gap-1 flex-shrink-0">
-
-                        {/* Indicador online */}
                         <div className={cn('w-2 h-2 rounded-full flex-shrink-0',
                             online ? 'bg-emerald-400' : 'bg-amber-400')}
                             title={online ? 'En linea' : 'Sin conexion'} />
-
-                        {/* Refrescar tasas */}
                         <button onClick={refrescar} disabled={cargandoTasas}
-                            className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-all"
-                            title="Actualizar tasas">
+                            className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-all">
                             <RefreshCw className={cn('w-4 h-4', cargandoTasas && 'animate-spin')} />
                         </button>
-
-                        {/* TOGGLE TEMA */}
-                        <button
-                            onClick={toggleTema}
-                            className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-all relative group"
-                            title={tema === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
-                        >
+                        <button onClick={toggleTema}
+                            className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-all group">
                             {tema === 'dark' ? (
-                                <Sun className="w-4 h-4 transition-transform group-hover:rotate-45 group-hover:scale-110" />
+                                <Sun className="w-4 h-4 transition-transform group-hover:rotate-45" />
                             ) : (
-                                <Moon className="w-4 h-4 transition-transform group-hover:-rotate-12 group-hover:scale-110" />
+                                <Moon className="w-4 h-4 transition-transform group-hover:-rotate-12" />
                             )}
                         </button>
-
-                        {/* Notificaciones */}
-                        <button
-                            onClick={() => setPanelNotifAbierto(true)}
-                            className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-all relative"
-                            title="Notificaciones"
-                        >
+                        <button onClick={() => setPanelNotifAbierto(true)}
+                            className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg relative">
                             <Bell className="w-4 h-4" />
                             {noLeidas > 0 && (
-                                <span className="absolute top-1 right-1 min-w-[16px] h-4 px-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none animate-pulse">
+                                <span className="absolute top-1 right-1 min-w-[16px] h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center animate-pulse">
                                     {noLeidas > 9 ? '9+' : noLeidas}
                                 </span>
                             )}
@@ -371,19 +346,13 @@ export default function AppLayout({ children }: AppLayoutProps) {
                     </div>
                 </header>
 
-                {/* Pagina */}
                 <main className="flex-1 overflow-y-auto p-6">
                     {children}
                 </main>
             </div>
 
-            {/* PANEL NOTIFICACIONES */}
-            <PanelNotificaciones
-                abierto={panelNotifAbierto}
-                onCerrar={() => setPanelNotifAbierto(false)}
-            />
+            <PanelNotificaciones abierto={panelNotifAbierto} onCerrar={() => setPanelNotifAbierto(false)} />
 
-            {/* SIDEBAR MOVIL */}
             {mobileMenuAbierto && (
                 <div className="lg:hidden fixed inset-0 z-50 flex">
                     <div className="absolute inset-0 bg-black/70 backdrop-blur-sm"
