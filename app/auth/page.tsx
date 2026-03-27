@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Activity, Mail, Lock, AlertCircle, Loader2 } from 'lucide-react';
 import { useAuth } from '@/components/providers/AuthProvider';
-import { RUTA_INICIO_ROL, RolUsuario } from '@/lib/roles';
+import { RUTA_INICIO_ROL } from '@/lib/roles';
 
 export default function AuthPage() {
     const [email, setEmail] = useState('');
@@ -14,17 +14,13 @@ export default function AuthPage() {
     
     const router = useRouter();
     
-    // Aquí obligamos a TypeScript a entender que perfil tiene un rol string
-    const { login, perfil } = useAuth() as { 
-        login: any; 
-        perfil: { rol?: string } | null; 
-    }; 
+    // Importamos loginEmail y el perfil tipado nativamente
+    const { loginEmail, perfil } = useAuth(); 
 
-    // Redirección automática blindada para TypeScript
+    // Redirección automática limpia
     useEffect(() => {
         if (perfil?.rol) {
-            const rolOficial = perfil.rol as RolUsuario;
-            const rutaDestino = RUTA_INICIO_ROL[rolOficial] || '/pos';
+            const rutaDestino = RUTA_INICIO_ROL[perfil.rol] || '/pos';
             router.replace(rutaDestino);
         }
     }, [perfil, router]);
@@ -40,7 +36,7 @@ export default function AuthPage() {
         setErrorMsg('');
 
         try {
-            await login(email, password);
+            await loginEmail(email, password);
         } catch (err: any) {
             console.error('Error al iniciar sesión:', err);
             
@@ -103,7 +99,7 @@ export default function AuthPage() {
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
                                     className="appearance-none block w-full pl-10 pr-3 py-3 border border-slate-700/50 rounded-xl bg-slate-900/50 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all sm:text-sm"
-                                    placeholder="admin@atempo.com"
+                                    placeholder="usuario@atempo.com"
                                     disabled={cargando}
                                 />
                             </div>
@@ -149,12 +145,6 @@ export default function AuthPage() {
                             </button>
                         </div>
                     </form>
-
-                    <div className="mt-8 pt-6 border-t border-white/5 text-center">
-                        <p className="text-xs text-slate-500">
-                            Solo personal autorizado de Atempo.
-                        </p>
-                    </div>
                 </div>
             </div>
         </div>
