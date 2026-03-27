@@ -1,4 +1,5 @@
 'use client';
+
 import {
     createContext,
     useContext,
@@ -16,16 +17,20 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db, googleProvider, COLECCIONES } from '@/lib/firebase';
-type RolUsuario = 'admin' | 'vendedor' | 'contador' | 'lectura';
-interface UsuarioPerfil {
+
+// 1. ROLES ACTUALIZADOS PARA ATEMPO
+export type RolUsuario = 'admin' | 'recepcionista' | 'profesor';
+
+export interface UsuarioPerfil {
     uid: string;
     email: string;
     nombre: string;
     rol: RolUsuario;
     fotoUrl?: string;
     activo: boolean;
-    fechaRegistro: Date;
+    fechaRegistro: any;
 }
+
 interface AuthContextType {
     usuario: User | null;
     perfil: UsuarioPerfil | null;
@@ -34,97 +39,85 @@ interface AuthContextType {
     loginGoogle: () => Promise<void>;
     logout: () => Promise<void>;
     registro: (email: string, password: string, nombre: string) => Promise<void>;
-    tienePermiso: (modulo: string) => boolean;
 }
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [usuario, setUsuario] = useState<User | null>(null);
     const [perfil, setPerfil] = useState<UsuarioPerfil | null>(null);
     const [cargando, setCargando] = useState(true);
+
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
             setUsuario(user);
             if (user) {
                 try {
-                    const perfilDoc = await getDoc(doc(db, COLECCIONES.USUARIOS, user.uid));
-                    if (perfilDoc.exists()) {
-                        setPerfil(perfilDoc.data() as UsuarioPerfil);
+                    const docRef = doc(db, COLECCIONES.USUARIOS, user.uid);
+                    const docSnap = await getDoc(docRef);
+                    if (docSnap.exists()) {
+                        setPerfil(docSnap.data() as UsuarioPerfil);
                     } else {
+                        // Si no existe perfil, creamos uno básico
                         const nuevoPerfil: UsuarioPerfil = {
                             uid: user.uid,
                             email: user.email || '',
-                            nombre: user.displayName || user.email || 'Usuario',
-                            rol: 'admin',
-                            fotoUrl: user.photoURL || undefined,
+                            nombre: user.displayName || 'Usuario Atempo',
+                            rol: 'recepcionista', // Rol por defecto por seguridad
                             activo: true,
                             fechaRegistro: new Date(),
                         };
-                        await setDoc(doc(db, COLECCIONES.USUARIOS, user.uid), {
-                            ...nuevoPerfil,
-                            fechaRegistro: serverTimestamp(),
-                        });
                         setPerfil(nuevoPerfil);
                     }
                 } catch (error) {
-                    console.error('Error cargando perfil:', error);
+                    console.error("Error obteniendo perfil:", error);
+                    setPerfil(null);
                 }
             } else {
                 setPerfil(null);
             }
             setCargando(false);
         });
+
         return () => unsubscribe();
     }, []);
+
     const loginEmail = async (email: string, password: string) => {
         await signInWithEmailAndPassword(auth, email, password);
     };
+
     const loginGoogle = async () => {
         await signInWithPopup(auth, googleProvider);
     };
+
     const logout = async () => {
         await signOut(auth);
         setPerfil(null);
     };
+
     const registro = async (email: string, password: string, nombre: string) => {
         const credencial = await createUserWithEmailAndPassword(auth, email, password);
         const nuevoPerfil: UsuarioPerfil = {
             uid: credencial.user.uid,
             email,
             nombre,
-            rol: 'admin',
+            rol: 'recepcionista', // Todo usuario nuevo entra con permisos limitados
             activo: true,
-            fechaRegistro: new Date(),
-        };
-        await setDoc(doc(db, COLECCIONES.USUARIOS, credencial.user.uid), {
-            ...nuevoPerfil,
             fechaRegistro: serverTimestamp(),
-        });
+        };
+        await setDoc(doc(db, COLECCIONES.USUARIOS, credencial.user.uid), nuevoPerfil);
         setPerfil(nuevoPerfil);
     };
-    const tienePermiso = (modulo: string): boolean => {
-        if (!perfil) return false;
-        if (perfil.rol === 'admin') return true;
-        const permisos: Record<string, RolUsuario[]> = {
-            pos: ['vendedor'],
-            inventario: ['vendedor'],
-            ventas: ['vendedor'],
-            contabilidad: ['contador'],
-            gastos: ['contador'],
-            clientes: ['vendedor', 'contador'],
-            dashboard: ['vendedor', 'contador', 'lectura'],
-            cambio: ['vendedor', 'contador', 'lectura'],
-            configuracion: [],
-        };
-        return (permisos[modulo] || []).includes(perfil.rol);
-    };
+
     return (
         <AuthContext.Provider
-            value={{ usuario, perfil, cargando, loginEmail, loginGoogle, logout, registro, tienePermiso }}
+            value={{ usuario, perfil, cargando, loginEmail, loginGoogle, logout, registro }}
         >
-            {children}
+            {!cargando && children}
         </AuthContext.Provider>
     );
 }
+
 export function useAuth() {
     const context = useContext(AuthContext);
     if (!context) throw new Error('useAuth debe usarse dentro de AuthProvider');
