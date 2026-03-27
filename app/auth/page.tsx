@@ -13,12 +13,18 @@ export default function AuthPage() {
     const [errorMsg, setErrorMsg] = useState('');
     
     const router = useRouter();
-    const { login, perfil } = useAuth() as { login: any, perfil: any }; 
+    
+    // Aquí obligamos a TypeScript a entender que perfil tiene un rol string
+    const { login, perfil } = useAuth() as { 
+        login: any; 
+        perfil: { rol?: string } | null; 
+    }; 
 
-    // Redirección automática si ya está logueado
+    // Redirección automática blindada para TypeScript
     useEffect(() => {
         if (perfil?.rol) {
-            const rutaDestino = RUTA_INICIO_ROL[perfil.rol as RolUsuario] || '/pos';
+            const rolOficial = perfil.rol as RolUsuario;
+            const rutaDestino = RUTA_INICIO_ROL[rolOficial] || '/pos';
             router.replace(rutaDestino);
         }
     }, [perfil, router]);
@@ -35,11 +41,9 @@ export default function AuthPage() {
 
         try {
             await login(email, password);
-            // Si el login es exitoso, el useEffect de arriba se encargará de la redirección
         } catch (err: any) {
             console.error('Error al iniciar sesión:', err);
             
-            // Manejo de errores de Firebase Auth
             const codigoError = err?.code || '';
             if (codigoError === 'auth/user-not-found' || codigoError === 'auth/wrong-password' || codigoError === 'auth/invalid-credential') {
                 setErrorMsg('Credenciales incorrectas. Verifica tu correo y contraseña.');
