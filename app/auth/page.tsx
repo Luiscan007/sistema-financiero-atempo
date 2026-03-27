@@ -17,10 +17,8 @@ export default function AuthPage() {
     
     const router = useRouter();
     
-    // Importamos las funciones nativas de tu AuthProvider
     const { loginEmail, registro, perfil } = useAuth() as any; 
 
-    // Redirección automática si el usuario ya está autenticado
     useEffect(() => {
         if (perfil?.rol) {
             const rutaDestino = RUTA_INICIO_ROL[perfil.rol as RolUsuario] || '/pos';
@@ -39,7 +37,6 @@ export default function AuthPage() {
                 toast.success('¡Bienvenido de vuelta a Atempo!');
             } else {
                 if (!email || !password || !nombre) throw new Error("Completa todos los campos");
-                // Llamamos a la función registro que modificaremos en el siguiente paso
                 await registro(email, password, nombre);
                 toast.success('Cuenta creada exitosamente');
             }
@@ -60,19 +57,16 @@ export default function AuthPage() {
     return (
         <div className="min-h-screen flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden bg-[#050810]">
             
-            {/* FONDO DE LA ACADEMIA CON OVERLAY */}
             <div className="absolute inset-0 z-0">
                 <img 
                     src="https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?q=80&w=2069&auto=format&fit=crop" 
                     alt="Fondo Academia" 
                     className="w-full h-full object-cover opacity-20 mix-blend-luminosity"
                 />
-                {/* Gradiente para oscurecer y fusionar la imagen con la interfaz */}
                 <div className="absolute inset-0 bg-gradient-to-t from-[#050810] via-[#050810]/80 to-transparent z-10" />
                 <div className="absolute inset-0 bg-gradient-to-r from-[#050810] via-transparent to-[#050810] z-10" />
             </div>
 
-            {/* LUCES DINÁMICAS */}
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-blue-600/20 rounded-[100%] blur-[120px] pointer-events-none z-10" />
 
             <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-20">
@@ -82,7 +76,6 @@ export default function AuthPage() {
                     </div>
                 </div>
                 
-                {/* TEXTO ILUMINADO ATEMPO */}
                 <h2 className="text-center text-4xl font-extrabold tracking-tight mb-1">
                     <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-indigo-300 to-purple-400 drop-shadow-[0_0_15px_rgba(99,102,241,0.5)]">
                         ATEMPO
@@ -94,7 +87,6 @@ export default function AuthPage() {
             </div>
 
             <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-20">
-                {/* EFECTO GLASSMORPHISM */}
                 <div className="bg-[#0B1120]/70 backdrop-blur-2xl py-8 px-4 shadow-2xl sm:rounded-3xl sm:px-10 border border-white/10 ring-1 ring-inset ring-white/5">
                     
                     <div className="mb-6 text-center">
@@ -163,12 +155,11 @@ export default function AuthPage() {
                         </div>
                     </form>
 
-                    {/* TOGGLE MODO LOGIN / REGISTRO */}
                     <div className="mt-6 text-center">
                         <p className="text-xs text-slate-400">
                             {modo === 'login' ? '¿Eres nuevo en el equipo?' : '¿Ya tienes credenciales?'}
                             <button 
-                                onClick={() => { setModo(modo === 'login' ? 'registro' : 'login'); setErrorMsg(''); }} 
+                                onClick={() => { setModo(modo === 'login' ? 'registro' : 'login'); }} 
                                 className="ml-2 text-blue-400 hover:text-blue-300 font-bold transition-colors"
                             >
                                 {modo === 'login' ? 'Regístrate aquí' : 'Inicia Sesión'}
