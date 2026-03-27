@@ -100,15 +100,15 @@ export default function AppLayout({ children }: AppLayoutProps) {
     const { tasas, cargando: cargandoTasas, refrescar } = useTasas();
     const { tema, toggleTema } = useTema();
 
-    // FILTRO DINÁMICO DE MENÚ SEGÚN ROL
+    // FILTRO DINÁMICO DE MENÚ SEGÚN ROL (Forzando el tipo con as RolUsuario)
     const navItemsFiltrados = NAV_ITEMS.map(grupo => ({
         ...grupo,
-        items: grupo.items.filter(item => tienePermiso(perfil?.rol, item.href))
+        items: grupo.items.filter(item => tienePermiso(perfil?.rol as RolUsuario, item.href))
     })).filter(grupo => grupo.items.length > 0);
 
-    // BLINDAJE DE RUTAS
+    // BLINDAJE DE RUTAS (Forzando el tipo con as RolUsuario)
     useEffect(() => {
-        if (perfil?.rol && !tienePermiso(perfil.rol, pathname)) {
+        if (perfil?.rol && !tienePermiso(perfil.rol as RolUsuario, pathname)) {
             const rutaSegura = RUTA_INICIO_ROL[perfil.rol as RolUsuario] || '/pos';
             router.replace(rutaSegura);
         }
