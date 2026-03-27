@@ -97,18 +97,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const registro = async (email: string, password: string, nombre: string) => {
         const credencial = await createUserWithEmailAndPassword(auth, email, password);
+        
+        // 🚨 DICCIONARIO DE ASIGNACIÓN AUTOMÁTICA DE ROLES 🚨
+        // Pon aquí los correos exactos en minúsculas y el rol que les toca
+        const asignacionAutomatica: Record<string, RolUsuario> = {
+            'luis@atempo.com': 'admin',
+            'tluisjosue@mail.com': 'admin',
+            'camila@atempo.com': 'admin',
+            'rosibel@atempo.com': 'admin',
+            'recepcion@atempo.com': 'recepcionista',
+            'paco@atempo.com': 'profesor'
+            // Agrega más si los necesitas
+        };
+
+        const correoLimpio = email.trim().toLowerCase();
+        
+        // El sistema busca si el correo está en la lista. Si no está, le da 'recepcionista' por seguridad
+        const rolAsignado = asignacionAutomatica[correoLimpio] || 'recepcionista';
+
         const nuevoPerfil: UsuarioPerfil = {
             uid: credencial.user.uid,
             email,
             nombre,
-            rol: 'recepcionista', // Todo usuario nuevo entra con permisos limitados
+            rol: rolAsignado,
             activo: true,
-            fechaRegistro: serverTimestamp(),
+            fechaRegistro: new Date() // Usamos new Date() localmente antes de que Firebase sincronice
         };
-        await setDoc(doc(db, COLECCIONES.USUARIOS, credencial.user.uid), nuevoPerfil);
+        
+        await setDoc(doc(db, COLECCIONES.USUARIOS, credencial.user.uid), {
+            ...nuevoPerfil,
+            fechaRegistro: serverTimestamp(), // Guardamos el timestamp real en la BD
+        });
+        
         setPerfil(nuevoPerfil);
     };
-
     return (
         <AuthContext.Provider
             value={{ usuario, perfil, cargando, loginEmail, loginGoogle, logout, registro }}
