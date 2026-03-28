@@ -1,12 +1,234 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Activity, Mail, Lock, Loader2, Eye, EyeOff, User, ArrowRight } from 'lucide-react';
+import { Activity, Mail, Lock, Loader2, Eye, EyeOff, User, ArrowRight, Sparkles } from 'lucide-react';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { RUTA_INICIO_ROL, RolUsuario } from '@/lib/roles';
 import toast from 'react-hot-toast';
-import { cn } from '@/lib/utils'; // Asegúrate de tener esta utilidad para clases condicionales
+
+/* ─────────────────────────────────────────────
+   ESTILOS EN LÍNEA — no dependen de Tailwind
+   para los efectos más avanzados
+───────────────────────────────────────────── */
+const styles = `
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700&display=swap');
+
+  @keyframes shimmer {
+    0%   { background-position: -200% center; }
+    100% { background-position:  200% center; }
+  }
+  @keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 0 20px rgba(220,38,38,0.3), 0 0 60px rgba(220,38,38,0.1); }
+    50%       { box-shadow: 0 0 40px rgba(220,38,38,0.6), 0 0 100px rgba(220,38,38,0.2); }
+  }
+  @keyframes float {
+    0%, 100% { transform: translateY(0px) rotate(0deg); }
+    33%       { transform: translateY(-8px) rotate(1deg); }
+    66%       { transform: translateY(4px) rotate(-1deg); }
+  }
+  @keyframes scan-line {
+    0%   { transform: translateY(-100%); opacity: 0; }
+    10%  { opacity: 1; }
+    90%  { opacity: 1; }
+    100% { transform: translateY(400%); opacity: 0; }
+  }
+  @keyframes flicker {
+    0%, 95%, 100% { opacity: 1; }
+    96%            { opacity: 0.4; }
+    97%            { opacity: 1; }
+    98%            { opacity: 0.6; }
+  }
+  @keyframes slide-up-fade {
+    from { opacity: 0; transform: translateY(24px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes slide-panel {
+    from { opacity: 0; transform: translateX(30px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+  @keyframes diagonal-reveal {
+    from { clip-path: polygon(0 0, 0 0, 0 100%, 0 100%); }
+    to   { clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); }
+  }
+  @keyframes exit-left {
+    from { opacity: 1; transform: translateX(0); }
+    to   { opacity: 0; transform: translateX(-40px); }
+  }
+  @keyframes exit-right {
+    from { opacity: 1; transform: translateX(0); }
+    to   { opacity: 0; transform: translateX(40px); }
+  }
+
+  .atempo-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(3rem, 8vw, 5.5rem);
+    letter-spacing: 0.08em;
+    background: linear-gradient(
+      90deg,
+      #dc2626 0%,
+      #ef4444 15%,
+      #fbbf24 30%,
+      #fef3c7 45%,
+      #fbbf24 60%,
+      #ef4444 75%,
+      #dc2626 90%,
+      #ef4444 100%
+    );
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: shimmer 4s linear infinite, flicker 8s ease-in-out infinite;
+    filter: drop-shadow(0 0 20px rgba(220,38,38,0.5));
+  }
+
+  .form-input {
+    width: 100%;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    padding: 14px 16px 14px 44px;
+    color: white;
+    font-family: 'Outfit', sans-serif;
+    font-size: 14px;
+    transition: all 0.3s ease;
+    outline: none;
+  }
+  .form-input:focus {
+    background: rgba(255,255,255,0.07);
+    border-color: rgba(220,38,38,0.5);
+    box-shadow: 0 0 0 3px rgba(220,38,38,0.1), inset 0 0 20px rgba(220,38,38,0.03);
+  }
+  .form-input::placeholder { color: rgba(255,255,255,0.25); }
+
+  .btn-primary {
+    width: 100%;
+    padding: 15px;
+    border-radius: 12px;
+    font-family: 'Outfit', sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    cursor: pointer;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+  }
+  .btn-login {
+    background: linear-gradient(135deg, #dc2626, #b91c1c);
+    color: white;
+    box-shadow: 0 4px 24px rgba(220,38,38,0.35);
+    animation: pulse-glow 3s ease-in-out infinite;
+  }
+  .btn-login:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 32px rgba(220,38,38,0.5);
+  }
+  .btn-registro {
+    background: linear-gradient(135deg, #d97706, #b45309);
+    color: white;
+    box-shadow: 0 4px 24px rgba(217,119,6,0.35);
+  }
+  .btn-registro:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 32px rgba(217,119,6,0.5);
+  }
+  .btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    animation: none;
+  }
+
+  .tab-btn {
+    font-family: 'Outfit', sans-serif;
+    font-weight: 600;
+    font-size: 13px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 10px 28px;
+    border-radius: 8px;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    transition: all 0.3s ease;
+  }
+  .tab-btn.active {
+    background: rgba(220,38,38,0.15);
+    color: #ef4444;
+    box-shadow: inset 0 0 0 1px rgba(220,38,38,0.3);
+  }
+  .tab-btn.inactive {
+    color: rgba(255,255,255,0.35);
+  }
+  .tab-btn.inactive:hover { color: rgba(255,255,255,0.6); }
+
+  .panel-enter  { animation: slide-panel 0.45s cubic-bezier(0.22,1,0.36,1) forwards; }
+  .panel-exit-l { animation: exit-left  0.3s ease forwards; }
+  .panel-exit-r { animation: exit-right 0.3s ease forwards; }
+
+  .logo-box {
+    animation: float 6s ease-in-out infinite, pulse-glow 3s ease-in-out infinite;
+  }
+
+  .diagonal-bg {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(125deg,
+      rgba(30,0,0,0.95) 0%,
+      rgba(15,0,0,0.98) 40%,
+      rgba(5,5,15,0.99) 60%,
+      rgba(0,0,10,1) 100%
+    );
+  }
+
+  .scan-line {
+    position: absolute;
+    left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(220,38,38,0.4), transparent);
+    animation: scan-line 6s linear infinite;
+    pointer-events: none;
+  }
+
+  .label-text {
+    font-family: 'Outfit', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(234,179,8,0.7);
+    margin-bottom: 8px;
+    display: block;
+  }
+
+  .divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+    margin: 20px 0;
+  }
+
+  /* Transición de salida hacia el dashboard */
+  .page-exit {
+    animation: diagonal-reveal 0.8s cubic-bezier(0.76, 0, 0.24, 1) reverse forwards;
+  }
+
+  /* Partículas de fondo */
+  .particle {
+    position: absolute;
+    border-radius: 50%;
+    pointer-events: none;
+    animation: float var(--dur, 8s) ease-in-out infinite;
+    animation-delay: var(--delay, 0s);
+  }
+`;
 
 export default function AuthPage() {
     const [modo, setModo] = useState<'login' | 'registro'>('login');
@@ -15,17 +237,33 @@ export default function AuthPage() {
     const [nombre, setNombre] = useState('');
     const [mostrarPwd, setMostrarPwd] = useState(false);
     const [cargando, setCargando] = useState(false);
-    
-    const router = useRouter();
-    const { loginEmail, registro, perfil } = useAuth() as any; 
+    const [saliendo, setSaliendo] = useState(false);
+    const [animPanel, setAnimPanel] = useState<'enter' | 'exit-l' | 'exit-r'>('enter');
 
-    // Redirección automática si el usuario ya está autenticado
+    const router = useRouter();
+    const { loginEmail, registro, perfil } = useAuth() as any;
+
     useEffect(() => {
         if (perfil?.rol) {
-            const rutaDestino = RUTA_INICIO_ROL[perfil.rol as RolUsuario] || '/pos';
-            router.replace(rutaDestino);
+            setSaliendo(true);
+            setTimeout(() => {
+                const rutaDestino = RUTA_INICIO_ROL[perfil.rol as RolUsuario] || '/pos';
+                router.replace(rutaDestino);
+            }, 700);
         }
     }, [perfil, router]);
+
+    const cambiarModo = (nuevoModo: 'login' | 'registro') => {
+        if (nuevoModo === modo) return;
+        setAnimPanel(nuevoModo === 'registro' ? 'exit-l' : 'exit-r');
+        setTimeout(() => {
+            setModo(nuevoModo);
+            setAnimPanel('enter');
+            setEmail('');
+            setPassword('');
+            setNombre('');
+        }, 280);
+    };
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -33,7 +271,7 @@ export default function AuthPage() {
         try {
             if (!email || !password) throw new Error("Faltan credenciales");
             await loginEmail(email, password);
-            toast.success('¡Bienvenido de vuelta a Atempo!');
+            toast.success('¡Bienvenido de vuelta!');
         } catch (err: any) {
             manejarError(err);
         }
@@ -55,193 +293,397 @@ export default function AuthPage() {
         console.error('Error de autenticación:', err);
         const code = err?.code || '';
         if (code === 'auth/user-not-found' || code === 'auth/wrong-password' || code === 'auth/invalid-credential') {
-            toast.error('Credenciales incorrectas. Verifica tus datos.');
+            toast.error('Credenciales incorrectas.');
         } else if (code === 'auth/email-already-in-use') {
             toast.error('Este correo ya está registrado.');
         } else {
-            toast.error(err.message || 'Error de conexión. Intenta de nuevo.');
+            toast.error(err.message || 'Error de conexión.');
         }
         setCargando(false);
     };
 
+    const panelClass = animPanel === 'enter'
+        ? 'panel-enter'
+        : animPanel === 'exit-l'
+        ? 'panel-exit-l'
+        : 'panel-exit-r';
+
     return (
-        <div className="min-h-screen flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden bg-black">
-            
-            {/* Split Background con Desplazamiento y Transición Súper Fluida */}
-            {/* Usamos duration-[1200ms] y ease-in-out para una animación mucho más suave */}
-            <div className="absolute inset-0 z-0 flex transition-all duration-[1200ms] ease-in-out transform">
-                {/* Lado izquierdo con tu Foto de la Academia */}
-                <div className={cn('w-full transition-width duration-[1200ms] ease-in-out', modo === 'login' ? 'w-full' : 'w-0')}>
-                    <img 
-                        src="image.png-3acd7ffa-2edd-49f4-b2f0-0f8de33219fd" 
-                        alt="Fondo Atempo" 
-                        className="w-full h-full object-cover opacity-40 mix-blend-luminosity"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/80 to-transparent z-10" />
-                    <div className="absolute inset-0 bg-gradient-to-r from-black via-transparent to-black z-10" />
-                </div>
-                {/* Lado derecho Negro */}
-                <div className={cn('bg-black transition-width duration-[1200ms] ease-in-out', modo === 'login' ? 'w-0' : 'w-full')}>
-                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/80 to-transparent z-10" />
-                    <div className="absolute inset-0 bg-gradient-to-r from-black via-transparent to-black z-10" />
-                </div>
-            </div>
+        <>
+            <style>{styles}</style>
 
-            {/* Luces Dinámicas (Con Transiciones Suaves) */}
-            <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-red-600/20 rounded-full blur-[120px] pointer-events-none z-10 transition-all duration-[1200ms] ease-in-out" />
-            <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-blue-600/10 rounded-full blur-[120px] pointer-events-none z-10 transition-all duration-[1200ms] ease-in-out" />
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-yellow-500/10 rounded-full blur-[150px] pointer-events-none z-10 transition-all duration-[1200ms] ease-in-out" />
-
-            <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-20">
-                <div className="flex justify-center mb-4">
-                    <div className="w-20 h-20 bg-gradient-to-br from-black to-zinc-900 rounded-2xl flex items-center justify-center shadow-[0_0_40px_rgba(234,179,8,0.2)] ring-1 ring-yellow-500/30 relative overflow-hidden">
-                        <div className="absolute inset-0 bg-gradient-to-tr from-red-500/20 via-transparent to-blue-500/20 animate-pulse" />
-                        <Activity className="w-10 h-10 text-yellow-500 relative z-10" />
+            {/* Overlay de salida (transición al dashboard) */}
+            {saliendo && (
+                <div style={{
+                    position: 'fixed', inset: 0, zIndex: 9999,
+                    background: 'linear-gradient(135deg, #0a0000, #000005)',
+                    animation: 'diagonal-reveal 0.8s cubic-bezier(0.76,0,0.24,1) forwards',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                    <div style={{ textAlign: 'center' }}>
+                        <div className="atempo-title" style={{ fontSize: '4rem' }}>ATEMPO</div>
+                        <div style={{
+                            fontFamily: 'Outfit, sans-serif',
+                            color: 'rgba(255,255,255,0.4)',
+                            fontSize: 13,
+                            letterSpacing: '0.2em',
+                            textTransform: 'uppercase',
+                            marginTop: 8,
+                        }}>
+                            Cargando sistema…
+                        </div>
                     </div>
                 </div>
-                
-                {/* Texto Iluminado ATEMPO con Transiciones Suaves */}
-                <h2 className="text-center text-5xl font-extrabold tracking-tight mb-2 transition-all duration-[1200ms] ease-in-out">
-                    <span className="bg-clip-text text-transparent bg-gradient-to-r from-red-500 via-yellow-500 to-yellow-200 drop-shadow-[0_0_15px_rgba(234,179,8,0.4)] transition-all duration-[1200ms]">
-                        ATEMPO
-                    </span>
-                </h2>
-                <p className="text-center text-xs text-slate-300 font-medium tracking-[0.4em] uppercase mb-8 drop-shadow-md transition-all duration-[1200ms]">
-                    Sistema Financiero
-                </p>
-            </div>
+            )}
 
-            <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-20">
-                {/* Glassmorphism Panel con Borde de Luz (Height Adaptable) */}
-                <div className="bg-black/60 backdrop-blur-xl py-8 px-4 shadow-2xl sm:rounded-3xl border border-white/10 ring-1 ring-inset ring-yellow-500/20 relative overflow-hidden transition-all duration-[1200ms]">
-                    
-                    {/* Línea de luz animada en la parte superior */}
-                    <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-yellow-500 to-transparent opacity-50 animate-pulse" />
+            {/* PÁGINA PRINCIPAL */}
+            <div style={{
+                minHeight: '100vh',
+                display: 'flex',
+                background: '#000008',
+                fontFamily: 'Outfit, sans-serif',
+                overflow: 'hidden',
+                position: 'relative',
+            }}>
 
-                    <div className="mb-8 text-center transition-all duration-[1200ms]">
-                        <h3 className="text-xl font-bold text-white tracking-wide">
-                            {modo === 'login' ? 'Acceso al Sistema' : 'Registro de Personal'}
-                        </h3>
-                        <p className="text-sm text-slate-400 mt-2">
-                            {modo === 'login' ? 'Ingresa tus credenciales para continuar' : 'Crea tu cuenta corporativa'}
-                        </p>
-                    </div>
+                {/* ── FONDO AMBIENTAL ── */}
+                <div className="diagonal-bg" />
+                <div className="scan-line" style={{ top: '30%' }} />
 
-                    {/* TRACK DE DESLIZAMIENTO DE FORMULARIOS con Transición Súper Fluida */}
-                    <div className="relative w-full overflow-hidden">
-                        <div className={cn(
-                            "flex w-[200%] transition-transform duration-[1200ms] ease-in-out transform",
-                            modo === 'login' ? "translate-x-0" : "-translate-x-1/2"
-                        )}>
-                            
-                            {/* --- LADO IZQUIERDO: FORMULARIO LOGIN --- */}
-                            <div className="w-1/2 px-1">
-                                <form onSubmit={handleLogin} className="space-y-6">
-                                    <div className="animate-in fade-in duration-500">
-                                        <label className="block text-[11px] font-bold text-yellow-500/80 uppercase tracking-widest mb-2">Correo Corporativo</label>
-                                        <div className="relative group">
-                                            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><Mail className="h-4 w-4 text-slate-400 group-focus-within:text-yellow-500 transition-colors" /></div>
-                                            <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} disabled={cargando}
-                                                className="block w-full pl-11 pr-4 py-3.5 border border-white/10 rounded-xl bg-white/5 text-white placeholder-slate-500 focus:ring-1 focus:ring-yellow-500 focus:border-yellow-500 transition-all sm:text-sm"
-                                                placeholder="usuario@atempo.com"
-                                            />
-                                        </div>
-                                    </div>
+                {/* Luces ambientales */}
+                <div style={{
+                    position: 'absolute', top: '-10%', left: '-5%',
+                    width: 600, height: 600,
+                    background: 'radial-gradient(circle, rgba(220,38,38,0.12) 0%, transparent 70%)',
+                    pointerEvents: 'none', zIndex: 1,
+                    animation: 'float 10s ease-in-out infinite',
+                }} />
+                <div style={{
+                    position: 'absolute', bottom: '-10%', right: '10%',
+                    width: 500, height: 500,
+                    background: 'radial-gradient(circle, rgba(30,64,175,0.08) 0%, transparent 70%)',
+                    pointerEvents: 'none', zIndex: 1,
+                    animation: 'float 13s ease-in-out infinite',
+                    animationDelay: '-4s',
+                }} />
+                <div style={{
+                    position: 'absolute', top: '40%', left: '40%',
+                    width: 400, height: 400,
+                    background: 'radial-gradient(circle, rgba(234,179,8,0.05) 0%, transparent 70%)',
+                    pointerEvents: 'none', zIndex: 1,
+                }} />
 
-                                    <div className="animate-in fade-in duration-500 delay-100">
-                                        <label className="block text-[11px] font-bold text-yellow-500/80 uppercase tracking-widest mb-2">Contraseña</label>
-                                        <div className="relative group">
-                                            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><Lock className="h-4 w-4 text-slate-400 group-focus-within:text-yellow-500 transition-colors" /></div>
-                                            <input type={mostrarPwd ? 'text' : 'password'} required value={password} onChange={(e) => setPassword(e.target.value)} disabled={cargando}
-                                                className="block w-full pl-11 pr-12 py-3.5 border border-white/10 rounded-xl bg-white/5 text-white placeholder-slate-500 focus:ring-1 focus:ring-yellow-500 focus:border-yellow-500 transition-all sm:text-sm"
-                                                placeholder="••••••••"
-                                            />
-                                            <button type="button" onClick={() => setMostrarPwd(!mostrarPwd)} className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-yellow-500 transition-colors">
-                                                {mostrarPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                                            </button>
-                                        </div>
-                                    </div>
+                {/* Línea diagonal decorativa */}
+                <div style={{
+                    position: 'absolute', inset: 0, zIndex: 1, pointerEvents: 'none',
+                    background: 'linear-gradient(135deg, rgba(220,38,38,0.04) 49.9%, transparent 50%)',
+                }} />
 
-                                    {/* Reducimos el margen superior de mt-8 a mt-6 para Tight Layout */}
-                                    <div className="pt-4 mt-6 animate-in fade-in duration-500 delay-200">
-                                        <button type="submit" disabled={cargando}
-                                            className="w-full flex justify-center items-center py-4 px-4 rounded-xl shadow-[0_0_20px_rgba(220,38,38,0.2)] text-sm font-bold text-white bg-gradient-to-r from-red-600 via-red-500 to-red-600 hover:from-red-500 hover:to-red-400 transition-all disabled:opacity-50 group border border-red-400/30"
-                                        >
-                                            {cargando ? <Loader2 className="animate-spin h-5 w-5" /> : <>Ingresar al Sistema <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform"/></>}
-                                        </button>
-                                    </div>
-                                </form>
-                            </div>
-
-                            {/* --- LADO DERECHO: FORMULARIO REGISTRO --- */}
-                            <div className="w-1/2 px-1">
-                                <form onSubmit={handleRegistro} className="space-y-6">
-                                    <div className="animate-in fade-in duration-500">
-                                        <label className="block text-[11px] font-bold text-yellow-500/80 uppercase tracking-widest mb-2">Nombre Completo</label>
-                                        <div className="relative group">
-                                            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><User className="h-4 w-4 text-slate-400 group-focus-within:text-yellow-500 transition-colors" /></div>
-                                            <input type="text" required value={nombre} onChange={(e) => setNombre(e.target.value)} disabled={cargando}
-                                                className="block w-full pl-11 pr-4 py-3.5 border border-white/10 rounded-xl bg-white/5 text-white placeholder-slate-500 focus:ring-1 focus:ring-yellow-500 focus:border-yellow-500 transition-all sm:text-sm"
-                                                placeholder="Ej: Camila Ruiz"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="animate-in fade-in duration-500 delay-100">
-                                        <label className="block text-[11px] font-bold text-yellow-500/80 uppercase tracking-widest mb-2">Correo Corporativo</label>
-                                        <div className="relative group">
-                                            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><Mail className="h-4 w-4 text-slate-400 group-focus-within:text-yellow-500 transition-colors" /></div>
-                                            <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} disabled={cargando}
-                                                className="block w-full pl-11 pr-4 py-3.5 border border-white/10 rounded-xl bg-white/5 text-white placeholder-slate-500 focus:ring-1 focus:ring-yellow-500 focus:border-yellow-500 transition-all sm:text-sm"
-                                                placeholder="usuario@atempo.com"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="animate-in fade-in duration-500 delay-200">
-                                        <label className="block text-[11px] font-bold text-yellow-500/80 uppercase tracking-widest mb-2">Contraseña</label>
-                                        <div className="relative group">
-                                            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><Lock className="h-4 w-4 text-slate-400 group-focus-within:text-yellow-500 transition-colors" /></div>
-                                            <input type={mostrarPwd ? 'text' : 'password'} required value={password} onChange={(e) => setPassword(e.target.value)} disabled={cargando}
-                                                className="block w-full pl-11 pr-12 py-3.5 border border-white/10 rounded-xl bg-white/5 text-white placeholder-slate-500 focus:ring-1 focus:ring-yellow-500 focus:border-yellow-500 transition-all sm:text-sm"
-                                                placeholder="••••••••"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="pt-4 mt-6 animate-in fade-in duration-500 delay-300">
-                                        <button type="submit" disabled={cargando}
-                                            className="w-full flex justify-center items-center py-4 px-4 rounded-xl shadow-[0_0_20px_rgba(234,179,8,0.2)] text-sm font-bold text-black bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-400 hover:to-yellow-500 transition-all disabled:opacity-50 group border border-yellow-400/30"
-                                        >
-                                            {cargando ? <Loader2 className="animate-spin h-5 w-5" /> : <>Crear Cuenta Corporativa <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform"/></>}
-                                        </button>
-                                    </div>
-                                </form>
-                            </div>
+                {/* ── LADO IZQUIERDO: MARCA ── */}
+                <div style={{
+                    flex: '0 0 42%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'center',
+                    padding: '60px 48px',
+                    position: 'relative',
+                    zIndex: 2,
+                }}>
+                    {/* Logo */}
+                    <div style={{ marginBottom: 32, animation: 'slide-up-fade 0.8s ease forwards' }}>
+                        <div className="logo-box" style={{
+                            width: 72, height: 72,
+                            background: 'linear-gradient(135deg, #1a0000, #0d0d1a)',
+                            borderRadius: 18,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            border: '1px solid rgba(220,38,38,0.3)',
+                        }}>
+                            <Activity style={{ width: 36, height: 36, color: '#ef4444' }} />
                         </div>
                     </div>
 
-                    {/* BLOQUE LEGAL Y TÉRMINOS CON LAYOUT AJUSTADO */}
-                    {/* Reducimos el margen superior de mt-8 a mt-4 y pt-6 a pt-4 */}
-                    <div className="mt-4 pt-4 border-t border-white/10 text-center transition-all duration-[1200ms] ease-in-out">
-                        <p className="text-[11px] text-slate-400 leading-relaxed mb-4 px-2">
-                            Al continuar, confirmas que has leído y aceptas los <button className="text-yellow-500 font-bold hover:text-yellow-400 transition-colors">Términos de Servicio</button> y la <button className="text-yellow-500 font-bold hover:text-yellow-400 transition-colors">Política de Privacidad</button> de Atempo. Asegúrate de proporcionar información precisa y segura.
+                    {/* Título */}
+                    <div style={{ animation: 'slide-up-fade 0.8s ease 0.1s both' }}>
+                        <div className="atempo-title">ATEMPO</div>
+                        <div style={{
+                            fontFamily: 'Outfit, sans-serif',
+                            fontSize: 13,
+                            fontWeight: 500,
+                            letterSpacing: '0.25em',
+                            textTransform: 'uppercase',
+                            color: 'rgba(255,255,255,0.35)',
+                            marginTop: 4,
+                        }}>
+                            Sistema Financiero
+                        </div>
+                    </div>
+
+                    {/* Separador */}
+                    <div style={{
+                        width: 60, height: 2, marginTop: 32, marginBottom: 28,
+                        background: 'linear-gradient(90deg, #dc2626, transparent)',
+                        animation: 'slide-up-fade 0.8s ease 0.2s both',
+                    }} />
+
+                    {/* Mensaje de bienvenida */}
+                    <div style={{ animation: 'slide-up-fade 0.8s ease 0.3s both' }}>
+                        <h2 style={{
+                            fontFamily: 'Outfit, sans-serif',
+                            fontSize: 28, fontWeight: 700, color: 'white',
+                            lineHeight: 1.3, marginBottom: 12,
+                        }}>
+                            {modo === 'login' ? (
+                                <>Bienvenido<br /><span style={{ color: '#ef4444' }}>de vuelta</span></>
+                            ) : (
+                                <>Únete al<br /><span style={{ color: '#f59e0b' }}>equipo</span></>
+                            )}
+                        </h2>
+                        <p style={{
+                            fontSize: 14, color: 'rgba(255,255,255,0.4)',
+                            lineHeight: 1.7, maxWidth: 280,
+                        }}>
+                            {modo === 'login'
+                                ? 'Ingresa tus credenciales para acceder al panel de control de Atempo.'
+                                : 'Crea tu cuenta corporativa para acceder a todas las herramientas del estudio.'
+                            }
                         </p>
-                        
-                        <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 rounded-full border border-white/5 transition-colors hover:bg-white/10">
-                            <span className="text-xs text-slate-300">
-                                {modo === 'login' ? '¿Eres nuevo en el equipo?' : '¿Ya tienes credenciales?'}
+                    </div>
+
+                    {/* Stats decorativos */}
+                    <div style={{
+                        marginTop: 48, display: 'flex', gap: 24,
+                        animation: 'slide-up-fade 0.8s ease 0.4s both',
+                    }}>
+                        {[
+                            { label: 'Módulos', value: '12+' },
+                            { label: 'Agentes IA', value: '8' },
+                            { label: 'En vivo', value: '24/7' },
+                        ].map(stat => (
+                            <div key={stat.label}>
+                                <div style={{ fontSize: 22, fontWeight: 800, color: '#ef4444' }}>{stat.value}</div>
+                                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>{stat.label}</div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* ── LÍNEA DIVISORA DIAGONAL ── */}
+                <div style={{
+                    position: 'relative', zIndex: 2,
+                    width: 1,
+                    background: 'linear-gradient(180deg, transparent 0%, rgba(220,38,38,0.3) 30%, rgba(220,38,38,0.5) 50%, rgba(220,38,38,0.3) 70%, transparent 100%)',
+                    flexShrink: 0,
+                    transform: 'skewX(-3deg)',
+                }} />
+
+                {/* ── LADO DERECHO: FORMULARIO ── */}
+                <div style={{
+                    flex: 1,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'center',
+                    padding: '60px 56px',
+                    position: 'relative',
+                    zIndex: 2,
+                }}>
+
+                    {/* Tabs */}
+                    <div style={{
+                        display: 'inline-flex',
+                        background: 'rgba(255,255,255,0.04)',
+                        borderRadius: 10,
+                        padding: 4,
+                        marginBottom: 36,
+                        border: '1px solid rgba(255,255,255,0.06)',
+                        alignSelf: 'flex-start',
+                        animation: 'slide-up-fade 0.6s ease forwards',
+                    }}>
+                        <button
+                            className={`tab-btn ${modo === 'login' ? 'active' : 'inactive'}`}
+                            onClick={() => cambiarModo('login')}
+                        >
+                            Iniciar Sesión
+                        </button>
+                        <button
+                            className={`tab-btn ${modo === 'registro' ? 'active' : 'inactive'}`}
+                            onClick={() => cambiarModo('registro')}
+                            style={{ ...(modo === 'registro' ? { background: 'rgba(217,119,6,0.15)', color: '#f59e0b', boxShadow: 'inset 0 0 0 1px rgba(217,119,6,0.3)' } : {}) }}
+                        >
+                            Registrarse
+                        </button>
+                    </div>
+
+                    {/* Panel animado */}
+                    <div className={panelClass} style={{ maxWidth: 420 }}>
+
+                        {/* Título del formulario */}
+                        <h3 style={{
+                            fontFamily: 'Outfit, sans-serif',
+                            fontSize: 22, fontWeight: 700, color: 'white',
+                            marginBottom: 28,
+                        }}>
+                            {modo === 'login' ? 'Acceso al Sistema' : 'Crear Cuenta Corporativa'}
+                        </h3>
+
+                        <form onSubmit={modo === 'login' ? handleLogin : handleRegistro}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+
+                                {/* Campo Nombre (solo registro) */}
+                                {modo === 'registro' && (
+                                    <div>
+                                        <label className="label-text">Nombre Completo</label>
+                                        <div style={{ position: 'relative' }}>
+                                            <div style={{
+                                                position: 'absolute', left: 14, top: '50%',
+                                                transform: 'translateY(-50%)',
+                                                color: 'rgba(255,255,255,0.3)',
+                                            }}>
+                                                <User style={{ width: 16, height: 16 }} />
+                                            </div>
+                                            <input
+                                                type="text"
+                                                className="form-input"
+                                                placeholder="Ej: Camila Ruiz"
+                                                value={nombre}
+                                                onChange={e => setNombre(e.target.value)}
+                                                required
+                                                disabled={cargando}
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Campo Email */}
+                                <div>
+                                    <label className="label-text">Correo Electrónico</label>
+                                    <div style={{ position: 'relative' }}>
+                                        <div style={{
+                                            position: 'absolute', left: 14, top: '50%',
+                                            transform: 'translateY(-50%)',
+                                            color: 'rgba(255,255,255,0.3)',
+                                        }}>
+                                            <Mail style={{ width: 16, height: 16 }} />
+                                        </div>
+                                        <input
+                                            type="email"
+                                            className="form-input"
+                                            placeholder="usuario@atempo.com"
+                                            value={email}
+                                            onChange={e => setEmail(e.target.value)}
+                                            required
+                                            disabled={cargando}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Campo Contraseña */}
+                                <div>
+                                    <label className="label-text">Contraseña</label>
+                                    <div style={{ position: 'relative' }}>
+                                        <div style={{
+                                            position: 'absolute', left: 14, top: '50%',
+                                            transform: 'translateY(-50%)',
+                                            color: 'rgba(255,255,255,0.3)',
+                                        }}>
+                                            <Lock style={{ width: 16, height: 16 }} />
+                                        </div>
+                                        <input
+                                            type={mostrarPwd ? 'text' : 'password'}
+                                            className="form-input"
+                                            placeholder="••••••••"
+                                            value={password}
+                                            onChange={e => setPassword(e.target.value)}
+                                            required
+                                            disabled={cargando}
+                                            style={{ paddingRight: 48 }}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setMostrarPwd(!mostrarPwd)}
+                                            style={{
+                                                position: 'absolute', right: 14, top: '50%',
+                                                transform: 'translateY(-50%)',
+                                                background: 'none', border: 'none', cursor: 'pointer',
+                                                color: 'rgba(255,255,255,0.3)', padding: 0,
+                                                display: 'flex', alignItems: 'center',
+                                            }}
+                                        >
+                                            {mostrarPwd
+                                                ? <EyeOff style={{ width: 16, height: 16 }} />
+                                                : <Eye style={{ width: 16, height: 16 }} />
+                                            }
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Botón submit */}
+                                <div style={{ marginTop: 8 }}>
+                                    <button
+                                        type="submit"
+                                        disabled={cargando}
+                                        className={`btn-primary ${modo === 'login' ? 'btn-login' : 'btn-registro'}`}
+                                    >
+                                        {cargando ? (
+                                            <Loader2 style={{ width: 18, height: 18, animation: 'spin 1s linear infinite' }} />
+                                        ) : (
+                                            <>
+                                                {modo === 'login' ? 'Ingresar al Sistema' : 'Crear Cuenta'}
+                                                <ArrowRight style={{ width: 16, height: 16 }} />
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+
+                        <div className="divider" />
+
+                        {/* Link cambio de modo */}
+                        <div style={{ textAlign: 'center' }}>
+                            <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.3)' }}>
+                                {modo === 'login' ? '¿Eres nuevo en el equipo? ' : '¿Ya tienes cuenta? '}
                             </span>
-                            <button 
-                                onClick={() => setModo(modo === 'login' ? 'registro' : 'login')} 
-                                className="text-xs text-yellow-500 hover:text-yellow-400 font-bold tracking-wide uppercase transition-colors"
+                            <button
+                                onClick={() => cambiarModo(modo === 'login' ? 'registro' : 'login')}
+                                style={{
+                                    background: 'none', border: 'none', cursor: 'pointer',
+                                    fontSize: 13, fontWeight: 700,
+                                    color: modo === 'login' ? '#f59e0b' : '#ef4444',
+                                    fontFamily: 'Outfit, sans-serif',
+                                    textDecoration: 'underline',
+                                    textUnderlineOffset: 3,
+                                }}
                             >
                                 {modo === 'login' ? 'Regístrate' : 'Inicia Sesión'}
                             </button>
                         </div>
+
+                        {/* Legal */}
+                        <div style={{ marginTop: 20, textAlign: 'center' }}>
+                            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.2)', lineHeight: 1.6 }}>
+                                Al continuar aceptas los{' '}
+                                <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(234,179,8,0.5)', fontSize: 11, fontFamily: 'Outfit, sans-serif' }}>
+                                    Términos de Servicio
+                                </button>
+                                {' '}y la{' '}
+                                <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(234,179,8,0.5)', fontSize: 11, fontFamily: 'Outfit, sans-serif' }}>
+                                    Política de Privacidad
+                                </button>
+                            </p>
+                        </div>
                     </div>
                 </div>
+
             </div>
-        </div>
+
+            {/* Keyframe de spin para Loader */}
+            <style>{`
+              @keyframes spin { to { transform: rotate(360deg); } }
+              @keyframes diagonal-reveal {
+                from { clip-path: polygon(0 0, 0 0, 0 100%, 0% 100%); }
+                to   { clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); }
+              }
+            `}</style>
+        </>
     );
 }
