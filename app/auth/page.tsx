@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Activity, Mail, Lock, Loader2, Eye, EyeOff, User, ArrowRight } from 'lucide-react';
+import { Activity, Mail, Lock, Loader2, Eye, EyeOff, User, ArrowRight, X } from 'lucide-react';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { RUTA_INICIO_ROL, RolUsuario } from '@/lib/roles';
 import toast from 'react-hot-toast';
+import { cn } from '@/lib/utils'; // Asegúrate de tener esta utilidad para clases condicionales
 
 export default function AuthPage() {
     const [modo, setModo] = useState<'login' | 'registro'>('login');
@@ -59,19 +60,26 @@ export default function AuthPage() {
     return (
         <div className="min-h-screen flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden bg-black">
             
-            {/* FONDO DE LA ACADEMIA CON OVERLAY */}
-            <div className="absolute inset-0 z-0">
-                <img 
-                    src="https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?q=80&w=2069&auto=format&fit=crop" 
-                    alt="Fondo Academia Atempo" 
-                    className="w-full h-full object-cover opacity-30 mix-blend-luminosity grayscale"
-                />
-                {/* Degradados para oscurecer y fusionar la imagen con la interfaz */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/80 to-transparent z-10" />
-                <div className="absolute inset-0 bg-gradient-to-r from-black via-transparent to-black z-10" />
+            {/* Split Background con Desplazamiento */}
+            <div className="absolute inset-0 z-0 flex transition-all duration-500 ease-in-out">
+                {/* Lado izquierdo con Imagen */}
+                <div className={cn('w-full transition-width duration-500 ease-in-out', modo === 'login' ? 'w-full' : 'w-0')}>
+                    <img 
+                        src="https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?q=80&w=2069&auto=format&fit=crop" 
+                        alt="Fondo Academia Atempo - Izquierda" 
+                        className="w-full h-full object-cover opacity-20 mix-blend-luminosity grayscale"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/80 to-transparent z-10" />
+                    <div className="absolute inset-0 bg-gradient-to-r from-black via-transparent to-black z-10" />
+                </div>
+                {/* Lado derecho Negro */}
+                <div className={cn('bg-black transition-width duration-500 ease-in-out', modo === 'login' ? 'w-0' : 'w-full')}>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/80 to-transparent z-10" />
+                    <div className="absolute inset-0 bg-gradient-to-r from-black via-transparent to-black z-10" />
+                </div>
             </div>
 
-            {/* LUCES DINÁMICAS: Rojo, Dorado, Azul */}
+            {/* Luces Dinámicas */}
             <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-red-600/20 rounded-full blur-[120px] pointer-events-none z-10" />
             <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-blue-600/10 rounded-full blur-[120px] pointer-events-none z-10" />
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-yellow-500/10 rounded-full blur-[150px] pointer-events-none z-10" />
@@ -84,7 +92,7 @@ export default function AuthPage() {
                     </div>
                 </div>
                 
-                {/* TEXTO ILUMINADO ATEMPO */}
+                {/* Texto Iluminado ATEMPO */}
                 <h2 className="text-center text-5xl font-extrabold tracking-tight mb-2">
                     <span className="bg-clip-text text-transparent bg-gradient-to-r from-red-500 via-yellow-500 to-yellow-200 drop-shadow-[0_0_15px_rgba(234,179,8,0.4)]">
                         ATEMPO
@@ -96,7 +104,7 @@ export default function AuthPage() {
             </div>
 
             <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-20">
-                {/* EFECTO GLASSMORPHISM PREMIUM */}
+                {/* Glassmorphism Panel con Borde de Luz */}
                 <div className="bg-black/60 backdrop-blur-xl py-8 px-4 shadow-2xl sm:rounded-3xl sm:px-10 border border-white/10 ring-1 ring-inset ring-yellow-500/20 relative overflow-hidden">
                     
                     {/* Línea de luz animada en la parte superior del cuadro */}
@@ -113,7 +121,7 @@ export default function AuthPage() {
 
                     <form className="space-y-6" onSubmit={handleSubmit}>
                         
-                        {/* TRANSICIÓN FLUIDA PARA EL REGISTRO */}
+                        {/* Transición Fluida para el Registro */}
                         {modo === 'registro' && (
                             <div className="animate-in fade-in slide-in-from-top-4 duration-500">
                                 <label className="block text-[11px] font-bold text-yellow-500/80 uppercase tracking-widest mb-2">Nombre Completo</label>
@@ -169,7 +177,7 @@ export default function AuthPage() {
                         </div>
                     </form>
 
-                    {/* TOGGLE MODO LOGIN / REGISTRO */}
+                    {/* Toggle Modo Login / Registro */}
                     <div className="mt-8 text-center animate-in fade-in duration-500 delay-500">
                         <p className="text-xs text-slate-400">
                             {modo === 'login' ? '¿Eres nuevo en el equipo?' : '¿Ya tienes credenciales?'}
