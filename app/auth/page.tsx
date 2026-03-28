@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Activity, Mail, Lock, AlertCircle, Loader2, Eye, EyeOff, User, ArrowRight } from 'lucide-react';
+import { Activity, Mail, Lock, Loader2, Eye, EyeOff, User, ArrowRight } from 'lucide-react';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { RUTA_INICIO_ROL, RolUsuario } from '@/lib/roles';
 import toast from 'react-hot-toast';
@@ -17,8 +17,10 @@ export default function AuthPage() {
     
     const router = useRouter();
     
+    // Importamos las funciones nativas de tu AuthProvider
     const { loginEmail, registro, perfil } = useAuth() as any; 
 
+    // Redirección automática si el usuario ya está autenticado
     useEffect(() => {
         if (perfil?.rol) {
             const rutaDestino = RUTA_INICIO_ROL[perfil.rol as RolUsuario] || '/pos';
@@ -55,96 +57,108 @@ export default function AuthPage() {
     };
 
     return (
-        <div className="min-h-screen flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden bg-[#050810]">
+        <div className="min-h-screen flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden bg-black">
             
+            {/* FONDO DE LA ACADEMIA CON OVERLAY */}
             <div className="absolute inset-0 z-0">
                 <img 
                     src="https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?q=80&w=2069&auto=format&fit=crop" 
-                    alt="Fondo Academia" 
-                    className="w-full h-full object-cover opacity-20 mix-blend-luminosity"
+                    alt="Fondo Academia Atempo" 
+                    className="w-full h-full object-cover opacity-30 mix-blend-luminosity grayscale"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#050810] via-[#050810]/80 to-transparent z-10" />
-                <div className="absolute inset-0 bg-gradient-to-r from-[#050810] via-transparent to-[#050810] z-10" />
+                {/* Degradados para oscurecer y fusionar la imagen con la interfaz */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/80 to-transparent z-10" />
+                <div className="absolute inset-0 bg-gradient-to-r from-black via-transparent to-black z-10" />
             </div>
 
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-blue-600/20 rounded-[100%] blur-[120px] pointer-events-none z-10" />
+            {/* LUCES DINÁMICAS: Rojo, Dorado, Azul */}
+            <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-red-600/20 rounded-full blur-[120px] pointer-events-none z-10" />
+            <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-blue-600/10 rounded-full blur-[120px] pointer-events-none z-10" />
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-yellow-500/10 rounded-full blur-[150px] pointer-events-none z-10" />
 
             <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-20">
-                <div className="flex justify-center mb-2">
-                    <div className="w-16 h-16 bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-[0_0_30px_rgba(59,130,246,0.5)] ring-1 ring-white/20">
-                        <Activity className="w-8 h-8 text-white" />
+                <div className="flex justify-center mb-4">
+                    <div className="w-20 h-20 bg-gradient-to-br from-black to-zinc-900 rounded-2xl flex items-center justify-center shadow-[0_0_40px_rgba(234,179,8,0.2)] ring-1 ring-yellow-500/30 relative overflow-hidden">
+                        <div className="absolute inset-0 bg-gradient-to-tr from-red-500/20 via-transparent to-blue-500/20" />
+                        <Activity className="w-10 h-10 text-yellow-500 relative z-10" />
                     </div>
                 </div>
                 
-                <h2 className="text-center text-4xl font-extrabold tracking-tight mb-1">
-                    <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-indigo-300 to-purple-400 drop-shadow-[0_0_15px_rgba(99,102,241,0.5)]">
+                {/* TEXTO ILUMINADO ATEMPO */}
+                <h2 className="text-center text-5xl font-extrabold tracking-tight mb-2">
+                    <span className="bg-clip-text text-transparent bg-gradient-to-r from-red-500 via-yellow-500 to-yellow-200 drop-shadow-[0_0_15px_rgba(234,179,8,0.4)]">
                         ATEMPO
                     </span>
                 </h2>
-                <p className="text-center text-xs text-blue-200/60 font-medium tracking-[0.3em] uppercase mb-8">
+                <p className="text-center text-xs text-slate-300 font-medium tracking-[0.4em] uppercase mb-8 drop-shadow-md">
                     Business Core
                 </p>
             </div>
 
             <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-20">
-                <div className="bg-[#0B1120]/70 backdrop-blur-2xl py-8 px-4 shadow-2xl sm:rounded-3xl sm:px-10 border border-white/10 ring-1 ring-inset ring-white/5">
+                {/* EFECTO GLASSMORPHISM PREMIUM */}
+                <div className="bg-black/60 backdrop-blur-xl py-8 px-4 shadow-2xl sm:rounded-3xl sm:px-10 border border-white/10 ring-1 ring-inset ring-yellow-500/20 relative overflow-hidden">
                     
-                    <div className="mb-6 text-center">
-                        <h3 className="text-lg font-bold text-white">
+                    {/* Línea de luz animada en la parte superior del cuadro */}
+                    <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-yellow-500 to-transparent opacity-50" />
+
+                    <div className="mb-8 text-center">
+                        <h3 className="text-xl font-bold text-white tracking-wide">
                             {modo === 'login' ? 'Acceso al Sistema' : 'Registro de Personal'}
                         </h3>
-                        <p className="text-sm text-slate-400 mt-1">
+                        <p className="text-sm text-slate-400 mt-2">
                             {modo === 'login' ? 'Ingresa tus credenciales para continuar' : 'Crea tu cuenta corporativa'}
                         </p>
                     </div>
 
-                    <form className="space-y-5" onSubmit={handleSubmit}>
+                    <form className="space-y-6" onSubmit={handleSubmit}>
                         
+                        {/* TRANSICIÓN FLUIDA PARA EL REGISTRO */}
                         {modo === 'registro' && (
-                            <div className="animate-in fade-in slide-in-from-top-2 duration-300">
-                                <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Nombre Completo</label>
-                                <div className="relative">
-                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><User className="h-4 w-4 text-slate-500" /></div>
+                            <div className="animate-in fade-in slide-in-from-top-4 duration-500">
+                                <label className="block text-[11px] font-bold text-yellow-500/80 uppercase tracking-widest mb-2">Nombre Completo</label>
+                                <div className="relative group">
+                                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><User className="h-4 w-4 text-slate-400 group-focus-within:text-yellow-500 transition-colors" /></div>
                                     <input
                                         type="text" required value={nombre} onChange={(e) => setNombre(e.target.value)} disabled={cargando}
-                                        className="block w-full pl-10 pr-3 py-3 border border-white/10 rounded-xl bg-black/40 text-white placeholder-slate-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all sm:text-sm"
+                                        className="block w-full pl-11 pr-4 py-3.5 border border-white/10 rounded-xl bg-white/5 text-white placeholder-slate-500 focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500/50 transition-all sm:text-sm"
                                         placeholder="Ej: Camila Ruiz"
                                     />
                                 </div>
                             </div>
                         )}
 
-                        <div>
-                            <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Correo Corporativo</label>
-                            <div className="relative">
-                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Mail className="h-4 w-4 text-slate-500" /></div>
+                        <div className="animate-in fade-in duration-500 delay-100">
+                            <label className="block text-[11px] font-bold text-yellow-500/80 uppercase tracking-widest mb-2">Correo Corporativo</label>
+                            <div className="relative group">
+                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><Mail className="h-4 w-4 text-slate-400 group-focus-within:text-yellow-500 transition-colors" /></div>
                                 <input
                                     type="email" required value={email} onChange={(e) => setEmail(e.target.value)} disabled={cargando}
-                                    className="block w-full pl-10 pr-3 py-3 border border-white/10 rounded-xl bg-black/40 text-white placeholder-slate-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all sm:text-sm"
+                                    className="block w-full pl-11 pr-4 py-3.5 border border-white/10 rounded-xl bg-white/5 text-white placeholder-slate-500 focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500/50 transition-all sm:text-sm"
                                     placeholder="usuario@atempo.com"
                                 />
                             </div>
                         </div>
 
-                        <div>
-                            <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Contraseña</label>
-                            <div className="relative">
-                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Lock className="h-4 w-4 text-slate-500" /></div>
+                        <div className="animate-in fade-in duration-500 delay-200">
+                            <label className="block text-[11px] font-bold text-yellow-500/80 uppercase tracking-widest mb-2">Contraseña</label>
+                            <div className="relative group">
+                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><Lock className="h-4 w-4 text-slate-400 group-focus-within:text-yellow-500 transition-colors" /></div>
                                 <input
                                     type={mostrarPwd ? 'text' : 'password'} required value={password} onChange={(e) => setPassword(e.target.value)} disabled={cargando}
-                                    className="block w-full pl-10 pr-10 py-3 border border-white/10 rounded-xl bg-black/40 text-white placeholder-slate-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all sm:text-sm"
+                                    className="block w-full pl-11 pr-12 py-3.5 border border-white/10 rounded-xl bg-white/5 text-white placeholder-slate-500 focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500/50 transition-all sm:text-sm"
                                     placeholder="••••••••"
                                 />
-                                <button type="button" onClick={() => setMostrarPwd(!mostrarPwd)} className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 hover:text-white transition-colors">
+                                <button type="button" onClick={() => setMostrarPwd(!mostrarPwd)} className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-yellow-500 transition-colors">
                                     {mostrarPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                                 </button>
                             </div>
                         </div>
 
-                        <div className="pt-2">
+                        <div className="pt-4 animate-in fade-in duration-500 delay-300">
                             <button
                                 type="submit" disabled={cargando}
-                                className="w-full flex justify-center items-center py-3.5 px-4 rounded-xl shadow-[0_0_20px_rgba(37,99,235,0.3)] text-sm font-bold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 focus:ring-offset-[#0B1120] transition-all disabled:opacity-50 group"
+                                className="w-full flex justify-center items-center py-4 px-4 rounded-xl shadow-[0_0_20px_rgba(220,38,38,0.2)] text-sm font-bold text-white bg-gradient-to-r from-red-600 via-red-500 to-red-600 hover:from-red-500 hover:to-red-400 focus:ring-2 focus:ring-offset-2 focus:ring-red-500 focus:ring-offset-black transition-all disabled:opacity-50 group border border-red-400/30"
                             >
                                 {cargando ? (
                                     <><Loader2 className="animate-spin -ml-1 mr-2 h-5 w-5" /> Procesando...</>
@@ -155,22 +169,16 @@ export default function AuthPage() {
                         </div>
                     </form>
 
-                    <div className="mt-6 text-center">
+                    {/* TOGGLE MODO LOGIN / REGISTRO */}
+                    <div className="mt-8 text-center animate-in fade-in duration-500 delay-500">
                         <p className="text-xs text-slate-400">
                             {modo === 'login' ? '¿Eres nuevo en el equipo?' : '¿Ya tienes credenciales?'}
                             <button 
                                 onClick={() => { setModo(modo === 'login' ? 'registro' : 'login'); }} 
-                                className="ml-2 text-blue-400 hover:text-blue-300 font-bold transition-colors"
+                                className="ml-2 text-yellow-500 hover:text-yellow-400 font-bold transition-colors underline decoration-yellow-500/30 underline-offset-4"
                             >
                                 {modo === 'login' ? 'Regístrate aquí' : 'Inicia Sesión'}
                             </button>
-                        </p>
-                    </div>
-
-                    <div className="mt-8 pt-6 border-t border-white/10 flex items-start gap-3">
-                        <AlertCircle className="w-5 h-5 text-amber-500/70 flex-shrink-0 mt-0.5" />
-                        <p className="text-[10px] text-slate-500 leading-relaxed">
-                            Acceso restringido. El sistema monitorea la IP y la actividad. Al registrarte o iniciar sesión, aceptas las políticas de seguridad de ATEMPO Financial Systems.
                         </p>
                     </div>
                 </div>
