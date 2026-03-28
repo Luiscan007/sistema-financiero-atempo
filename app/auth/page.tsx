@@ -2,11 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Activity, Mail, Lock, Loader2, Eye, EyeOff, User, ArrowRight } from 'lucide-react';
+import { Activity, Mail, Lock, Loader2, Eye, EyeOff, User, ArrowRight, X } from 'lucide-react';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { RUTA_INICIO_ROL, RolUsuario } from '@/lib/roles';
 import toast from 'react-hot-toast';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils'; // Asegúrate de tener esta utilidad para clases condicionales
 
 export default function AuthPage() {
     const [modo, setModo] = useState<'login' | 'registro'>('login');
@@ -17,8 +17,11 @@ export default function AuthPage() {
     const [cargando, setCargando] = useState(false);
     
     const router = useRouter();
+    
+    // Importamos las funciones nativas de tu AuthProvider
     const { loginEmail, registro, perfil } = useAuth() as any; 
 
+    // Redirección automática si el usuario ya está autenticado
     useEffect(() => {
         if (perfil?.rol) {
             const rutaDestino = RUTA_INICIO_ROL[perfil.rol as RolUsuario] || '/pos';
@@ -55,177 +58,145 @@ export default function AuthPage() {
     };
 
     return (
-        <div className="min-h-screen flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden bg-[#0a0a0a]">
+        <div className="min-h-screen flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden bg-black">
             
-            {/* 1. FONDO CON EFECTO PARALLAX (Se mueve al cambiar de modo) */}
-            <div className={cn(
-                "absolute inset-0 z-0 transition-transform duration-1000 ease-in-out scale-105",
-                modo === 'registro' ? "-translate-x-8" : "translate-x-0"
-            )}>
-                <img 
-                    src="https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?q=80&w=2069&auto=format&fit=crop" 
-                    alt="Fondo Academia Atempo" 
-                    className="w-full h-full object-cover opacity-20 mix-blend-luminosity grayscale"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a]/80 to-transparent z-10" />
-                <div className="absolute inset-0 bg-gradient-to-r from-[#0a0a0a] via-transparent to-[#0a0a0a] z-10" />
+            {/* Split Background con Desplazamiento */}
+            <div className="absolute inset-0 z-0 flex transition-all duration-500 ease-in-out">
+                {/* Lado izquierdo con Imagen */}
+                <div className={cn('w-full transition-width duration-500 ease-in-out', modo === 'login' ? 'w-full' : 'w-0')}>
+                    <img 
+                        src="https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?q=80&w=2069&auto=format&fit=crop" 
+                        alt="Fondo Academia Atempo - Izquierda" 
+                        className="w-full h-full object-cover opacity-20 mix-blend-luminosity grayscale"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/80 to-transparent z-10" />
+                    <div className="absolute inset-0 bg-gradient-to-r from-black via-transparent to-black z-10" />
+                </div>
+                {/* Lado derecho Negro */}
+                <div className={cn('bg-black transition-width duration-500 ease-in-out', modo === 'login' ? 'w-0' : 'w-full')}>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/80 to-transparent z-10" />
+                    <div className="absolute inset-0 bg-gradient-to-r from-black via-transparent to-black z-10" />
+                </div>
             </div>
 
-            {/* 2. MOTOR DE LUCES (Atempo Colors: Rojo, Dorado) */}
-            <div className={cn(
-                "absolute top-0 left-1/4 w-[600px] h-[600px] bg-red-600/20 rounded-full blur-[150px] pointer-events-none z-10 transition-all duration-1000",
-                modo === 'registro' ? "translate-x-1/2 opacity-40" : "opacity-20"
-            )} />
-            <div className={cn(
-                "absolute bottom-0 right-1/4 w-[600px] h-[600px] bg-yellow-500/10 rounded-full blur-[150px] pointer-events-none z-10 transition-all duration-1000",
-                modo === 'registro' ? "-translate-x-1/2 opacity-30" : "opacity-10"
-            )} />
+            {/* Luces Dinámicas */}
+            <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-red-600/20 rounded-full blur-[120px] pointer-events-none z-10" />
+            <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-blue-600/10 rounded-full blur-[120px] pointer-events-none z-10" />
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-yellow-500/10 rounded-full blur-[150px] pointer-events-none z-10" />
 
             <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-20">
-                <div className="flex justify-center mb-6">
-                    <div className="w-20 h-20 bg-gradient-to-br from-black to-zinc-900 rounded-2xl flex items-center justify-center shadow-[0_0_50px_rgba(220,38,38,0.2)] ring-1 ring-red-500/30 relative overflow-hidden group">
-                        <div className="absolute inset-0 bg-gradient-to-tr from-yellow-500/20 via-transparent to-red-600/20 animate-pulse" />
-                        <Activity className="w-10 h-10 text-yellow-500 relative z-10 drop-shadow-[0_0_10px_rgba(234,179,8,0.8)]" />
+                <div className="flex justify-center mb-4">
+                    <div className="w-20 h-20 bg-gradient-to-br from-black to-zinc-900 rounded-2xl flex items-center justify-center shadow-[0_0_40px_rgba(234,179,8,0.2)] ring-1 ring-yellow-500/30 relative overflow-hidden">
+                        <div className="absolute inset-0 bg-gradient-to-tr from-red-500/20 via-transparent to-blue-500/20" />
+                        <Activity className="w-10 h-10 text-yellow-500 relative z-10" />
                     </div>
                 </div>
                 
-                {/* TÍTULO CON EFECTO NEÓN */}
+                {/* Texto Iluminado ATEMPO */}
                 <h2 className="text-center text-5xl font-extrabold tracking-tight mb-2">
-                    <span className="bg-clip-text text-transparent bg-gradient-to-r from-yellow-600 via-yellow-400 to-red-500 drop-shadow-[0_0_20px_rgba(234,179,8,0.3)]">
+                    <span className="bg-clip-text text-transparent bg-gradient-to-r from-red-500 via-yellow-500 to-yellow-200 drop-shadow-[0_0_15px_rgba(234,179,8,0.4)]">
                         ATEMPO
                     </span>
                 </h2>
-                <p className="text-center text-[10px] text-zinc-400 font-bold tracking-[0.5em] uppercase mb-8">
-                    Business Core
+                <p className="text-center text-xs text-slate-300 font-medium tracking-[0.4em] uppercase mb-8 drop-shadow-md">
+                    Sistema Financiero
                 </p>
             </div>
 
-            <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-20 perspective-1000">
-                {/* CONTENEDOR GLASSMORPHISM */}
-                <div className="bg-black/40 backdrop-blur-2xl py-8 px-6 shadow-2xl sm:rounded-3xl border border-white/5 ring-1 ring-inset ring-yellow-500/10 relative overflow-hidden min-h-[460px]">
+            <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-20">
+                {/* Glassmorphism Panel con Borde de Luz */}
+                <div className="bg-black/60 backdrop-blur-xl py-8 px-4 shadow-2xl sm:rounded-3xl sm:px-10 border border-white/10 ring-1 ring-inset ring-yellow-500/20 relative overflow-hidden">
                     
+                    {/* Línea de luz animada en la parte superior del cuadro */}
+                    <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-yellow-500 to-transparent opacity-50" />
+
                     <div className="mb-8 text-center">
                         <h3 className="text-xl font-bold text-white tracking-wide">
-                            {modo === 'login' ? 'Acceso al Sistema' : 'Registro Corporativo'}
+                            {modo === 'login' ? 'Acceso al Sistema' : 'Registro de Personal'}
                         </h3>
+                        <p className="text-sm text-slate-400 mt-2">
+                            {modo === 'login' ? 'Ingresa tus credenciales para continuar' : 'Crea tu cuenta corporativa'}
+                        </p>
                     </div>
 
-                    {/* 3. CONTENEDOR DESLIZANTE DE FORMULARIOS */}
-                    <div className="relative w-full h-[280px]">
+                    <form className="space-y-6" onSubmit={handleSubmit}>
                         
-                        {/* --- FORMULARIO LOGIN --- */}
-                        <form 
-                            onSubmit={handleSubmit}
-                            className={cn(
-                                "absolute top-0 w-full space-y-5 transition-all duration-700 ease-[cubic-bezier(0.87,0,0.13,1)]",
-                                modo === 'login' 
-                                    ? "translate-x-0 opacity-100 pointer-events-auto" 
-                                    : "-translate-x-[120%] opacity-0 pointer-events-none"
-                            )}
-                        >
-                            <div>
-                                <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2">Correo</label>
+                        {/* Transición Fluida para el Registro */}
+                        {modo === 'registro' && (
+                            <div className="animate-in fade-in slide-in-from-top-4 duration-500">
+                                <label className="block text-[11px] font-bold text-yellow-500/80 uppercase tracking-widest mb-2">Nombre Completo</label>
                                 <div className="relative group">
-                                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><Mail className="h-4 w-4 text-zinc-500 group-focus-within:text-yellow-500 transition-colors" /></div>
+                                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><User className="h-4 w-4 text-slate-400 group-focus-within:text-yellow-500 transition-colors" /></div>
                                     <input
-                                        type="email" required value={email} onChange={(e) => setEmail(e.target.value)} disabled={cargando}
-                                        className="block w-full pl-11 pr-4 py-3.5 border border-white/5 rounded-xl bg-white/5 text-white focus:ring-1 focus:ring-yellow-500 focus:border-yellow-500 transition-all sm:text-sm"
-                                        placeholder="usuario@atempo.com"
-                                    />
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2">Contraseña</label>
-                                <div className="relative group">
-                                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><Lock className="h-4 w-4 text-zinc-500 group-focus-within:text-yellow-500 transition-colors" /></div>
-                                    <input
-                                        type={mostrarPwd ? 'text' : 'password'} required value={password} onChange={(e) => setPassword(e.target.value)} disabled={cargando}
-                                        className="block w-full pl-11 pr-12 py-3.5 border border-white/5 rounded-xl bg-white/5 text-white focus:ring-1 focus:ring-yellow-500 focus:border-yellow-500 transition-all sm:text-sm"
-                                        placeholder="••••••••"
-                                    />
-                                    <button type="button" onClick={() => setMostrarPwd(!mostrarPwd)} className="absolute inset-y-0 right-0 pr-4 flex items-center text-zinc-500 hover:text-white transition-colors">
-                                        {mostrarPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                                    </button>
-                                </div>
-                            </div>
-
-                            <button
-                                type="submit" disabled={cargando}
-                                className="w-full flex justify-center items-center py-4 px-4 mt-8 rounded-xl shadow-[0_0_20px_rgba(220,38,38,0.15)] text-sm font-bold text-white bg-gradient-to-r from-red-700 to-red-600 hover:from-red-600 hover:to-red-500 transition-all disabled:opacity-50 group border border-red-500/30"
-                            >
-                                {cargando ? <Loader2 className="animate-spin h-5 w-5" /> : <>Ingresar <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform"/></>}
-                            </button>
-                        </form>
-
-                        {/* --- FORMULARIO REGISTRO --- */}
-                        <form 
-                            onSubmit={handleSubmit}
-                            className={cn(
-                                "absolute top-0 w-full space-y-5 transition-all duration-700 ease-[cubic-bezier(0.87,0,0.13,1)]",
-                                modo === 'registro' 
-                                    ? "translate-x-0 opacity-100 pointer-events-auto" 
-                                    : "translate-x-[120%] opacity-0 pointer-events-none"
-                            )}
-                        >
-                            <div>
-                                <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2">Nombre</label>
-                                <div className="relative group">
-                                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><User className="h-4 w-4 text-zinc-500 group-focus-within:text-yellow-500 transition-colors" /></div>
-                                    <input
-                                        type="text" required={modo === 'registro'} value={nombre} onChange={(e) => setNombre(e.target.value)} disabled={cargando}
-                                        className="block w-full pl-11 pr-4 py-3.5 border border-white/5 rounded-xl bg-white/5 text-white focus:ring-1 focus:ring-yellow-500 focus:border-yellow-500 transition-all sm:text-sm"
+                                        type="text" required value={nombre} onChange={(e) => setNombre(e.target.value)} disabled={cargando}
+                                        className="block w-full pl-11 pr-4 py-3.5 border border-white/10 rounded-xl bg-white/5 text-white placeholder-slate-500 focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500/50 transition-all sm:text-sm"
                                         placeholder="Ej: Camila Ruiz"
                                     />
                                 </div>
                             </div>
+                        )}
 
-                            <div className="grid grid-cols-2 gap-3">
-                                <div className="col-span-2">
-                                    <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2">Correo & Clave</label>
-                                    <div className="flex flex-col gap-3">
-                                        <div className="relative group">
-                                            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><Mail className="h-4 w-4 text-zinc-500 group-focus-within:text-yellow-500 transition-colors" /></div>
-                                            <input
-                                                type="email" required value={email} onChange={(e) => setEmail(e.target.value)} disabled={cargando}
-                                                className="block w-full pl-11 pr-4 py-3.5 border border-white/5 rounded-xl bg-white/5 text-white focus:ring-1 focus:ring-yellow-500 focus:border-yellow-500 transition-all sm:text-sm"
-                                                placeholder="usuario@atempo.com"
-                                            />
-                                        </div>
-                                        <div className="relative group">
-                                            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><Lock className="h-4 w-4 text-zinc-500 group-focus-within:text-yellow-500 transition-colors" /></div>
-                                            <input
-                                                type={mostrarPwd ? 'text' : 'password'} required value={password} onChange={(e) => setPassword(e.target.value)} disabled={cargando}
-                                                className="block w-full pl-11 pr-12 py-3.5 border border-white/5 rounded-xl bg-white/5 text-white focus:ring-1 focus:ring-yellow-500 focus:border-yellow-500 transition-all sm:text-sm"
-                                                placeholder="••••••••"
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
+                        <div className="animate-in fade-in duration-500 delay-100">
+                            <label className="block text-[11px] font-bold text-yellow-500/80 uppercase tracking-widest mb-2">Correo Corporativo</label>
+                            <div className="relative group">
+                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><Mail className="h-4 w-4 text-slate-400 group-focus-within:text-yellow-500 transition-colors" /></div>
+                                <input
+                                    type="email" required value={email} onChange={(e) => setEmail(e.target.value)} disabled={cargando}
+                                    className="block w-full pl-11 pr-4 py-3.5 border border-white/10 rounded-xl bg-white/5 text-white placeholder-slate-500 focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500/50 transition-all sm:text-sm"
+                                    placeholder="usuario@atempo.com"
+                                />
                             </div>
+                        </div>
 
+                        <div className="animate-in fade-in duration-500 delay-200">
+                            <label className="block text-[11px] font-bold text-yellow-500/80 uppercase tracking-widest mb-2">Contraseña</label>
+                            <div className="relative group">
+                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><Lock className="h-4 w-4 text-slate-400 group-focus-within:text-yellow-500 transition-colors" /></div>
+                                <input
+                                    type={mostrarPwd ? 'text' : 'password'} required value={password} onChange={(e) => setPassword(e.target.value)} disabled={cargando}
+                                    className="block w-full pl-11 pr-12 py-3.5 border border-white/10 rounded-xl bg-white/5 text-white placeholder-slate-500 focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500/50 transition-all sm:text-sm"
+                                    placeholder="••••••••"
+                                />
+                                <button type="button" onClick={() => setMostrarPwd(!mostrarPwd)} className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-yellow-500 transition-colors">
+                                    {mostrarPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="animate-in fade-in duration-500 delay-200 bg-black/40 p-4 rounded-xl border border-white/5">
+                            <p className="text-xs text-slate-400 mb-2">
+                                Al iniciar sesión o registrarse, usted acepta nuestros <span className="text-yellow-500 font-bold hover:text-yellow-400 transition-colors">Términos de Servicio</span> y <span className="text-yellow-500 font-bold hover:text-yellow-400 transition-colors">Política de Privacidad</span>.
+                            </p>
+                            <p className="text-xs text-slate-400">
+                                Asegúrese de proporcionar información precisa y segura. Atempo se compromete a proteger su privacidad.
+                            </p>
+                        </div>
+
+                        <div className="pt-4 animate-in fade-in duration-500 delay-300">
                             <button
                                 type="submit" disabled={cargando}
-                                className="w-full flex justify-center items-center py-4 px-4 mt-4 rounded-xl shadow-[0_0_20px_rgba(234,179,8,0.15)] text-sm font-bold text-black bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-400 hover:to-yellow-500 transition-all disabled:opacity-50 group"
+                                className="w-full flex justify-center items-center py-4 px-4 rounded-xl shadow-[0_0_20px_rgba(220,38,38,0.2)] text-sm font-bold text-white bg-gradient-to-r from-red-600 via-red-500 to-red-600 hover:from-red-500 hover:to-red-400 focus:ring-2 focus:ring-offset-2 focus:ring-red-500 focus:ring-offset-black transition-all disabled:opacity-50 group border border-red-400/30"
                             >
-                                {cargando ? <Loader2 className="animate-spin h-5 w-5" /> : <>Crear Cuenta <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform"/></>}
+                                {cargando ? (
+                                    <><Loader2 className="animate-spin -ml-1 mr-2 h-5 w-5" /> Procesando...</>
+                                ) : (
+                                    <>{modo === 'login' ? 'Ingresar al Sistema' : 'Crear Cuenta'} <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform"/></>
+                                )}
                             </button>
-                        </form>
-                    </div>
+                        </div>
+                    </form>
 
-                    {/* INTERRUPTOR INFERIOR FIJO */}
-                    <div className="mt-4 text-center border-t border-white/5 pt-6">
-                        <button 
-                            type="button"
-                            onClick={() => setModo(modo === 'login' ? 'registro' : 'login')} 
-                            className="text-xs font-bold text-zinc-400 hover:text-white transition-colors"
-                        >
-                            {modo === 'login' ? (
-                                <>¿Sin acceso? <span className="text-yellow-500 ml-1">Regístrate</span></>
-                            ) : (
-                                <>¿Ya tienes cuenta? <span className="text-yellow-500 ml-1">Inicia sesión</span></>
-                            )}
-                        </button>
+                    {/* Toggle Modo Login / Registro */}
+                    <div className="mt-8 text-center animate-in fade-in duration-500 delay-500">
+                        <p className="text-xs text-slate-400">
+                            {modo === 'login' ? '¿Eres nuevo en el equipo?' : '¿Ya tienes credenciales?'}
+                            <button 
+                                onClick={() => { setModo(modo === 'login' ? 'registro' : 'login'); }} 
+                                className="ml-2 text-yellow-500 hover:text-yellow-400 font-bold transition-colors underline decoration-yellow-500/30 underline-offset-4"
+                            >
+                                {modo === 'login' ? 'Regístrate aquí' : 'Inicia Sesión'}
+                            </button>
+                        </p>
                     </div>
                 </div>
             </div>
