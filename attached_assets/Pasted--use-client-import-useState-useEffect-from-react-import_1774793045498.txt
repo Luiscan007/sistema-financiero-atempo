@@ -1,8 +1,8 @@
-'use client';
+‘use client’;
 
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { useState, useEffect } from ‘react’;
+import Link from ‘next/link’;
+import { usePathname, useRouter } from ‘next/navigation’;
 import {
 LayoutDashboard, ShoppingCart, Package, Receipt,
 TrendingUp, BookOpen, Users, Settings, DollarSign,
@@ -10,62 +10,62 @@ ChevronLeft, ChevronRight, LogOut, Bell, RefreshCw,
 Menu, X, Activity, AlertTriangle, WifiOff, Sun, Moon,
 GraduationCap, ClipboardList, Wallet, CalendarDays, LayoutGrid, Scale, MessageSquare,
 Boxes, Layers,
-} from 'lucide-react';
-import { useAuth } from '@/components/providers/AuthProvider';
-import { useTasas } from '@/components/providers/TasasProvider';
-import { cn } from '@/lib/utils';
-import { tienePermiso, RUTA_INICIO_ROL, RolUsuario } from '@/lib/roles';
+} from ‘lucide-react’;
+import { useAuth } from ‘@/components/providers/AuthProvider’;
+import { useTasas } from ‘@/components/providers/TasasProvider’;
+import { cn } from ‘@/lib/utils’;
+import { tienePermiso, RUTA_INICIO_ROL, RolUsuario } from ‘@/lib/roles’;
 
 const NAV_ITEMS = [
 {
-titulo: 'Principal',
+titulo: ‘Principal’,
 items: [
-{ label: 'Dashboard',      href: '/dashboard', icon: LayoutDashboard },
-{ label: 'Punto de Venta', href: '/pos',       icon: ShoppingCart },
+{ label: ‘Dashboard’,      href: ‘/dashboard’, icon: LayoutDashboard },
+{ label: ‘Punto de Venta’, href: ‘/pos’,       icon: ShoppingCart },
 ],
 },
 {
-titulo: 'Vista General',
+titulo: ‘Vista General’,
 items: [
-{ label: 'Estudio en Vivo', href: '/estudio', icon: LayoutGrid },
+{ label: ‘Estudio en Vivo’, href: ‘/estudio’, icon: LayoutGrid },
 ],
 },
 {
-titulo: 'Academia',
+titulo: ‘Academia’,
 items: [
-{ label: 'Alumnos',    href: '/clientes',   icon: GraduationCap },
-{ label: 'Asistencia', href: '/asistencia', icon: ClipboardList },
+{ label: ‘Alumnos’,    href: ‘/clientes’,   icon: GraduationCap },
+{ label: ‘Asistencia’, href: ‘/asistencia’, icon: ClipboardList },
 ],
 },
 {
-titulo: 'Gestion',
+titulo: ‘Gestion’,
 items: [
-{ label: 'Servicios',   href: '/servicios',   icon: Layers },
-{ label: 'Inventario',  href: '/inventario',  icon: Boxes },
-{ label: 'Ventas',      href: '/ventas',      icon: Receipt },
-{ label: 'Gastos',      href: '/gastos',      icon: TrendingUp },
-{ label: 'Contabilidad',href: '/contabilidad',icon: BookOpen },
+{ label: ‘Servicios’,   href: ‘/servicios’,   icon: Layers },
+{ label: ‘Inventario’,  href: ‘/inventario’,  icon: Boxes },
+{ label: ‘Ventas’,      href: ‘/ventas’,      icon: Receipt },
+{ label: ‘Gastos’,      href: ‘/gastos’,      icon: TrendingUp },
+{ label: ‘Contabilidad’,href: ‘/contabilidad’,icon: BookOpen },
 ],
 },
 {
-titulo: 'Cobros',
+titulo: ‘Cobros’,
 items: [
-{ label: 'Cuentas por Cobrar', href: '/cuentas', icon: Wallet },
-{ label: 'Agenda',             href: '/agenda',  icon: CalendarDays },
+{ label: ‘Cuentas por Cobrar’, href: ‘/cuentas’, icon: Wallet },
+{ label: ‘Agenda’,             href: ‘/agenda’,  icon: CalendarDays },
 ],
 },
 {
-titulo: 'Finanzas',
+titulo: ‘Finanzas’,
 items: [
-{ label: 'Tasas y Cambio', href: '/cambio',        icon: DollarSign },
-{ label: 'Conciliacion',   href: '/conciliacion',  icon: Scale, modulo: 'conciliacion' },
+{ label: ‘Tasas y Cambio’, href: ‘/cambio’,        icon: DollarSign },
+{ label: ‘Conciliacion’,   href: ‘/conciliacion’,  icon: Scale, modulo: ‘conciliacion’ },
 ],
 },
 {
-titulo: 'Sistema',
+titulo: ‘Sistema’,
 items: [
-{ label: 'Configuracion', href: '/configuracion', icon: Settings },
-{ label: 'WhatsApp',      href: '/whatsapp',      icon: MessageSquare, modulo: 'whatsapp' },
+{ label: ‘Configuracion’, href: ‘/configuracion’, icon: Settings },
+{ label: ‘WhatsApp’,      href: ‘/whatsapp’,      icon: MessageSquare, modulo: ‘whatsapp’ },
 ],
 },
 ];
@@ -73,8 +73,9 @@ items: [
 interface AppLayoutProps { children: React.ReactNode; }
 
 function useTema() {
-const [tema, setTema] = useState<'dark' | 'light'>('dark');
+const [tema, setTema] = useState<‘dark’ | ‘light’>(‘dark’);
 
+```
 useEffect(() => {
     const guardado = localStorage.getItem('atempo-tema') as 'dark' | 'light' | null;
     if (guardado) setTema(guardado);
@@ -89,6 +90,7 @@ useEffect(() => {
 
 const toggleTema = () => setTema(t => t === 'dark' ? 'light' : 'dark');
 return { tema, toggleTema };
+```
 
 }
 
@@ -98,10 +100,11 @@ const [mobileMenuAbierto, setMobileMenuAbierto] = useState(false);
 const [online, setOnline] = useState(true);
 const pathname = usePathname();
 const router = useRouter();
-const { perfil, logout } = useAuth();
+const { perfil, logout } = useAuth() as { perfil: any; logout: () => void };
 const { tasas, cargando: cargandoTasas, refrescar } = useTasas();
 const { tema, toggleTema } = useTema();
 
+```
 const navItemsFiltrados = NAV_ITEMS.map(grupo => ({
     ...grupo,
     items: grupo.items.filter(item => tienePermiso(perfil?.rol as RolUsuario, item.href)),
@@ -366,5 +369,6 @@ return (
         )}
     </div>
 );
+```
 
 }
