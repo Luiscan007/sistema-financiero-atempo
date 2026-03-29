@@ -1,4 +1,4 @@
-'use client';
+‘use client’;
 
 /**
 
@@ -6,27 +6,27 @@
 - Control de equipos y muebles de ATEMPO
   */
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from ‘react’;
 import {
 Plus, Search, Edit2, Trash2, X, CheckCircle2,
 Package, Boxes, AlertTriangle, Clock, RotateCcw,
 User, ArrowRightLeft, History, ChevronDown,
 ChevronUp, Loader2, Info, WrenchIcon, ShieldCheck,
 CalendarDays, Tag,
-} from 'lucide-react';
+} from ‘lucide-react’;
 import {
 collection, addDoc, updateDoc, deleteDoc, doc,
 onSnapshot, serverTimestamp, Timestamp,
-} from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import { useAuth } from '@/components/providers/AuthProvider';
-import { cn } from '@/lib/utils';
-import toast from 'react-hot-toast';
+} from ‘firebase/firestore’;
+import { db } from ‘@/lib/firebase’;
+import { useAuth } from ‘@/components/providers/AuthProvider’;
+import { cn } from ‘@/lib/utils’;
+import toast from ‘react-hot-toast’;
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
-type Categoria = 'equipo_audio' | 'equipo_video' | 'mobiliario' | 'herramienta' | 'limpieza' | 'otro';
-type EstadoItem = 'bueno' | 'regular' | 'danado' | 'en_reparacion' | 'dado_de_baja';
+type Categoria = ‘equipo_audio’ | ‘equipo_video’ | ‘mobiliario’ | ‘herramienta’ | ‘limpieza’ | ‘otro’;
+type EstadoItem = ‘bueno’ | ‘regular’ | ‘danado’ | ‘en_reparacion’ | ‘dado_de_baja’;
 
 interface ItemInventario {
 id: string;
@@ -63,27 +63,27 @@ registradoPor: string;
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
 const CATEGORIAS: Record<Categoria, { label: string; color: string; bg: string }> = {
-equipo_audio:  { label: 'Audio',       color: 'text-blue-400',   bg: 'bg-blue-500/10 border-blue-500/20'     },
-equipo_video:  { label: 'Video',       color: 'text-purple-400', bg: 'bg-purple-500/10 border-purple-500/20' },
-mobiliario:    { label: 'Mobiliario',  color: 'text-amber-400',  bg: 'bg-amber-500/10 border-amber-500/20'   },
-herramienta:   { label: 'Herramienta', color: 'text-orange-400', bg: 'bg-orange-500/10 border-orange-500/20' },
-limpieza:      { label: 'Limpieza',    color: 'text-cyan-400',   bg: 'bg-cyan-500/10 border-cyan-500/20'     },
-otro:          { label: 'Otro',        color: 'text-slate-400',  bg: 'bg-slate-500/10 border-slate-500/20'   },
+equipo_audio:  { label: ‘Audio’,       color: ‘text-blue-400’,   bg: ‘bg-blue-500/10 border-blue-500/20’     },
+equipo_video:  { label: ‘Video’,       color: ‘text-purple-400’, bg: ‘bg-purple-500/10 border-purple-500/20’ },
+mobiliario:    { label: ‘Mobiliario’,  color: ‘text-amber-400’,  bg: ‘bg-amber-500/10 border-amber-500/20’   },
+herramienta:   { label: ‘Herramienta’, color: ‘text-orange-400’, bg: ‘bg-orange-500/10 border-orange-500/20’ },
+limpieza:      { label: ‘Limpieza’,    color: ‘text-cyan-400’,   bg: ‘bg-cyan-500/10 border-cyan-500/20’     },
+otro:          { label: ‘Otro’,        color: ‘text-slate-400’,  bg: ‘bg-slate-500/10 border-slate-500/20’   },
 };
 
 const ESTADOS: Record<EstadoItem, { label: string; color: string; bg: string; icon: React.ElementType }> = {
-bueno:         { label: 'Bueno',         color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/20', icon: ShieldCheck   },
-regular:       { label: 'Regular',       color: 'text-amber-400',   bg: 'bg-amber-500/10 border-amber-500/20',     icon: Info          },
-danado:        { label: 'Danado',        color: 'text-red-400',     bg: 'bg-red-500/10 border-red-500/20',         icon: AlertTriangle },
-en_reparacion: { label: 'En reparacion', color: 'text-orange-400',  bg: 'bg-orange-500/10 border-orange-500/20',   icon: WrenchIcon    },
-dado_de_baja:  { label: 'Dado de baja',  color: 'text-slate-400',   bg: 'bg-slate-500/10 border-slate-500/20',     icon: Trash2        },
+bueno:         { label: ‘Bueno’,         color: ‘text-emerald-400’, bg: ‘bg-emerald-500/10 border-emerald-500/20’, icon: ShieldCheck   },
+regular:       { label: ‘Regular’,       color: ‘text-amber-400’,   bg: ‘bg-amber-500/10 border-amber-500/20’,     icon: Info          },
+danado:        { label: ‘Danado’,        color: ‘text-red-400’,     bg: ‘bg-red-500/10 border-red-500/20’,         icon: AlertTriangle },
+en_reparacion: { label: ‘En reparacion’, color: ‘text-orange-400’,  bg: ‘bg-orange-500/10 border-orange-500/20’,   icon: WrenchIcon    },
+dado_de_baja:  { label: ‘Dado de baja’,  color: ‘text-slate-400’,   bg: ‘bg-slate-500/10 border-slate-500/20’,     icon: Trash2        },
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function formatFecha(ts: Timestamp | undefined | null): string {
-if (!ts) return '-';
-return ts.toDate().toLocaleDateString('es-VE', { day: '2-digit', month: 'short', year: 'numeric' });
+if (!ts) return ‘-’;
+return ts.toDate().toLocaleDateString(‘es-VE’, { day: ‘2-digit’, month: ‘short’, year: ‘numeric’ });
 }
 
 function diasDesde(ts: Timestamp): number {
@@ -93,7 +93,7 @@ return Math.floor((Date.now() - ts.toDate().getTime()) / 86400000);
 function BadgeCategoria({ cat }: { cat: Categoria }) {
 const c = CATEGORIAS[cat];
 return (
-<span className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border', c.bg, c.color)}>
+<span className={cn(‘inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border’, c.bg, c.color)}>
 {c.label}
 </span>
 );
@@ -103,7 +103,7 @@ function BadgeEstado({ estado }: { estado: EstadoItem }) {
 const e = ESTADOS[estado];
 const Icon = e.icon;
 return (
-<span className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border', e.bg, e.color)}>
+<span className={cn(‘inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border’, e.bg, e.color)}>
 <Icon className="w-3 h-3" /> {e.label}
 </span>
 );
@@ -122,18 +122,19 @@ onGuardar: (data: Partial<ItemInventario>) => Promise<void>;
 }) {
 const esEdicion = !!(item as ItemInventario)?.id;
 const [form, setForm] = useState<Partial<ItemInventario>>(item || {
-nombre: '',
-categoria: 'otro',
+nombre: ‘’,
+categoria: ‘otro’,
 cantidad: 1,
 cantidadDisponible: 1,
-estado: 'bueno',
-ubicacion: '',
-descripcion: '',
-numeroSerie: '',
+estado: ‘bueno’,
+ubicacion: ‘’,
+descripcion: ‘’,
+numeroSerie: ‘’,
 valorUSD: undefined,
-notas: '',
+notas: ‘’,
 });
 
+```
 // Strings para inputs numericos — evita el bug de "no deja borrar el 1"
 const [cantidadStr, setCantidadStr] = useState(
     String((item as ItemInventario)?.cantidad ?? 1)
@@ -354,6 +355,7 @@ return (
         </div>
     </div>
 );
+```
 
 }
 
@@ -367,16 +369,17 @@ usuarioNombre,
 }: {
 item: ItemInventario;
 onCerrar: () => void;
-onRegistrar: (data: Omit<Prestamo, 'id' | 'fechaPrestamo' | 'devuelto'>) => Promise<void>;
+onRegistrar: (data: Omit<Prestamo, ‘id’ | ‘fechaPrestamo’ | ‘devuelto’>) => Promise<void>;
 usuarioNombre: string;
 }) {
-const [responsable, setResponsable] = useState('');
-const [proposito, setProposito] = useState('');
+const [responsable, setResponsable] = useState(’’);
+const [proposito, setProposito] = useState(’’);
 const [cantidad, setCantidad] = useState(1);
-const [fechaDevolucion, setFechaDevolucion] = useState('');
-const [notas, setNotas] = useState('');
+const [fechaDevolucion, setFechaDevolucion] = useState(’’);
+const [notas, setNotas] = useState(’’);
 const [guardando, setGuardando] = useState(false);
 
+```
 const handleRegistrar = async () => {
     if (!responsable.trim()) { toast.error('Indica quien toma el item'); return; }
     if (!proposito.trim()) { toast.error('Indica para que se usa'); return; }
@@ -500,6 +503,7 @@ return (
         </div>
     </div>
 );
+```
 
 }
 
@@ -520,6 +524,7 @@ const prestamosItem = prestamos
 .filter(p => p.itemId === item.id)
 .sort((a, b) => b.fechaPrestamo.toDate().getTime() - a.fechaPrestamo.toDate().getTime());
 
+```
 return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
         <div className="bg-card border border-border rounded-2xl w-full max-w-lg shadow-2xl max-h-[85vh] flex flex-col">
@@ -614,6 +619,7 @@ return (
         </div>
     </div>
 );
+```
 
 }
 
@@ -621,8 +627,9 @@ return (
 
 export default function InventarioPage() {
 // Cast as any — igual que el resto de modulos del sistema
-const { perfil } = useAuth();
+const { perfil } = useAuth() as any;
 
+```
 const [items, setItems] = useState<ItemInventario[]>([]);
 const [prestamos, setPrestamos] = useState<Prestamo[]>([]);
 const [cargandoItems, setCargandoItems] = useState(true);
@@ -1080,5 +1087,6 @@ return (
         )}
     </div>
 );
+```
 
 }
