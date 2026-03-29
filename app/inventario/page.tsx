@@ -679,13 +679,14 @@ export default function InventarioPage() {
     const guardarItem = async (data: Partial<ItemInventario>) => {
         const esEdicion = !!(data as ItemInventario).id;
 
+        // Nunca enviar undefined a Firestore — usar fallbacks seguros
         const payload: Record<string, unknown> = {
-            nombre: data.nombre!,
-            categoria: data.categoria!,
+            nombre: data.nombre || '',
+            categoria: data.categoria || 'otro',
             descripcion: data.descripcion || '',
-            cantidad: data.cantidad!,
-            cantidadDisponible: data.cantidadDisponible ?? data.cantidad!,
-            estado: data.estado!,
+            cantidad: data.cantidad || 1,
+            cantidadDisponible: data.cantidadDisponible ?? data.cantidad ?? 1,
+            estado: data.estado || 'bueno',
             ubicacion: data.ubicacion || '',
             numeroSerie: data.numeroSerie || '',
             fechaAdquisicion: data.fechaAdquisicion || '',
@@ -693,9 +694,9 @@ export default function InventarioPage() {
             actualizadoEn: serverTimestamp(),
         };
 
-        // Solo incluir valorUSD si tiene valor — nunca guardar null en Firestore
+        // Solo incluir valorUSD si tiene valor — nunca guardar undefined/null en Firestore
         if (data.valorUSD && data.valorUSD > 0) {
-            payload.valorUSD = data.valorUSD;
+            payload.valorUSD = Number(data.valorUSD);
         }
 
         if (esEdicion) {
