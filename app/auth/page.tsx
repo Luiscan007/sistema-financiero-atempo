@@ -9,28 +9,41 @@ import toast from 'react-hot-toast';
 
 /* ─── Logo SVG de ATEMPO (la "A" triangular con slash diagonal) ─── */
 function AtempoLogo({ size = 48, color = '#ef4444' }: { size?: number; color?: string }) {
-return (
-<svg
-width={size} height={size}
-viewBox="0 0 100 115"
-fill="none"
-xmlns="http://www.w3.org/2000/svg"
-style={{ display: 'block' }}
->
-{/* Triángulo base izquierdo */}
-<polygon points="0,105 40,105 22,65" fill={color} />
-{/* Triángulo base derecho */}
-<polygon points="60,105 100,105 78,65" fill={color} />
-{/* Cuerpo central + punta */}
-<polygon points="50,0 22,65 78,65" fill={color} />
-{/* Hueco interior (diamante) */}
-<polygon points="50,55 36,105 50,98 64,105" fill="#000008" />
-{/* Slash diagonal — corte que cruza la A */}
-<polygon points="12,62 20,54 85,8 93,16" fill="#000008" opacity="0.82" />
-{/* Triángulo interior de la punta (refuerza el look) */}
-<polygon points="50,12 42,38 58,38" fill="#000008" opacity="0.5" />
-</svg>
-);
+    return (
+        <svg
+            width={size} height={size}
+            viewBox="0 0 100 110"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            style={{ display: 'block' }}
+        >
+            {/*
+                Técnica: fondo del color del logo, luego recortes negros
+                encima para crear los espacios vacíos — igual que el logo real
+            */}
+
+            {/* Cuerpo blanco completo — triángulo exterior grande */}
+            <polygon points="50,2 98,105 2,105" fill={color} />
+
+            {/* Recorte: hueco diamante en la base */}
+            <polygon points="50,72 36,105 50,95 64,105" fill="#000008" />
+
+            {/* Recorte: espacio interior izquierdo de la A */}
+            <polygon points="50,72 18,105 36,105" fill="#000008" />
+
+            {/* Recorte: espacio interior derecho de la A */}
+            <polygon points="50,72 82,105 64,105" fill="#000008" />
+
+            {/* Recorte: canal interior de la punta — forma la V interna */}
+            <polygon points="50,18 43,48 57,48" fill="#000008" />
+
+            {/* Recorte negro: el slash diagonal que cruza la A de izq a der */}
+            <polygon points="8,52 18,44 72,10 82,18" fill="#000008" />
+
+            {/* Recorte adicional para la sombra del slash en el interior */}
+            <polygon points="30,52 44,44 60,68 46,76" fill="#000008" />
+        </svg>
+    );
 }
 
 const STYLES = `
