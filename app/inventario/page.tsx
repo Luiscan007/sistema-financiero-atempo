@@ -381,18 +381,23 @@ function ModalPrestamo({
         if (cantidad < 1 || cantidad > item.cantidadDisponible) { toast.error('Cantidad invalida'); return; }
         setGuardando(true);
         try {
-            await onRegistrar({
-                itemId: item.id,
-                itemNombre: item.nombre,
-                cantidadPrestada: cantidad,
-                responsable: responsable.trim(),
-                proposito: proposito.trim(),
-                fechaDevolucionEsperada: fechaDevolucion
-                    ? Timestamp.fromDate(new Date(fechaDevolucion))
-                    : undefined,
-                notas: notas.trim() || undefined,
-                registradoPor: usuarioNombre,
-            });
+            // Construir payload sin undefined — Firestore lo rechaza
+        const datosPrestamo: Record<string, unknown> = {
+            itemId: item.id,
+            itemNombre: item.nombre,
+            cantidadPrestada: cantidad,
+            responsable: responsable.trim(),
+            proposito: proposito.trim(),
+            registradoPor: usuarioNombre,
+        };
+        // Solo agregar campos opcionales si tienen valor
+        if (fechaDevolucion) {
+            datosPrestamo.fechaDevolucionEsperada = Timestamp.fromDate(new Date(fechaDevolucion));
+        }
+        if (notas.trim()) {
+            datosPrestamo.notas = notas.trim();
+        }
+        await onRegistrar(datosPrestamo as any);
             onCerrar();
         } catch (err) {
             console.error('Error al registrar prestamo:', err);
