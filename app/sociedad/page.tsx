@@ -134,7 +134,7 @@ function GraficaDeuda({ movimientos, deudaInicial }: { movimientos: MovimientoDe
 
     const movOrdenados = [...movimientos].sort((a, b) => a.fecha.localeCompare(b.fecha));
     for (const m of movOrdenados) {
-        saldo += TIPOS_MOV[m.tipo].signo * m.montoUSD;
+        saldo += (TIPOS_MOV[m.tipo]?.signo ?? -1) * m.montoUSD;
         saldo = Math.max(0, saldo);
         puntos.push({ fecha: fmtFecha(m.fecha), saldo });
     }
@@ -437,7 +437,11 @@ export default function SociedadPage() {
         conceptos.reduce((s, c) => s + c.montoUSD, 0), [conceptos]);
 
     const totalAbonado = useMemo(() =>
-        movimientos.reduce((s, m) => s + TIPOS_MOV[m.tipo].signo * m.montoUSD, 0) * -1, [movimientos]);
+        movimientos.reduce((s, m) => {
+            const t = TIPOS_MOV[m.tipo];
+            if (!t) return s; // ignorar documentos con tipo invalido
+            return s + t.signo * m.montoUSD;
+        }, 0) * -1, [movimientos]);
 
     const saldoPendiente = useMemo(() =>
         Math.max(0, deudaTotal - totalAbonado), [deudaTotal, totalAbonado]);
@@ -445,7 +449,9 @@ export default function SociedadPage() {
     const porcentajePagado = deudaTotal > 0 ? Math.min(100, (totalAbonado / deudaTotal) * 100) : 0;
 
     const totalDividendosRetenidos = useMemo(() =>
-        movimientos.filter(m => m.tipo === 'dividendo_retenido').reduce((s, m) => s + m.montoUSD, 0),
+        movimientos
+            .filter(m => m.tipo === 'dividendo_retenido' && TIPOS_MOV[m.tipo])
+            .reduce((s, m) => s + (m.montoUSD || 0), 0),
     [movimientos]);
 
     const deudaCubierta = saldoPendiente === 0;
@@ -844,7 +850,7 @@ export default function SociedadPage() {
                         ) : (
                             <div className="divide-y divide-border">
                                 {movimientos.map(m => {
-                                    const t = TIPOS_MOV[m.tipo];
+                                    const t = TIPOS_MOV[m.tipo] ?? { label: m.tipo || 'Movimiento', color: 'text-slate-400', signo: -1 as const };
                                     const esAbono = t.signo === -1;
                                     return (
                                         <div key={m.id} className="flex items-center gap-3 p-4 hover:bg-muted/10 transition-colors">
