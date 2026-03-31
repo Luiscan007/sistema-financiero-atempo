@@ -2,8 +2,8 @@ import AppLayout from '@/components/layout/AppLayout';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-    title: 'Servicios | ATEMPO',
-    description: 'Catalogo de servicios: paquetes de clases y alquiler de espacios',
+    title: 'Sociedad | ATEMPO',
+    description: 'Modulo de control de la deuda de la socidad de paco y rosi ',
 };
 
 export default function ServiciosLayout({ children }: { children: React.ReactNode }) {
