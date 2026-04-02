@@ -212,7 +212,9 @@ function ChartSkeleton({ height = 'h-64' }: { height?: string }) {
             <Skeleton className="h-4 w-40 mb-6" />
             <div className="flex items-end gap-3 h-40">
                 {[60, 80, 45, 90, 70, 55, 85, 40].map((h, i) => (
-                    <Skeleton key={i} className="flex-1" style={{ height: `${h}%` } as any} />
+                    <div key={i} className="flex-1" style={{ height: `${h}%` }}>
+                        <Skeleton className="w-full h-full rounded-t-md" />
+                    </div>
                 ))}
             </div>
         </div>
