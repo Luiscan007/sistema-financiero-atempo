@@ -9,7 +9,7 @@ import {
     ChevronLeft, ChevronRight, LogOut, Bell, RefreshCw,
     Menu, X, Activity, AlertTriangle, WifiOff, Sun, Moon,
     GraduationCap, ClipboardList, Wallet, CalendarDays,
-    LayoutGrid, Scale, MessageSquare, Boxes, Layers, Handshake,
+    LayoutGrid, Scale, MessageSquare, Boxes, Layers, Handshake, BarChart2,
 } from 'lucide-react';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { useTasas } from '@/components/providers/TasasProvider';
@@ -60,6 +60,7 @@ const NAV_ITEMS = [
             { label: 'Tasas y Cambio', href: '/cambio',       icon: DollarSign },
             { label: 'Conciliacion',   href: '/conciliacion', icon: Scale, modulo: 'conciliacion' },
             { label: 'Sociedad',       href: '/sociedad',     icon: Handshake },
+            { label: 'Analitica',      href: '/analitica',    icon: BarChart2  },
         ],
     },
     {
