@@ -1,3 +1,4 @@
+import AppLayout from '@/components/layout/AppLayout';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
