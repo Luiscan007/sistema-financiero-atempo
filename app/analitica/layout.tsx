@@ -6,6 +6,6 @@ export const metadata: Metadata = {
     description: 'Business Intelligence y Analitica Avanzada',
 };
 
-export default function AnaliticaLayout({ children }: { children: React.ReactNode }) {
-    return <>{children}</>;
+export default function Layout({ children }: { children: React.ReactNode }) {
+    return <AppLayout>{children}</AppLayout>;
 }
