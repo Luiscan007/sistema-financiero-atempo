@@ -9,12 +9,18 @@ import {
     ChevronLeft, ChevronRight, LogOut, Bell, RefreshCw,
     Menu, X, Activity, AlertTriangle, WifiOff, Sun, Moon,
     GraduationCap, ClipboardList, Wallet, CalendarDays,
-    LayoutGrid, Scale, MessageSquare, Boxes, Layers, Handshake, BarChart2,
+    LayoutGrid, Scale, MessageSquare, Boxes, Layers,
+    Handshake, BarChart2,
 } from 'lucide-react';
+import {
+    collection, onSnapshot, query, where, Timestamp,
+} from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { useTasas } from '@/components/providers/TasasProvider';
 import { cn } from '@/lib/utils';
 import { tienePermiso, RUTA_INICIO_ROL, RolUsuario } from '@/lib/roles';
+import { InternalChatPanel, useChatNoLeidos } from '@/components/chat/InternalChatPanel';
 
 const NAV_ITEMS = [
     {
@@ -40,33 +46,33 @@ const NAV_ITEMS = [
     {
         titulo: 'Gestion',
         items: [
-            { label: 'Servicios',    href: '/servicios',   icon: Layers   },
-            { label: 'Inventario',   href: '/inventario',  icon: Boxes    },
-            { label: 'Ventas',       href: '/ventas',      icon: Receipt  },
+            { label: 'Servicios',    href: '/servicios',   icon: Layers     },
+            { label: 'Inventario',   href: '/inventario',  icon: Boxes      },
+            { label: 'Ventas',       href: '/ventas',      icon: Receipt    },
             { label: 'Gastos',       href: '/gastos',      icon: TrendingUp },
-            { label: 'Contabilidad', href: '/contabilidad',icon: BookOpen },
+            { label: 'Contabilidad', href: '/contabilidad',icon: BookOpen   },
         ],
     },
     {
         titulo: 'Cobros',
         items: [
-            { label: 'Cuentas por Cobrar', href: '/cuentas', icon: Wallet },
+            { label: 'Cuentas por Cobrar', href: '/cuentas', icon: Wallet      },
             { label: 'Agenda',             href: '/agenda',  icon: CalendarDays },
         ],
     },
     {
         titulo: 'Finanzas',
         items: [
-            { label: 'Tasas y Cambio', href: '/cambio',       icon: DollarSign },
+            { label: 'Tasas y Cambio', href: '/cambio',       icon: DollarSign  },
             { label: 'Conciliacion',   href: '/conciliacion', icon: Scale, modulo: 'conciliacion' },
-            { label: 'Sociedad',       href: '/sociedad',     icon: Handshake },
-            { label: 'Analitica',      href: '/analitica',    icon: BarChart2  },
+            { label: 'Sociedad',       href: '/sociedad',     icon: Handshake   },
+            { label: 'Analitica',      href: '/analitica',    icon: BarChart2   },
         ],
     },
     {
         titulo: 'Sistema',
         items: [
-            { label: 'Configuracion', href: '/configuracion', icon: Settings },
+            { label: 'Configuracion', href: '/configuracion', icon: Settings     },
             { label: 'WhatsApp',      href: '/whatsapp',      icon: MessageSquare, modulo: 'whatsapp' },
         ],
     },
@@ -91,20 +97,25 @@ function useTema() {
 }
 
 export default function AppLayout({ children }: AppLayoutProps) {
-    const [sidebarAbierto, setSidebarAbierto] = useState(true);
-    const [mobileMenuAbierto, setMobileMenuAbierto] = useState(false);
-    const [online, setOnline] = useState(true);
+    const [sidebarAbierto,   setSidebarAbierto]   = useState(true);
+    const [mobileMenuAbierto,setMobileMenuAbierto] = useState(false);
+    const [chatAbierto,      setChatAbierto]       = useState(false);
+    const [online,           setOnline]            = useState(true);
+    const [noLeidosChat,     setNoLeidosChat]      = useState(0);
+
     const pathname = usePathname();
-    const router = useRouter();
+    const router   = useRouter();
     const { perfil, logout } = useAuth() as { perfil: any; logout: () => void };
     const { tasas, cargando: cargandoTasas, refrescar } = useTasas();
     const { tema, toggleTema } = useTema();
+    const noLeidosChat = useChatNoLeidos(perfil?.uid);
 
     const navItemsFiltrados = NAV_ITEMS.map(grupo => ({
         ...grupo,
         items: grupo.items.filter(item => tienePermiso(perfil?.rol as RolUsuario, item.href)),
     })).filter(grupo => grupo.items.length > 0);
 
+    // ── Blindaje de rutas ────────────────────────────────────────────────────
     useEffect(() => {
         if (perfil?.rol && !tienePermiso(perfil.rol as RolUsuario, pathname)) {
             const rutaSegura = RUTA_INICIO_ROL[perfil.rol as RolUsuario] || '/pos';
@@ -112,6 +123,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
         }
     }, [pathname, perfil, router]);
 
+    // ── Estado online/offline ────────────────────────────────────────────────
     useEffect(() => {
         const handleOnline  = () => setOnline(true);
         const handleOffline = () => setOnline(false);
@@ -123,6 +135,31 @@ export default function AppLayout({ children }: AppLayoutProps) {
             window.removeEventListener('offline', handleOffline);
         };
     }, []);
+
+    // ── Badge de mensajes no leídos ──────────────────────────────────────────
+    useEffect(() => {
+        const miUid = perfil?.uid || perfil?.id;
+        if (!miUid) return;
+
+        const haceUnMes = new Date();
+        haceUnMes.setDate(haceUnMes.getDate() - 30);
+
+        const q = query(
+            collection(db, 'chat_mensajes'),
+            where('canal',     '==',  'general'),
+            where('timestamp', '>=',  Timestamp.fromDate(haceUnMes)),
+        );
+
+        const unsub = onSnapshot(q, snap => {
+            const noLeidos = snap.docs.filter(d => {
+                const data = d.data();
+                return data.autorUid !== miUid && !data.leido?.includes(miUid);
+            }).length;
+            setNoLeidosChat(noLeidos);
+        }, () => {});
+
+        return unsub;
+    }, [perfil]);
 
     const handleLogout = async () => {
         await logout();
@@ -181,7 +218,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
                         {!mobile && !sidebarAbierto && <div className="border-t border-white/10 my-2" />}
                         {grupo.items.map((item) => {
                             const activo = pathname.startsWith(item.href);
-                            const Icon = item.icon;
+                            const Icon   = item.icon;
                             return (
                                 <Link
                                     key={item.href}
@@ -265,6 +302,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
                         <Menu className="w-5 h-5" />
                     </button>
 
+                    {/* Tasas de cambio */}
                     <div className="flex-1 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
                         {cargandoTasas ? (
                             <div className="flex gap-2">
@@ -308,9 +346,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
                         )}
                     </div>
 
+                    {/* Acciones del header */}
                     <div className="flex items-center gap-1 flex-shrink-0">
-                        <div className={cn('w-2 h-2 rounded-full flex-shrink-0', online ? 'bg-emerald-400' : 'bg-amber-400')}
-                            title={online ? 'En linea' : 'Sin conexion'} />
+                        <div
+                            className={cn('w-2 h-2 rounded-full flex-shrink-0', online ? 'bg-emerald-400' : 'bg-amber-400')}
+                            title={online ? 'En linea' : 'Sin conexion'}
+                        />
                         <button onClick={refrescar} disabled={cargandoTasas}
                             className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-all">
                             <RefreshCw className={cn('w-4 h-4', cargandoTasas && 'animate-spin')} />
@@ -318,9 +359,45 @@ export default function AppLayout({ children }: AppLayoutProps) {
                         <button onClick={toggleTema}
                             className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-all group">
                             {tema === 'dark'
-                                ? <Sun className="w-4 h-4 transition-transform group-hover:rotate-45" />
+                                ? <Sun  className="w-4 h-4 transition-transform group-hover:rotate-45"   />
                                 : <Moon className="w-4 h-4 transition-transform group-hover:-rotate-12" />
                             }
+                        </button>
+
+                        {/* ── Botón de Chat con badge de no leídos ── */}
+                        <button
+                            onClick={() => setChatAbierto(v => !v)}
+                            className={cn(
+                                'relative p-2 rounded-lg transition-all',
+                                chatAbierto
+                                    ? 'text-yellow-400 bg-yellow-500/10'
+                                    : 'text-muted-foreground hover:text-foreground hover:bg-muted',
+                            )}
+                            title="Mensajeria interna"
+                        >
+                            <MessageSquare className="w-4 h-4" />
+                            {noLeidosChat > 0 && (
+                                <span className={cn(
+                                    'absolute -top-0.5 -right-0.5 min-w-[16px] h-4 rounded-full',
+                                    'bg-yellow-500 text-black text-[9px] font-bold',
+                                    'flex items-center justify-center px-0.5',
+                                    'animate-bounce',
+                                )}>
+                                    {noLeidosChat > 9 ? '9+' : noLeidosChat}
+                                </span>
+                            )}
+                        </button>
+
+                        {/* Botón chat con badge */}
+                        <button
+                            onClick={() => setChatAbierto(true)}
+                            className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg relative transition-all"
+                            title="Mensajes internos"
+                        >
+                            <MessageSquare className="w-4 h-4" />
+                            {noLeidosChat > 0 && (
+                                <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-yellow-500 border border-background" />
+                            )}
                         </button>
                         <button className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg relative">
                             <Bell className="w-4 h-4" />
@@ -333,15 +410,27 @@ export default function AppLayout({ children }: AppLayoutProps) {
                 </main>
             </div>
 
+            {/* ── Mobile sidebar ── */}
+            {/* Panel de chat interno */}
+            <InternalChatPanel abierto={chatAbierto} onCerrar={() => setChatAbierto(false)} />
+
             {mobileMenuAbierto && (
                 <div className="lg:hidden fixed inset-0 z-50 flex">
-                    <div className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-                        onClick={() => setMobileMenuAbierto(false)} />
+                    <div
+                        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+                        onClick={() => setMobileMenuAbierto(false)}
+                    />
                     <aside className="relative w-72 flex flex-col animate-slide-in bg-[hsl(220_20%_9%)]">
                         <SidebarContent mobile />
                     </aside>
                 </div>
             )}
+
+            {/* ── Panel de mensajería ── */}
+            <InternalChatPanel
+                abierto={chatAbierto}
+                onCerrar={() => setChatAbierto(false)}
+            />
         </div>
     );
 }
