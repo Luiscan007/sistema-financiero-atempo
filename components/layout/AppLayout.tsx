@@ -100,8 +100,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
     const [sidebarAbierto,   setSidebarAbierto]   = useState(true);
     const [mobileMenuAbierto,setMobileMenuAbierto] = useState(false);
     const [chatAbierto,      setChatAbierto]       = useState(false);
-    const [online,           setOnline]            = useState(true);
-    const [noLeidosChat,     setNoLeidosChat]      = useState(0);
+    const [online, setOnline] = useState(true);
 
     const pathname = usePathname();
     const router   = useRouter();
