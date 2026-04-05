@@ -290,7 +290,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
         router.push('/auth');
     };
 
-    const brechaAlta = tasas.brechaUSD > 50;
+    const brechaAlta = (tasas?.brechaUSD || 0) > 50;
 
     const sidebarProps: SidebarContentProps = {
         mobile:               false,
