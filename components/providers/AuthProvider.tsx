@@ -1,25 +1,10 @@
 'use client';
 
-import {
-    createContext,
-    useContext,
-    useState,
-    useEffect,
-    ReactNode,
-} from 'react';
-import {
-    User,
-    onAuthStateChanged,
-    signInWithEmailAndPassword,
-    signInWithPopup,
-    signOut,
-    createUserWithEmailAndPassword,
-} from 'firebase/auth';
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { User, onAuthStateChanged, signInWithEmailAndPassword, signInWithPopup, signOut, createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { auth, db, googleProvider, COLECCIONES } from '@/lib/firebase';
-
-// 1. ROLES ACTUALIZADOS PARA ATEMPO
-export type RolUsuario = 'admin' | 'recepcionista' | 'profesor';
+import { auth, db, googleProvider } from '@/lib/firebase';
+import { RolUsuario } from '@/lib/roles'; // Conectado directamente a la estructura de Atempo
 
 export interface UsuarioPerfil {
     uid: string;
@@ -53,24 +38,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setUsuario(user);
             if (user) {
                 try {
-                    const docRef = doc(db, COLECCIONES.USUARIOS, user.uid);
+                    // Usamos 'usuarios' directamente para blindar la ruta de Firebase
+                    const docRef = doc(db, 'usuarios', user.uid);
                     const docSnap = await getDoc(docRef);
+                    
                     if (docSnap.exists()) {
                         setPerfil(docSnap.data() as UsuarioPerfil);
                     } else {
-                        // Si no existe perfil, creamos uno básico
+                        // Creación de perfil por defecto por seguridad
                         const nuevoPerfil: UsuarioPerfil = {
                             uid: user.uid,
                             email: user.email || '',
-                            nombre: user.displayName || 'Usuario Atempo',
-                            rol: 'recepcionista', // Rol por defecto por seguridad
+                            nombre: user.displayName || user.email || 'Usuario Atempo',
+                            rol: 'recepcionista',
                             activo: true,
                             fechaRegistro: new Date(),
                         };
+                        await setDoc(docRef, {
+                            ...nuevoPerfil,
+                            fechaRegistro: serverTimestamp(),
+                        });
                         setPerfil(nuevoPerfil);
                     }
                 } catch (error) {
-                    console.error("Error obteniendo perfil:", error);
+                    console.error('Error cargando perfil:', error);
                     setPerfil(null);
                 }
             } else {
@@ -78,7 +69,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
             setCargando(false);
         });
-
         return () => unsubscribe();
     }, []);
 
@@ -98,21 +88,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const registro = async (email: string, password: string, nombre: string) => {
         const credencial = await createUserWithEmailAndPassword(auth, email, password);
         
-        // 🚨 DICCIONARIO DE ASIGNACIÓN AUTOMÁTICA DE ROLES 🚨
-        // Pon aquí los correos exactos en minúsculas y el rol que les toca
+        // Diccionario de Whitelist (Ciberseguridad y Accesos)
         const asignacionAutomatica: Record<string, RolUsuario> = {
             'luis@atempo.com': 'admin',
-            'tluisjosue@mail.com': 'admin',
             'camila@atempo.com': 'admin',
             'rosibel@atempo.com': 'admin',
             'recepcion@atempo.com': 'recepcionista',
-            'paco@atempo.com': 'profesor'
-            // Agrega más si los necesitas
+            'baile@atempo.com': 'profesor'
         };
 
         const correoLimpio = email.trim().toLowerCase();
-        
-        // El sistema busca si el correo está en la lista. Si no está, le da 'recepcionista' por seguridad
         const rolAsignado = asignacionAutomatica[correoLimpio] || 'recepcionista';
 
         const nuevoPerfil: UsuarioPerfil = {
@@ -121,20 +106,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             nombre,
             rol: rolAsignado,
             activo: true,
-            fechaRegistro: new Date() // Usamos new Date() localmente antes de que Firebase sincronice
+            fechaRegistro: new Date(),
         };
         
-        await setDoc(doc(db, COLECCIONES.USUARIOS, credencial.user.uid), {
+        await setDoc(doc(db, 'usuarios', credencial.user.uid), {
             ...nuevoPerfil,
-            fechaRegistro: serverTimestamp(), // Guardamos el timestamp real en la BD
+            fechaRegistro: serverTimestamp(),
         });
         
         setPerfil(nuevoPerfil);
     };
+
     return (
         <AuthContext.Provider
             value={{ usuario, perfil, cargando, loginEmail, loginGoogle, logout, registro }}
         >
+            {/* El candado maestro: la app no existe hasta que Firebase no valide credenciales */}
             {!cargando && children}
         </AuthContext.Provider>
     );
