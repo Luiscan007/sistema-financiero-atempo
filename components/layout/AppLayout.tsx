@@ -12,10 +12,6 @@ import {
     LayoutGrid, Scale, MessageSquare, Boxes, Layers,
     Handshake, BarChart2,
 } from 'lucide-react';
-import {
-    collection, onSnapshot, query, where, Timestamp,
-} from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { useTasas } from '@/components/providers/TasasProvider';
 import { cn } from '@/lib/utils';
@@ -135,30 +131,6 @@ export default function AppLayout({ children }: AppLayoutProps) {
         };
     }, []);
 
-    // ── Badge de mensajes no leídos ──────────────────────────────────────────
-    useEffect(() => {
-        const miUid = perfil?.uid || perfil?.id;
-        if (!miUid) return;
-
-        const haceUnMes = new Date();
-        haceUnMes.setDate(haceUnMes.getDate() - 30);
-
-        const q = query(
-            collection(db, 'chat_mensajes'),
-            where('canal',     '==',  'general'),
-            where('timestamp', '>=',  Timestamp.fromDate(haceUnMes)),
-        );
-
-        const unsub = onSnapshot(q, snap => {
-            const noLeidos = snap.docs.filter(d => {
-                const data = d.data();
-                return data.autorUid !== miUid && !data.leido?.includes(miUid);
-            }).length;
-            setNoLeidosChat(noLeidos);
-        }, () => {});
-
-        return unsub;
-    }, [perfil]);
 
     const handleLogout = async () => {
         await logout();
