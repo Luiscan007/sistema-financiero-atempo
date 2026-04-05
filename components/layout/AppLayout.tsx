@@ -4,8 +4,8 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-    LayoutDashboard, ShoppingCart, Package, Receipt,
-    TrendingUp, BookOpen, Users, Settings, DollarSign,
+    LayoutDashboard, ShoppingCart, Receipt,
+    TrendingUp, BookOpen, Settings, DollarSign,
     ChevronLeft, ChevronRight, LogOut, Bell, RefreshCw,
     Menu, X, Activity, AlertTriangle, WifiOff, Sun, Moon,
     GraduationCap, ClipboardList, Wallet, CalendarDays,
@@ -18,12 +18,14 @@ import { cn } from '@/lib/utils';
 import { tienePermiso, RUTA_INICIO_ROL, RolUsuario } from '@/lib/roles';
 import { InternalChatPanel, useChatNoLeidos } from '@/components/chat/InternalChatPanel';
 
+// ─── Navegación ───────────────────────────────────────────────────────────────
+
 const NAV_ITEMS = [
     {
         titulo: 'Principal',
         items: [
             { label: 'Dashboard',      href: '/dashboard', icon: LayoutDashboard },
-            { label: 'Punto de Venta', href: '/pos',       icon: ShoppingCart },
+            { label: 'Punto de Venta', href: '/pos',       icon: ShoppingCart    },
         ],
     },
     {
@@ -36,17 +38,17 @@ const NAV_ITEMS = [
         titulo: 'Academia',
         items: [
             { label: 'Alumnos',    href: '/clientes',   icon: GraduationCap },
-            { label: 'Asistencia', href: '/asistencia', icon: ClipboardList },
+            { label: 'Asistencia', href: '/asistencia', icon: ClipboardList  },
         ],
     },
     {
         titulo: 'Gestion',
         items: [
-            { label: 'Servicios',    href: '/servicios',   icon: Layers     },
-            { label: 'Inventario',   href: '/inventario',  icon: Boxes      },
-            { label: 'Ventas',       href: '/ventas',      icon: Receipt    },
-            { label: 'Gastos',       href: '/gastos',      icon: TrendingUp },
-            { label: 'Contabilidad', href: '/contabilidad',icon: BookOpen   },
+            { label: 'Servicios',    href: '/servicios',    icon: Layers    },
+            { label: 'Inventario',   href: '/inventario',   icon: Boxes     },
+            { label: 'Ventas',       href: '/ventas',       icon: Receipt   },
+            { label: 'Gastos',       href: '/gastos',       icon: TrendingUp},
+            { label: 'Contabilidad', href: '/contabilidad', icon: BookOpen  },
         ],
     },
     {
@@ -59,10 +61,10 @@ const NAV_ITEMS = [
     {
         titulo: 'Finanzas',
         items: [
-            { label: 'Tasas y Cambio', href: '/cambio',       icon: DollarSign  },
-            { label: 'Conciliacion',   href: '/conciliacion', icon: Scale, modulo: 'conciliacion' },
-            { label: 'Sociedad',       href: '/sociedad',     icon: Handshake   },
-            { label: 'Analitica',      href: '/analitica',    icon: BarChart2   },
+            { label: 'Tasas y Cambio', href: '/cambio',        icon: DollarSign },
+            { label: 'Conciliacion',   href: '/conciliacion',  icon: Scale,     modulo: 'conciliacion' },
+            { label: 'Sociedad',       href: '/sociedad',      icon: Handshake  },
+            { label: 'Analitica',      href: '/analitica',     icon: BarChart2  },
         ],
     },
     {
@@ -74,7 +76,7 @@ const NAV_ITEMS = [
     },
 ];
 
-interface AppLayoutProps { children: React.ReactNode; }
+// ─── Hook de tema ─────────────────────────────────────────────────────────────
 
 function useTema() {
     const [tema, setTema] = useState<'dark' | 'light'>('dark');
@@ -92,55 +94,28 @@ function useTema() {
     return { tema, toggleTema };
 }
 
-export default function AppLayout({ children }: AppLayoutProps) {
-    const [sidebarAbierto,   setSidebarAbierto]   = useState(true);
-    const [mobileMenuAbierto,setMobileMenuAbierto] = useState(false);
-    const [chatAbierto,      setChatAbierto]       = useState(false);
-    const [online, setOnline] = useState(true);
+// ─── Sidebar content (fuera del componente para evitar re-renders) ────────────
 
-    const pathname = usePathname();
-    const router   = useRouter();
-    const { perfil, logout } = useAuth() as { perfil: any; logout: () => void };
-    const { tasas, cargando: cargandoTasas, refrescar } = useTasas();
-    const { tema, toggleTema } = useTema();
-    const noLeidosChat = useChatNoLeidos(perfil?.uid);
+interface SidebarContentProps {
+    mobile:              boolean;
+    sidebarAbierto:      boolean;
+    setSidebarAbierto:   (v: boolean) => void;
+    setMobileMenuAbierto:(v: boolean) => void;
+    navItemsFiltrados:   typeof NAV_ITEMS;
+    pathname:            string;
+    perfil:              any;
+    handleLogout:        () => void;
+    online:              boolean;
+}
 
-    const navItemsFiltrados = NAV_ITEMS.map(grupo => ({
-        ...grupo,
-        items: grupo.items.filter(item => tienePermiso(perfil?.rol as RolUsuario, item.href)),
-    })).filter(grupo => grupo.items.length > 0);
-
-    // ── Blindaje de rutas ────────────────────────────────────────────────────
-    useEffect(() => {
-        if (perfil?.rol && !tienePermiso(perfil.rol as RolUsuario, pathname)) {
-            const rutaSegura = RUTA_INICIO_ROL[perfil.rol as RolUsuario] || '/pos';
-            router.replace(rutaSegura);
-        }
-    }, [pathname, perfil, router]);
-
-    // ── Estado online/offline ────────────────────────────────────────────────
-    useEffect(() => {
-        const handleOnline  = () => setOnline(true);
-        const handleOffline = () => setOnline(false);
-        window.addEventListener('online',  handleOnline);
-        window.addEventListener('offline', handleOffline);
-        setOnline(navigator.onLine);
-        return () => {
-            window.removeEventListener('online',  handleOnline);
-            window.removeEventListener('offline', handleOffline);
-        };
-    }, []);
-
-
-    const handleLogout = async () => {
-        await logout();
-        router.push('/auth');
-    };
-
-    const brechaAlta = tasas.brechaUSD > 50;
-
-    const SidebarContent = ({ mobile = false }: { mobile?: boolean }) => (
+function SidebarContent({
+    mobile, sidebarAbierto, setSidebarAbierto,
+    setMobileMenuAbierto, navItemsFiltrados,
+    pathname, perfil, handleLogout, online,
+}: SidebarContentProps) {
+    return (
         <>
+            {/* Logo */}
             <div className={cn(
                 'flex items-center border-b border-white/10 flex-shrink-0',
                 mobile || sidebarAbierto ? 'justify-between p-4' : 'justify-center p-3',
@@ -160,24 +135,32 @@ export default function AppLayout({ children }: AppLayoutProps) {
                         <Activity className="w-5 h-5 text-white" />
                     </div>
                 )}
+
                 {mobile ? (
-                    <button onClick={() => setMobileMenuAbierto(false)}
-                        className="text-white/40 hover:text-white/80 p-1 rounded-lg hover:bg-white/10 transition-all">
+                    <button
+                        onClick={() => setMobileMenuAbierto(false)}
+                        className="text-white/40 hover:text-white/80 p-1 rounded-lg hover:bg-white/10 transition-all"
+                    >
                         <X className="w-5 h-5" />
                     </button>
                 ) : sidebarAbierto ? (
-                    <button onClick={() => setSidebarAbierto(false)}
-                        className="text-white/30 hover:text-white/70 p-1 rounded-lg hover:bg-white/10 transition-all">
+                    <button
+                        onClick={() => setSidebarAbierto(false)}
+                        className="text-white/30 hover:text-white/70 p-1 rounded-lg hover:bg-white/10 transition-all"
+                    >
                         <ChevronLeft className="w-4 h-4" />
                     </button>
                 ) : (
-                    <button onClick={() => setSidebarAbierto(true)}
-                        className="text-white/30 hover:text-white/70 p-1 rounded-lg hover:bg-white/10 transition-all -mr-1">
+                    <button
+                        onClick={() => setSidebarAbierto(true)}
+                        className="text-white/30 hover:text-white/70 p-1 rounded-lg hover:bg-white/10 transition-all -mr-1"
+                    >
                         <ChevronRight className="w-4 h-4" />
                     </button>
                 )}
             </div>
 
+            {/* Nav */}
             <nav className="flex-1 overflow-y-auto p-3 space-y-0.5 no-scrollbar">
                 {navItemsFiltrados.map((grupo) => (
                     <div key={grupo.titulo} className="mb-3">
@@ -186,7 +169,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
                                 {grupo.titulo}
                             </p>
                         )}
-                        {!mobile && !sidebarAbierto && <div className="border-t border-white/10 my-2" />}
+                        {!mobile && !sidebarAbierto && (
+                            <div className="border-t border-white/10 my-2" />
+                        )}
                         {grupo.items.map((item) => {
                             const activo = pathname.startsWith(item.href);
                             const Icon   = item.icon;
@@ -211,6 +196,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
                 ))}
             </nav>
 
+            {/* Footer */}
             <div className="p-3 border-t border-white/10 space-y-1 flex-shrink-0">
                 {!online && (
                     <div className={cn(
@@ -228,7 +214,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
                     )}>
                         <div className="w-8 h-8 rounded-full bg-blue-500/25 border border-blue-400/30 flex items-center justify-center flex-shrink-0">
                             <span className="text-xs font-bold text-blue-300">
-                                {perfil.nombre.charAt(0).toUpperCase()}
+                                {perfil.nombre?.charAt(0)?.toUpperCase() ?? '?'}
                             </span>
                         </div>
                         {(mobile || sidebarAbierto) && (
@@ -253,19 +239,90 @@ export default function AppLayout({ children }: AppLayoutProps) {
             </div>
         </>
     );
+}
+
+// ─── AppLayout principal ──────────────────────────────────────────────────────
+
+interface AppLayoutProps { children: React.ReactNode; }
+
+export default function AppLayout({ children }: AppLayoutProps) {
+    const [sidebarAbierto,    setSidebarAbierto]    = useState(true);
+    const [mobileMenuAbierto, setMobileMenuAbierto] = useState(false);
+    const [chatAbierto,       setChatAbierto]       = useState(false);
+    const [online,            setOnline]            = useState(true);
+
+    const pathname = usePathname();
+    const router   = useRouter();
+    const { perfil, logout } = useAuth() as { perfil: any; logout: () => void };
+    const { tasas, cargando: cargandoTasas, refrescar } = useTasas();
+    const { tema, toggleTema } = useTema();
+    const noLeidosChat = useChatNoLeidos(perfil?.uid);
+
+    // Filtrar menú según rol
+    const navItemsFiltrados = NAV_ITEMS.map(grupo => ({
+        ...grupo,
+        items: grupo.items.filter(item => tienePermiso(perfil?.rol as RolUsuario, item.href)),
+    })).filter(grupo => grupo.items.length > 0);
+
+    // Blindaje de rutas
+    useEffect(() => {
+        if (perfil?.rol && !tienePermiso(perfil.rol as RolUsuario, pathname)) {
+            const rutaSegura = RUTA_INICIO_ROL[perfil.rol as RolUsuario] || '/pos';
+            router.replace(rutaSegura);
+        }
+    }, [pathname, perfil, router]);
+
+    // Estado online/offline
+    useEffect(() => {
+        const up   = () => setOnline(true);
+        const down = () => setOnline(false);
+        window.addEventListener('online',  up);
+        window.addEventListener('offline', down);
+        setOnline(navigator.onLine);
+        return () => {
+            window.removeEventListener('online',  up);
+            window.removeEventListener('offline', down);
+        };
+    }, []);
+
+    const handleLogout = async () => {
+        await logout();
+        router.push('/auth');
+    };
+
+    const brechaAlta = tasas.brechaUSD > 50;
+
+    const sidebarProps: SidebarContentProps = {
+        mobile:               false,
+        sidebarAbierto,
+        setSidebarAbierto,
+        setMobileMenuAbierto,
+        navItemsFiltrados,
+        pathname,
+        perfil,
+        handleLogout,
+        online,
+    };
 
     return (
         <div className="flex h-screen bg-background overflow-hidden">
+
+            {/* ── Sidebar desktop ── */}
             <aside className={cn(
                 'hidden lg:flex flex-col flex-shrink-0 transition-all duration-300 ease-in-out',
                 'bg-[hsl(var(--sidebar-bg))]',
                 sidebarAbierto ? 'w-60' : 'w-[60px]',
             )}>
-                <SidebarContent />
+                <SidebarContent {...sidebarProps} />
             </aside>
 
+            {/* ── Contenido principal ── */}
             <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+
+                {/* Header */}
                 <header className="bg-[hsl(var(--topbar-bg))] border-b border-border px-4 py-2.5 flex items-center gap-3 flex-shrink-0">
+
+                    {/* Botón menú móvil */}
                     <button
                         className="lg:hidden text-muted-foreground hover:text-foreground p-1.5 hover:bg-muted rounded-lg transition-all"
                         onClick={() => setMobileMenuAbierto(true)}
@@ -277,7 +334,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
                     <div className="flex-1 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
                         {cargandoTasas ? (
                             <div className="flex gap-2">
-                                {[1, 2, 3, 4].map(i => <div key={i} className="skeleton h-7 w-28 rounded-lg" />)}
+                                {[1, 2, 3, 4].map(i => (
+                                    <div key={i} className="skeleton h-7 w-28 rounded-lg" />
+                                ))}
                             </div>
                         ) : (
                             <div className="flex items-center gap-1.5 flex-nowrap">
@@ -317,25 +376,35 @@ export default function AppLayout({ children }: AppLayoutProps) {
                         )}
                     </div>
 
-                    {/* Acciones del header */}
+                    {/* Acciones */}
                     <div className="flex items-center gap-1 flex-shrink-0">
+                        {/* Indicador online */}
                         <div
                             className={cn('w-2 h-2 rounded-full flex-shrink-0', online ? 'bg-emerald-400' : 'bg-amber-400')}
                             title={online ? 'En linea' : 'Sin conexion'}
                         />
-                        <button onClick={refrescar} disabled={cargandoTasas}
-                            className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-all">
+
+                        {/* Refrescar tasas */}
+                        <button
+                            onClick={refrescar}
+                            disabled={cargandoTasas}
+                            className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-all"
+                        >
                             <RefreshCw className={cn('w-4 h-4', cargandoTasas && 'animate-spin')} />
                         </button>
-                        <button onClick={toggleTema}
-                            className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-all group">
+
+                        {/* Toggle tema */}
+                        <button
+                            onClick={toggleTema}
+                            className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-all group"
+                        >
                             {tema === 'dark'
                                 ? <Sun  className="w-4 h-4 transition-transform group-hover:rotate-45"   />
                                 : <Moon className="w-4 h-4 transition-transform group-hover:-rotate-12" />
                             }
                         </button>
 
-                        {/* ── Botón de Chat con badge de no leídos ── */}
+                        {/* Chat interno — UN SOLO botón */}
                         <button
                             onClick={() => setChatAbierto(v => !v)}
                             className={cn(
@@ -348,43 +417,32 @@ export default function AppLayout({ children }: AppLayoutProps) {
                         >
                             <MessageSquare className="w-4 h-4" />
                             {noLeidosChat > 0 && (
-                                <span className={cn(
-                                    'absolute -top-0.5 -right-0.5 min-w-[16px] h-4 rounded-full',
-                                    'bg-yellow-500 text-black text-[9px] font-bold',
-                                    'flex items-center justify-center px-0.5',
-                                    'animate-bounce',
-                                )}>
+                                <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 rounded-full bg-yellow-500 text-black text-[9px] font-bold flex items-center justify-center px-0.5">
                                     {noLeidosChat > 9 ? '9+' : noLeidosChat}
                                 </span>
                             )}
                         </button>
 
-                        {/* Botón chat con badge */}
-                        <button
-                            onClick={() => setChatAbierto(true)}
-                            className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg relative transition-all"
-                            title="Mensajes internos"
-                        >
-                            <MessageSquare className="w-4 h-4" />
-                            {noLeidosChat > 0 && (
-                                <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-yellow-500 border border-background" />
-                            )}
-                        </button>
+                        {/* Notificaciones */}
                         <button className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg relative">
                             <Bell className="w-4 h-4" />
                         </button>
                     </div>
                 </header>
 
+                {/* Contenido de la página */}
                 <main className="flex-1 overflow-y-auto p-6">
                     {children}
                 </main>
             </div>
 
-            {/* ── Mobile sidebar ── */}
-            {/* Panel de chat interno */}
-            <InternalChatPanel abierto={chatAbierto} onCerrar={() => setChatAbierto(false)} />
+            {/* ── Panel de chat — UNA SOLA instancia ── */}
+            <InternalChatPanel
+                abierto={chatAbierto}
+                onCerrar={() => setChatAbierto(false)}
+            />
 
+            {/* ── Sidebar móvil ── */}
             {mobileMenuAbierto && (
                 <div className="lg:hidden fixed inset-0 z-50 flex">
                     <div
@@ -392,16 +450,10 @@ export default function AppLayout({ children }: AppLayoutProps) {
                         onClick={() => setMobileMenuAbierto(false)}
                     />
                     <aside className="relative w-72 flex flex-col animate-slide-in bg-[hsl(220_20%_9%)]">
-                        <SidebarContent mobile />
+                        <SidebarContent {...sidebarProps} mobile={true} />
                     </aside>
                 </div>
             )}
-
-            {/* ── Panel de mensajería ── */}
-            <InternalChatPanel
-                abierto={chatAbierto}
-                onCerrar={() => setChatAbierto(false)}
-            />
         </div>
     );
 }
