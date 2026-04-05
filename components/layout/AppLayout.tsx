@@ -332,7 +332,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
                     {/* Tasas de cambio */}
                     <div className="flex-1 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
-                        {cargandoTasas ? (
+                        {(cargandoTasas || !tasas) ? (
                             <div className="flex gap-2">
                                 {[1, 2, 3, 4].map(i => (
                                     <div key={i} className="skeleton h-7 w-28 rounded-lg" />
