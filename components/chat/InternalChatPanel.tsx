@@ -260,16 +260,20 @@ function SpeedDial({ abierto, onAdjuntar, onRapidas, onEvento }: {
         { icon: Zap,       label: 'Respuesta rapida', cls: 'bg-yellow-500/20 border-yellow-500/30 text-yellow-400', fn: onRapidas  },
         { icon: Paperclip, label: 'Adjuntar archivo', cls: 'bg-purple-500/20 border-purple-500/30 text-purple-400', fn: onAdjuntar },
     ];
-    if (!abierto) return null;
+    // SIEMPRE renderizado — la animacion la controla CSS, no el montaje/desmontaje
     return (
-        // Posicionado absolutamente respecto al wrapper del input
-        // bottom: 100% = justo encima del botón +, más un pequeño gap
-        <div className="absolute bottom-full left-0 mb-2 flex flex-col-reverse gap-2 z-30 pb-1">
+        <div className="absolute bottom-full left-0 mb-2 flex flex-col-reverse gap-2 z-30 pb-1 pointer-events-none">
             {items.map((item, i) => (
-                <div key={i} className={cn(
-                    'flex items-center gap-2 transition-all duration-200 ease-out',
-                    abierto ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2 pointer-events-none',
-                )} style={{ transitionDelay: `${i * 50}ms` }}>
+                <div key={i}
+                    className="flex items-center gap-2"
+                    style={{
+                        transition: `opacity 200ms ease, transform 200ms ease`,
+                        transitionDelay: abierto ? `${i * 60}ms` : `${(items.length - 1 - i) * 40}ms`,
+                        opacity:   abierto ? 1 : 0,
+                        transform: abierto ? 'translateY(0px)' : 'translateY(10px)',
+                        pointerEvents: abierto ? 'auto' : 'none',
+                    }}
+                >
                     <span className="text-[10px] text-white/55 bg-black/85 backdrop-blur-sm px-2.5 py-1 rounded-lg border border-white/10 whitespace-nowrap select-none shadow-lg">
                         {item.label}
                     </span>
@@ -1051,24 +1055,60 @@ export function InternalChatPanel({ abierto, onCerrar }: {
         return unsub;
     }, [miUid, miNombre]);
 
-    // Presencia online
+    // Presencia online — con visibilitychange y heartbeat cada 60s
     useEffect(() => {
         if (!miUid) return;
+
+        // Listener de usuarios staff
         const unsub = onSnapshot(collection(db, 'clientes_staff'),
-            snap => setUsuarios(snap.docs.map(d => ({
-                uid: d.id, nombre: d.data().nombre ?? 'Usuario',
-                rol: d.data().rol ?? 'staff', online: d.data().online ?? false,
-            }))),
+            snap => setUsuarios(snap.docs.map(d => {
+                const data = d.data();
+                // Considerar offline si ultimaVez > 3 minutos, aunque online=true
+                const ultimaVez: Timestamp | null = data.ultimaVez ?? null;
+                const hace3min = Date.now() - 3 * 60 * 1000;
+                const realmente = data.online === true &&
+                    ultimaVez && ultimaVez.toMillis() > hace3min;
+                return {
+                    uid:    d.id,
+                    nombre: data.nombre ?? 'Usuario',
+                    rol:    data.rol    ?? 'staff',
+                    online: !!realmente,
+                };
+            })),
             () => {},
         );
-        setDoc(doc(db, 'clientes_staff', miUid), {
+
+        const marcarOnline = () => setDoc(doc(db, 'clientes_staff', miUid), {
             nombre: miNombre, rol: miRol,
             online: true, ultimaVez: serverTimestamp(),
         }, { merge: true }).catch(() => {});
-        const goOffline = () => setDoc(doc(db, 'clientes_staff', miUid),
+
+        const marcarOffline = () => setDoc(doc(db, 'clientes_staff', miUid),
             { online: false, ultimaVez: serverTimestamp() }, { merge: true }).catch(() => {});
-        window.addEventListener('beforeunload', goOffline);
-        return () => { unsub(); window.removeEventListener('beforeunload', goOffline); goOffline(); };
+
+        // Marcar online al montar
+        marcarOnline();
+
+        // Heartbeat cada 60 segundos para mantener presencia
+        const heartbeat = setInterval(marcarOnline, 60_000);
+
+        // Offline al cambiar visibilidad (minimizar, cambiar pestaña)
+        const handleVisibility = () => {
+            if (document.hidden) marcarOffline();
+            else marcarOnline();
+        };
+
+        // Offline al cerrar
+        window.addEventListener('beforeunload',    marcarOffline);
+        document.addEventListener('visibilitychange', handleVisibility);
+
+        return () => {
+            unsub();
+            clearInterval(heartbeat);
+            window.removeEventListener('beforeunload',       marcarOffline);
+            document.removeEventListener('visibilitychange', handleVisibility);
+            marcarOffline();
+        };
     }, [miUid, miNombre, miRol]);
 
     const crearGrupo = async (nombre: string, participantes: string[]) => {
