@@ -10,8 +10,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import CountUp from 'react-countup';
 import {
-    TrendingUp, TrendingDown, ShoppingCart, DollarSign,
-    Package, Users, Receipt, ArrowUpRight, ArrowDownRight,
+    TrendingUp, ShoppingCart, DollarSign,
+    Package, Receipt, ArrowUpRight, ArrowDownRight,
     Wallet, BarChart3, Activity, Zap, RefreshCw,
     CreditCard, Target, Clock,
 } from 'lucide-react';
@@ -20,18 +20,20 @@ import {
     PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid,
     Tooltip, ResponsiveContainer,
 } from 'recharts';
-import { formatBs, formatUSD } from '@/lib/utils';
 import { useTasas } from '@/components/providers/TasasProvider';
 import { obtenerHistorialTasas } from '@/lib/tasas';
 import { useVentas } from '@/lib/useVentas';
 import { useServicios } from '@/lib/useServicios';
 
 /* ─────────────────────────────────────────
-   HELPERS
+   HELPERS BLINDADOS (Locales)
 ───────────────────────────────────────── */
 function hoy()  { return new Date().toDateString(); }
 function ayer() { const d = new Date(); d.setDate(d.getDate() - 1); return d.toDateString(); }
 function inicioMes() { const d = new Date(); d.setDate(1); d.setHours(0,0,0,0); return d; }
+
+const formatBsLocal = (val: number) => `Bs ${val.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const formatUSDLocal = (val: number) => `$${val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 /* ─────────────────────────────────────────
    ANIMATION VARIANTS
@@ -82,9 +84,15 @@ const LABEL_METODO: Record<string, string> = {
 };
 
 /* ─────────────────────────────────────────
-   TOOLTIP PERSONALIZADO
+   TOOLTIP PERSONALIZADO (Tipado Seguro)
 ───────────────────────────────────────── */
-function TooltipPremium({ active, payload, label }: any) {
+interface TooltipProps {
+    active?: boolean;
+    payload?: any[];
+    label?: string;
+}
+
+function TooltipPremium({ active, payload, label }: TooltipProps) {
     if (!active || !payload?.length) return null;
     return (
         <div style={{
@@ -97,12 +105,12 @@ function TooltipPremium({ active, payload, label }: any) {
             minWidth: 140,
         }}>
             <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 8, letterSpacing: '0.05em', textTransform: 'uppercase', fontFamily: 'DM Sans' }}>{label}</p>
-            {payload.map((entry: any, i: number) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+            {payload.map((entry, i) => (
+                <div key={`tt-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
                     <div style={{ width: 6, height: 6, borderRadius: '50%', background: entry.color, flexShrink: 0 }} />
                     <span style={{ color: 'rgba(255,255,255,0.9)', fontFamily: 'DM Mono' }}>
                         {typeof entry.value === 'number' && entry.value > 500
-                            ? formatBs(entry.value)
+                            ? formatBsLocal(entry.value)
                             : entry.value}
                     </span>
                 </div>
@@ -120,7 +128,7 @@ interface KPIProps {
     prefijo?: string;
     sufijo?: string;
     subtitulo?: string;
-    icono: React.ElementType;
+    icono: any; // Lucide Icon
     cambio?: number | null;
     glowColor?: 'gold' | 'red' | 'green' | 'blue';
     decimales?: number;
@@ -164,7 +172,6 @@ function KPICard({ titulo, valor, prefijo = '', sufijo = '', subtitulo, icono: I
                 transition: 'all 400ms cubic-bezier(0.25,1,0.5,1)',
             }}
         >
-            {/* Glow radial de fondo */}
             <AnimatePresence>
                 {hovered && (
                     <motion.div
@@ -180,7 +187,6 @@ function KPICard({ titulo, valor, prefijo = '', sufijo = '', subtitulo, icono: I
                 )}
             </AnimatePresence>
 
-            {/* Header */}
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16, position: 'relative' }}>
                 <div style={{
                     width: 38, height: 38, borderRadius: 10,
@@ -191,7 +197,7 @@ function KPICard({ titulo, valor, prefijo = '', sufijo = '', subtitulo, icono: I
                 }}>
                     <Icon size={18} strokeWidth={1.5} color={glow.iconColor} />
                 </div>
-                {cambio != null && (
+                {cambio !== undefined && cambio !== null && (
                     <div style={{
                         display: 'flex', alignItems: 'center', gap: 3,
                         fontSize: 11, fontWeight: 600,
@@ -209,7 +215,6 @@ function KPICard({ titulo, valor, prefijo = '', sufijo = '', subtitulo, icono: I
                 )}
             </div>
 
-            {/* Valor con CountUp */}
             <div style={{ position: 'relative' }}>
                 <p style={{
                     fontSize: 26, fontWeight: 700, letterSpacing: '-0.02em',
@@ -218,7 +223,7 @@ function KPICard({ titulo, valor, prefijo = '', sufijo = '', subtitulo, icono: I
                 }}>
                     {prefijo}
                     <CountUp
-                        end={valor}
+                        end={valor || 0}
                         duration={2}
                         decimals={decimales}
                         separator=","
@@ -319,13 +324,11 @@ export default function DashboardPage() {
         obtenerHistorialTasas(30).then(setHistorialTasas);
     }, [refreshKey]);
 
-    // Reloj en tiempo real
     useEffect(() => {
         const t = setInterval(() => setAhora(new Date()), 60000);
         return () => clearInterval(t);
     }, []);
 
-    /* ── KPIs calculados desde ventas reales ── */
     const kpis = useMemo(() => {
         const hoyStr  = hoy();
         const ayerStr = ayer();
@@ -348,13 +351,11 @@ export default function DashboardPage() {
         const cambioIngresos = ingresoAyerBs > 0 ? ((ingresoHoyBs - ingresoAyerBs) / ingresoAyerBs) * 100 : null;
         const cambioTx       = txAyer > 0 ? ((txHoy - txAyer) / txAyer) * 100 : null;
 
-        // Ventas por hora (hoy)
         const datosHoras = Array.from({ length: 24 }, (_, h) => ({
             hora: `${h.toString().padStart(2,'0')}h`,
             ventas: ventasHoyArr.filter(v => v.fechaTimestamp?.toDate?.()?.getHours() === h).length,
         }));
 
-        // Ventas diarias (30 días)
         const datosVentasDiarias = Array.from({ length: 30 }, (_, i) => {
             const d = new Date(); d.setDate(d.getDate() - (29 - i));
             const dStr = d.toDateString();
@@ -366,7 +367,6 @@ export default function DashboardPage() {
             };
         });
 
-        // Métodos de pago (mes)
         const metodosCount: Record<string, number> = {};
         ventasMesArr.forEach(v => {
             if (v.metodoPago) metodosCount[v.metodoPago] = (metodosCount[v.metodoPago] || 0) + 1;
@@ -381,15 +381,15 @@ export default function DashboardPage() {
             .sort((a, b) => b.value - a.value)
             .slice(0, 6);
 
-        // Top servicios (mes)
         const servicioMap: Record<string, { nombre: string; cantidad: number; ingresos: number }> = {};
         ventasMesArr.forEach(v => {
-            v.items?.forEach((item: any) => {
-                if (!servicioMap[item.servicioId || item.nombre]) {
-                    servicioMap[item.servicioId || item.nombre] = { nombre: item.nombre, cantidad: 0, ingresos: 0 };
+            v.items?.forEach((item: { servicioId?: string; nombre?: string; cantidad?: number; totalBs?: number }) => {
+                const key = item.servicioId || item.nombre || 'Desconocido';
+                if (!servicioMap[key]) {
+                    servicioMap[key] = { nombre: item.nombre || 'Desconocido', cantidad: 0, ingresos: 0 };
                 }
-                servicioMap[item.servicioId || item.nombre].cantidad += item.cantidad || 1;
-                servicioMap[item.servicioId || item.nombre].ingresos += item.totalBs || 0;
+                servicioMap[key].cantidad += item.cantidad || 1;
+                servicioMap[key].ingresos += item.totalBs || 0;
             });
         });
         const topServicios = Object.values(servicioMap)
@@ -483,7 +483,6 @@ export default function DashboardPage() {
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        {/* Reloj */}
                         <div style={{
                             display: 'flex', alignItems: 'center', gap: 8,
                             padding: '8px 14px', borderRadius: 10,
@@ -496,7 +495,6 @@ export default function DashboardPage() {
                             </span>
                         </div>
 
-                        {/* Tasa BCV inline */}
                         <div style={{
                             display: 'flex', alignItems: 'center', gap: 8,
                             padding: '8px 14px', borderRadius: 10,
@@ -505,7 +503,7 @@ export default function DashboardPage() {
                         }}>
                             <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', fontFamily: 'DM Sans' }}>BCV</span>
                             <span style={{ fontSize: 13, fontFamily: 'DM Mono', fontWeight: 600, color: '#60A5FA' }}>
-                                Bs {tasas.bcv.toLocaleString('es-VE', { minimumFractionDigits: 2 })}
+                                Bs {tasas?.bcv?.toLocaleString('es-VE', { minimumFractionDigits: 2 }) || '0.00'}
                             </span>
                         </div>
 
@@ -535,14 +533,14 @@ export default function DashboardPage() {
                     marginBottom: 24,
                 }}>
                     {cargando ? (
-                        Array.from({ length: 6 }).map((_, i) => <SkeletonKPI key={i} index={i} />)
+                        Array.from({ length: 6 }).map((_, i) => <SkeletonKPI key={`sk-${i}`} index={i} />)
                     ) : (
                         <>
-                            <KPICard index={0} titulo="Ingresos Hoy" valor={kpis.ingresoHoyBs} prefijo="Bs " decimales={0} icono={DollarSign} cambio={kpis.cambioIngresos} glowColor="gold" subtitulo={kpis.ingresoHoyUSD > 0 ? `≈ ${formatUSD(kpis.ingresoHoyUSD)} USD` : undefined} />
-                            <KPICard index={1} titulo="Ingresos del Mes" valor={kpis.ingresoMesBs} prefijo="Bs " decimales={0} icono={TrendingUp} glowColor="green" subtitulo={kpis.ingresoMesUSD > 0 ? `≈ ${formatUSD(kpis.ingresoMesUSD)} USD` : undefined} />
+                            <KPICard index={0} titulo="Ingresos Hoy" valor={kpis.ingresoHoyBs} prefijo="Bs " decimales={0} icono={DollarSign} cambio={kpis.cambioIngresos} glowColor="gold" subtitulo={kpis.ingresoHoyUSD > 0 ? `≈ ${formatUSDLocal(kpis.ingresoHoyUSD)}` : undefined} />
+                            <KPICard index={1} titulo="Ingresos del Mes" valor={kpis.ingresoMesBs} prefijo="Bs " decimales={0} icono={TrendingUp} glowColor="green" subtitulo={kpis.ingresoMesUSD > 0 ? `≈ ${formatUSDLocal(kpis.ingresoMesUSD)}` : undefined} />
                             <KPICard index={2} titulo="Transacciones Hoy" valor={kpis.txHoy} icono={Receipt} cambio={kpis.cambioTx} glowColor="blue" subtitulo={`${kpis.txAyer} ayer`} />
                             <KPICard index={3} titulo="Transacciones Mes" valor={kpis.txMes} icono={ShoppingCart} glowColor="gold" subtitulo="Total del mes actual" />
-                            <KPICard index={4} titulo="Tasa BCV" valor={tasas.bcv} prefijo="Bs " decimales={2} icono={Wallet} glowColor="blue" subtitulo="Actualizada" />
+                            <KPICard index={4} titulo="Tasa BCV" valor={tasas?.bcv || 0} prefijo="Bs " decimales={2} icono={Wallet} glowColor="blue" subtitulo="Actualizada" />
                             <KPICard index={5} titulo="Servicios Activos" valor={kpis.serviciosActivos} icono={Package} glowColor="green" subtitulo="En catálogo" />
                         </>
                     )}
@@ -597,7 +595,6 @@ export default function DashboardPage() {
                         )}
                     </ChartCard>
 
-                    {/* Métodos de pago */}
                     <ChartCard>
                         <SectionHeader title="Métodos de Pago" subtitle="Distribución del mes" />
                         {cargando ? (
@@ -616,11 +613,11 @@ export default function DashboardPage() {
                                             paddingAngle={3} dataKey="value"
                                             strokeWidth={0}>
                                             {kpis.datosPie.map((entry, i) => (
-                                                <Cell key={i} fill={entry.color} opacity={0.9} />
+                                                <Cell key={`pie-${i}`} fill={entry.color} opacity={0.9} />
                                             ))}
                                         </Pie>
                                         <Tooltip
-                                            formatter={(v: any) => [`${v}%`, '']}
+                                            formatter={(v: number) => [`${v}%`, '']}
                                             contentStyle={{
                                                 background: 'rgba(8,8,8,0.95)',
                                                 border: '1px solid rgba(255,255,255,0.08)',
@@ -706,7 +703,7 @@ export default function DashboardPage() {
                                     <Tooltip content={<TooltipPremium />} />
                                     <Bar dataKey="ventas" name="Transacciones" radius={[3, 3, 0, 0]}>
                                         {kpis.datosHoras.map((entry, i) => (
-                                            <Cell key={i}
+                                            <Cell key={`bh-${i}`}
                                                 fill={
                                                     entry.ventas === kpis.horaMaxima.ventas && entry.ventas > 0
                                                         ? '#EAB308'
