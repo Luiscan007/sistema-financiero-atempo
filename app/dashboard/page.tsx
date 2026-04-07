@@ -312,8 +312,8 @@ function ChartCard({ children, style }: { children: React.ReactNode; style?: Rea
 ───────────────────────────────────────── */
 export default function DashboardPage() {
     const { tasas } = useTasas();
-    const { ventas, cargando: cargandoVentas } = useVentas();
-    const { servicios, cargando: cargandoServicios } = useServicios();
+    const { ventas, cargando: cargandoVentas } = useVentas() as { ventas: any[]; cargando: boolean };
+    const { servicios, cargando: cargandoServicios } = useServicios() as { servicios: any[]; cargando: boolean };
     const [historialTasas, setHistorialTasas] = useState<any[]>([]);
     const [refreshKey, setRefreshKey] = useState(0);
     const [ahora, setAhora] = useState(new Date());
