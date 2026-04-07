@@ -2,19 +2,23 @@
 
 /**
  * app/dashboard/page.tsx
- * Dashboard principal - datos reales desde Firestore
+ * Dashboard principal ATEMPO — Gold Standard del sistema
+ * Stack: Framer Motion + CountUp + Recharts + Firebase real data
  */
 
 import { useState, useEffect, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import CountUp from 'react-countup';
 import {
     TrendingUp, TrendingDown, ShoppingCart, DollarSign,
     Package, Users, Receipt, ArrowUpRight, ArrowDownRight,
-    Wallet, BarChart3, RefreshCw, Activity,
+    Wallet, BarChart3, Activity, Zap, RefreshCw,
+    CreditCard, Target, Clock,
 } from 'lucide-react';
 import {
     BarChart, Bar, LineChart, Line, AreaChart, Area,
     PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid,
-    Tooltip, Legend, ResponsiveContainer,
+    Tooltip, ResponsiveContainer,
 } from 'recharts';
 import { formatBs, formatUSD } from '@/lib/utils';
 import { useTasas } from '@/components/providers/TasasProvider';
@@ -26,77 +30,80 @@ import { useServicios } from '@/lib/useServicios';
    HELPERS
 ───────────────────────────────────────── */
 function hoy()  { return new Date().toDateString(); }
-function mes()  { const d = new Date(); return `${d.getFullYear()}-${d.getMonth()}`; }
 function ayer() { const d = new Date(); d.setDate(d.getDate() - 1); return d.toDateString(); }
-
-function inicioMes() {
-    const d = new Date(); d.setDate(1); d.setHours(0,0,0,0); return d;
-}
-function inicioAyer() {
-    const d = new Date(); d.setDate(d.getDate() - 1); d.setHours(0,0,0,0); return d;
-}
-function finAyer() {
-    const d = new Date(); d.setHours(0,0,0,0); return d;
-}
+function inicioMes() { const d = new Date(); d.setDate(1); d.setHours(0,0,0,0); return d; }
 
 /* ─────────────────────────────────────────
-   SUBCOMPONENTES
+   ANIMATION VARIANTS
 ───────────────────────────────────────── */
-function SkeletonKPI() {
-    return (
-        <div className="kpi-card">
-            <div className="skeleton h-4 w-24 mb-3 rounded" />
-            <div className="skeleton h-8 w-32 mb-2 rounded" />
-            <div className="skeleton h-3 w-20 rounded" />
-        </div>
-    );
-}
+const containerVariants = {
+    hidden: {},
+    visible: {
+        transition: { staggerChildren: 0.07, delayChildren: 0.1 },
+    },
+};
 
-function KPICard({
-    titulo, valor, subtitulo, icono: Icono,
-    cambio, tipo = 'neutral', onClick,
-}: {
-    titulo: string; valor: string; subtitulo?: string;
-    icono: React.ElementType; cambio?: number | null;
-    tipo?: 'positivo' | 'negativo' | 'neutral';
-    onClick?: () => void;
-}) {
-    const colorIcon = {
-        positivo: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400',
-        negativo: 'bg-red-500/10 border-red-500/20 text-red-400',
-        neutral:  'bg-blue-500/10 border-blue-500/20 text-blue-400',
-    };
-    return (
-        <div className={`kpi-card ${onClick ? 'cursor-pointer' : ''}`} onClick={onClick}>
-            <div className="flex items-start justify-between mb-4">
-                <div className={`p-2 rounded-xl border ${colorIcon[tipo]}`}>
-                    <Icono className="w-5 h-5" />
-                </div>
-                {cambio != null && (
-                    <div className={`flex items-center gap-1 text-xs font-medium ${cambio >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                        {cambio >= 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-                        {Math.abs(cambio).toFixed(1)}% vs ayer
-                    </div>
-                )}
-            </div>
-            <p className="text-2xl font-bold font-mono mb-1">{valor}</p>
-            <p className="text-xs text-muted-foreground font-medium">{titulo}</p>
-            {subtitulo && <p className="text-xs text-muted-foreground/60 mt-0.5">{subtitulo}</p>}
-        </div>
-    );
-}
+const itemVariants = {
+    hidden:   { opacity: 0, y: 20, scale: 0.98 },
+    visible:  {
+        opacity: 1, y: 0, scale: 1,
+        transition: { duration: 0.5, ease: [0.25, 1, 0.5, 1] },
+    },
+};
 
-function TooltipPersonalizado({ active, payload, label }: any) {
+const cardVariants = {
+    hidden:   { opacity: 0, y: 24 },
+    visible:  (i: number) => ({
+        opacity: 1, y: 0,
+        transition: { duration: 0.5, delay: i * 0.06, ease: [0.25, 1, 0.5, 1] },
+    }),
+};
+
+/* ─────────────────────────────────────────
+   COLORES
+───────────────────────────────────────── */
+const COLORES_METODO: Record<string, string> = {
+    punto_venta:   '#EAB308',
+    pago_movil:    '#22c55e',
+    efectivo_bs:   '#f59e0b',
+    efectivo_usd:  '#8b5cf6',
+    efectivo_eur:  '#a78bfa',
+    transferencia: '#06b6d4',
+    mixto:         '#ec4899',
+};
+const LABEL_METODO: Record<string, string> = {
+    punto_venta:   'Punto de Venta',
+    pago_movil:    'Pago Movil',
+    efectivo_bs:   'Efectivo Bs',
+    efectivo_usd:  'Efectivo USD',
+    efectivo_eur:  'Efectivo EUR',
+    transferencia: 'Transferencia',
+    mixto:         'Mixto',
+};
+
+/* ─────────────────────────────────────────
+   TOOLTIP PERSONALIZADO
+───────────────────────────────────────── */
+function TooltipPremium({ active, payload, label }: any) {
     if (!active || !payload?.length) return null;
     return (
-        <div className="glass-card p-3 text-sm min-w-32">
-            <p className="text-muted-foreground text-xs mb-2 font-medium">{label}</p>
+        <div style={{
+            background: 'rgba(8,8,8,0.95)',
+            backdropFilter: 'blur(20px)',
+            border: '1px solid rgba(255,255,255,0.08)',
+            borderRadius: 12,
+            padding: '10px 14px',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.05)',
+            minWidth: 140,
+        }}>
+            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 8, letterSpacing: '0.05em', textTransform: 'uppercase', fontFamily: 'DM Sans' }}>{label}</p>
             {payload.map((entry: any, i: number) => (
-                <div key={i} className="flex items-center gap-2 text-xs">
-                    <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: entry.color }} />
-                    <span className="text-foreground">
-                        {entry.name}: {typeof entry.value === 'number' && entry.value > 500
-                            ? formatBs(entry.value) : entry.value}
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+                    <div style={{ width: 6, height: 6, borderRadius: '50%', background: entry.color, flexShrink: 0 }} />
+                    <span style={{ color: 'rgba(255,255,255,0.9)', fontFamily: 'DM Mono' }}>
+                        {typeof entry.value === 'number' && entry.value > 500
+                            ? formatBs(entry.value)
+                            : entry.value}
                     </span>
                 </div>
             ))}
@@ -104,24 +111,196 @@ function TooltipPersonalizado({ active, payload, label }: any) {
     );
 }
 
-const COLORES_METODO: Record<string, string> = {
-    punto_venta:  '#3b82f6',
-    pago_movil:   '#22c55e',
-    efectivo_bs:  '#f59e0b',
-    efectivo_usd: '#8b5cf6',
-    efectivo_eur: '#a78bfa',
-    transferencia:'#06b6d4',
-    mixto:        '#ec4899',
+/* ─────────────────────────────────────────
+   KPI CARD PREMIUM
+───────────────────────────────────────── */
+interface KPIProps {
+    titulo: string;
+    valor: number;
+    prefijo?: string;
+    sufijo?: string;
+    subtitulo?: string;
+    icono: React.ElementType;
+    cambio?: number | null;
+    glowColor?: 'gold' | 'red' | 'green' | 'blue';
+    decimales?: number;
+    index: number;
+    onClick?: () => void;
+}
+
+const GLOW_STYLES: Record<string, { border: string; shadow: string; iconBg: string; iconColor: string }> = {
+    gold:  { border: 'rgba(234,179,8,0.3)',  shadow: 'rgba(234,179,8,0.15)',  iconBg: 'rgba(234,179,8,0.1)',  iconColor: '#EAB308' },
+    red:   { border: 'rgba(220,38,38,0.3)',  shadow: 'rgba(220,38,38,0.15)',  iconBg: 'rgba(220,38,38,0.1)',  iconColor: '#F87171' },
+    green: { border: 'rgba(34,197,94,0.3)',  shadow: 'rgba(34,197,94,0.15)',  iconBg: 'rgba(34,197,94,0.1)',  iconColor: '#34D399' },
+    blue:  { border: 'rgba(59,130,246,0.3)', shadow: 'rgba(59,130,246,0.15)', iconBg: 'rgba(59,130,246,0.1)', iconColor: '#60A5FA' },
 };
-const LABEL_METODO: Record<string, string> = {
-    punto_venta:  'Punto de Venta',
-    pago_movil:   'Pago Movil',
-    efectivo_bs:  'Efectivo Bs',
-    efectivo_usd: 'Efectivo USD',
-    efectivo_eur: 'Efectivo EUR',
-    transferencia:'Transferencia',
-    mixto:        'Mixto',
-};
+
+function KPICard({ titulo, valor, prefijo = '', sufijo = '', subtitulo, icono: Icon, cambio, glowColor = 'gold', decimales = 0, index, onClick }: KPIProps) {
+    const [hovered, setHovered] = useState(false);
+    const glow = GLOW_STYLES[glowColor];
+
+    return (
+        <motion.div
+            custom={index}
+            variants={cardVariants}
+            initial="hidden"
+            animate="visible"
+            whileHover={{ y: -3, scale: 1.005 }}
+            whileTap={{ scale: 0.98 }}
+            onHoverStart={() => setHovered(true)}
+            onHoverEnd={() => setHovered(false)}
+            onClick={onClick}
+            style={{
+                position: 'relative',
+                overflow: 'hidden',
+                borderRadius: 16,
+                padding: '20px',
+                cursor: onClick ? 'pointer' : 'default',
+                background: 'rgba(255,255,255,0.02)',
+                border: `1px solid ${hovered ? glow.border : 'rgba(255,255,255,0.06)'}`,
+                boxShadow: hovered
+                    ? `0 0 0 1px ${glow.border}, 0 8px 40px ${glow.shadow}, 0 2px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)`
+                    : '0 1px 3px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.03)',
+                transition: 'all 400ms cubic-bezier(0.25,1,0.5,1)',
+            }}
+        >
+            {/* Glow radial de fondo */}
+            <AnimatePresence>
+                {hovered && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.3 }}
+                        style={{
+                            position: 'absolute', inset: 0, pointerEvents: 'none',
+                            background: `radial-gradient(ellipse at 0% 0%, ${glow.shadow} 0%, transparent 65%)`,
+                        }}
+                    />
+                )}
+            </AnimatePresence>
+
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16, position: 'relative' }}>
+                <div style={{
+                    width: 38, height: 38, borderRadius: 10,
+                    background: glow.iconBg,
+                    border: `1px solid ${glow.border}`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    boxShadow: `inset 0 1px 0 rgba(255,255,255,0.08)`,
+                }}>
+                    <Icon size={18} strokeWidth={1.5} color={glow.iconColor} />
+                </div>
+                {cambio != null && (
+                    <div style={{
+                        display: 'flex', alignItems: 'center', gap: 3,
+                        fontSize: 11, fontWeight: 600,
+                        color: cambio >= 0 ? '#34D399' : '#F87171',
+                        background: cambio >= 0 ? 'rgba(34,197,94,0.1)' : 'rgba(248,113,113,0.1)',
+                        border: `1px solid ${cambio >= 0 ? 'rgba(34,197,94,0.2)' : 'rgba(248,113,113,0.2)'}`,
+                        borderRadius: 20, padding: '2px 8px',
+                    }}>
+                        {cambio >= 0
+                            ? <ArrowUpRight size={11} strokeWidth={2} />
+                            : <ArrowDownRight size={11} strokeWidth={2} />
+                        }
+                        {Math.abs(cambio).toFixed(1)}%
+                    </div>
+                )}
+            </div>
+
+            {/* Valor con CountUp */}
+            <div style={{ position: 'relative' }}>
+                <p style={{
+                    fontSize: 26, fontWeight: 700, letterSpacing: '-0.02em',
+                    fontFamily: 'DM Mono, monospace', color: 'rgba(255,255,255,0.95)',
+                    lineHeight: 1.1, marginBottom: 4,
+                }}>
+                    {prefijo}
+                    <CountUp
+                        end={valor}
+                        duration={2}
+                        decimals={decimales}
+                        separator=","
+                        preserveValue
+                    />
+                    {sufijo && <span style={{ fontSize: 14, fontWeight: 500, color: 'rgba(255,255,255,0.5)', marginLeft: 4 }}>{sufijo}</span>}
+                </p>
+                <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', fontFamily: 'DM Sans' }}>
+                    {titulo}
+                </p>
+                {subtitulo && (
+                    <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', marginTop: 2, fontFamily: 'DM Sans' }}>
+                        {subtitulo}
+                    </p>
+                )}
+            </div>
+        </motion.div>
+    );
+}
+
+/* ─────────────────────────────────────────
+   SKELETON KPI
+───────────────────────────────────────── */
+function SkeletonKPI({ index }: { index: number }) {
+    return (
+        <motion.div
+            custom={index}
+            variants={cardVariants}
+            initial="hidden"
+            animate="visible"
+            style={{
+                borderRadius: 16, padding: 20,
+                background: 'rgba(255,255,255,0.02)',
+                border: '1px solid rgba(255,255,255,0.06)',
+            }}
+        >
+            <div className="skeleton h-9 w-9 rounded-xl mb-4" />
+            <div className="skeleton h-7 w-28 mb-2 rounded-lg" />
+            <div className="skeleton h-3 w-20 rounded" />
+        </motion.div>
+    );
+}
+
+/* ─────────────────────────────────────────
+   SECTION HEADER
+───────────────────────────────────────── */
+function SectionHeader({ title, subtitle, action }: { title: string; subtitle?: string; action?: React.ReactNode }) {
+    return (
+        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 16 }}>
+            <div>
+                <h3 style={{ fontSize: 14, fontWeight: 600, color: 'rgba(255,255,255,0.9)', letterSpacing: '-0.01em', marginBottom: 2, fontFamily: 'DM Sans' }}>
+                    {title}
+                </h3>
+                {subtitle && (
+                    <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', fontFamily: 'DM Sans' }}>{subtitle}</p>
+                )}
+            </div>
+            {action}
+        </div>
+    );
+}
+
+/* ─────────────────────────────────────────
+   CHART CARD WRAPPER
+───────────────────────────────────────── */
+function ChartCard({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
+    return (
+        <motion.div
+            variants={itemVariants}
+            style={{
+                background: 'rgba(255,255,255,0.02)',
+                border: '1px solid rgba(255,255,255,0.06)',
+                borderRadius: 16,
+                padding: '20px 20px 16px',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.03)',
+                ...style,
+            }}
+        >
+            {children}
+        </motion.div>
+    );
+}
 
 /* ─────────────────────────────────────────
    DASHBOARD PRINCIPAL
@@ -132,6 +311,7 @@ export default function DashboardPage() {
     const { servicios, cargando: cargandoServicios } = useServicios();
     const [historialTasas, setHistorialTasas] = useState<any[]>([]);
     const [refreshKey, setRefreshKey] = useState(0);
+    const [ahora, setAhora] = useState(new Date());
 
     const cargando = cargandoVentas || cargandoServicios;
 
@@ -139,357 +319,463 @@ export default function DashboardPage() {
         obtenerHistorialTasas(30).then(setHistorialTasas);
     }, [refreshKey]);
 
-    /* ── Calculos de KPIs desde ventas reales ── */
+    // Reloj en tiempo real
+    useEffect(() => {
+        const t = setInterval(() => setAhora(new Date()), 60000);
+        return () => clearInterval(t);
+    }, []);
+
+    /* ── KPIs calculados desde ventas reales ── */
     const kpis = useMemo(() => {
         const hoyStr  = hoy();
         const ayerStr = ayer();
         const imMes   = inicioMes();
 
-        const ventasHoyArr  = ventas.filter(v => {
-            const ts = v.fechaTimestamp?.toDate?.();
-            return ts && ts.toDateString() === hoyStr;
-        });
-        const ventasAyerArr = ventas.filter(v => {
-            const ts = v.fechaTimestamp?.toDate?.();
-            return ts && ts.toDateString() === ayerStr;
-        });
-        const ventasMesArr  = ventas.filter(v => {
-            const ts = v.fechaTimestamp?.toDate?.();
-            return ts && ts >= imMes;
-        });
+        const ventasHoyArr  = ventas.filter(v => v.fechaTimestamp?.toDate?.()?.toDateString() === hoyStr);
+        const ventasAyerArr = ventas.filter(v => v.fechaTimestamp?.toDate?.()?.toDateString() === ayerStr);
+        const ventasMesArr  = ventas.filter(v => { const ts = v.fechaTimestamp?.toDate?.(); return ts && ts >= imMes; });
 
-        const totalHoy  = ventasHoyArr.reduce((a, v)  => a + (v.total || 0), 0);
-        const totalAyer = ventasAyerArr.reduce((a, v) => a + (v.total || 0), 0);
-        const totalMes  = ventasMesArr.reduce((a, v)  => a + (v.total || 0), 0);
+        const ingresoHoyBs   = ventasHoyArr.reduce((s, v)  => s + (v.totalBs  || 0), 0);
+        const ingresoAyerBs  = ventasAyerArr.reduce((s, v) => s + (v.totalBs  || 0), 0);
+        const ingresoMesBs   = ventasMesArr.reduce((s, v)  => s + (v.totalBs  || 0), 0);
+        const ingresoHoyUSD  = ventasHoyArr.reduce((s, v)  => s + (v.totalUSD || 0), 0);
+        const ingresoMesUSD  = ventasMesArr.reduce((s, v)  => s + (v.totalUSD || 0), 0);
 
-        const cambioHoy = totalAyer > 0
-            ? ((totalHoy - totalAyer) / totalAyer) * 100
-            : null;
+        const txHoy   = ventasHoyArr.length;
+        const txAyer  = ventasAyerArr.length;
+        const txMes   = ventasMesArr.length;
 
-        const ticketProm = ventasHoyArr.length > 0
-            ? totalHoy / ventasHoyArr.length : 0;
+        const cambioIngresos = ingresoAyerBs > 0 ? ((ingresoHoyBs - ingresoAyerBs) / ingresoAyerBs) * 100 : null;
+        const cambioTx       = txAyer > 0 ? ((txHoy - txAyer) / txAyer) * 100 : null;
 
-        // Servicios activos
-        const serviciosActivos = servicios.filter(s => s.activo !== false).length;
-
-        // Metodos de pago del mes
-        const metodoCount: Record<string, number> = {};
-        ventasMesArr.forEach(v => {
-            const tipos = v.metodoPago || [];
-            const tipo = tipos.length === 1 ? tipos[0].tipo : 'mixto';
-            metodoCount[tipo] = (metodoCount[tipo] || 0) + 1;
-        });
-        const totalMetodos = Object.values(metodoCount).reduce((a, b) => a + b, 0);
-        const datosPie = Object.entries(metodoCount).map(([tipo, count]) => ({
-            name:  LABEL_METODO[tipo] || tipo,
-            value: totalMetodos > 0 ? Math.round((count / totalMetodos) * 100) : 0,
-            color: COLORES_METODO[tipo] || '#64748b',
-        })).sort((a, b) => b.value - a.value);
-
-        // Ventas por dia ultimos 30 dias
-        const ventasPorDia: Record<string, { ventas: number; transacciones: number }> = {};
-        const ultimos30 = new Date(); ultimos30.setDate(ultimos30.getDate() - 29);
-        for (let i = 0; i < 30; i++) {
-            const d = new Date(ultimos30);
-            d.setDate(ultimos30.getDate() + i);
-            const key = d.toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit' });
-            ventasPorDia[key] = { ventas: 0, transacciones: 0 };
-        }
-        ventas.forEach(v => {
-            const ts = v.fechaTimestamp?.toDate?.();
-            if (!ts || ts < ultimos30) return;
-            const key = ts.toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit' });
-            if (ventasPorDia[key]) {
-                ventasPorDia[key].ventas += v.total || 0;
-                ventasPorDia[key].transacciones += 1;
-            }
-        });
-        const datosVentasDiarias = Object.entries(ventasPorDia).map(([dia, data]) => ({
-            dia, ...data,
+        // Ventas por hora (hoy)
+        const datosHoras = Array.from({ length: 24 }, (_, h) => ({
+            hora: `${h.toString().padStart(2,'0')}h`,
+            ventas: ventasHoyArr.filter(v => v.fechaTimestamp?.toDate?.()?.getHours() === h).length,
         }));
 
-        // Servicios mas vendidos del mes
-        const servicioConteo: Record<string, { nombre: string; unidades: number; ingresos: number }> = {};
+        // Ventas diarias (30 días)
+        const datosVentasDiarias = Array.from({ length: 30 }, (_, i) => {
+            const d = new Date(); d.setDate(d.getDate() - (29 - i));
+            const dStr = d.toDateString();
+            const total = ventas.filter(v => v.fechaTimestamp?.toDate?.()?.toDateString() === dStr)
+                                .reduce((s, v) => s + (v.totalBs || 0), 0);
+            return {
+                dia: d.toLocaleDateString('es-VE', { day: '2-digit', month: 'short' }),
+                ventas: total,
+            };
+        });
+
+        // Métodos de pago (mes)
+        const metodosCount: Record<string, number> = {};
         ventasMesArr.forEach(v => {
-            (v.items || []).forEach((item: any) => {
-                const key = item.nombre || 'Desconocido';
-                if (!servicioConteo[key]) servicioConteo[key] = { nombre: key, unidades: 0, ingresos: 0 };
-                servicioConteo[key].unidades += item.cantidad || 1;
-                servicioConteo[key].ingresos += item.subtotal || 0;
+            if (v.metodoPago) metodosCount[v.metodoPago] = (metodosCount[v.metodoPago] || 0) + 1;
+        });
+        const totalMethods = Object.values(metodosCount).reduce((s, v) => s + v, 0) || 1;
+        const datosPie = Object.entries(metodosCount)
+            .map(([k, v]) => ({
+                name: LABEL_METODO[k] || k,
+                value: Math.round((v / totalMethods) * 100),
+                color: COLORES_METODO[k] || '#64748b',
+            }))
+            .sort((a, b) => b.value - a.value)
+            .slice(0, 6);
+
+        // Top servicios (mes)
+        const servicioMap: Record<string, { nombre: string; cantidad: number; ingresos: number }> = {};
+        ventasMesArr.forEach(v => {
+            v.items?.forEach((item: any) => {
+                if (!servicioMap[item.servicioId || item.nombre]) {
+                    servicioMap[item.servicioId || item.nombre] = { nombre: item.nombre, cantidad: 0, ingresos: 0 };
+                }
+                servicioMap[item.servicioId || item.nombre].cantidad += item.cantidad || 1;
+                servicioMap[item.servicioId || item.nombre].ingresos += item.totalBs || 0;
             });
         });
-        const topServicios = Object.values(servicioConteo)
+        const topServicios = Object.values(servicioMap)
             .sort((a, b) => b.ingresos - a.ingresos)
-            .slice(0, 8);
+            .slice(0, 5)
+            .map(s => ({ ...s, nombre: s.nombre.length > 22 ? s.nombre.slice(0, 22) + '…' : s.nombre }));
 
-        // Actividad por hora hoy
-        const porHora: Record<number, number> = {};
-        for (let h = 7; h <= 20; h++) porHora[h] = 0;
-        ventasHoyArr.forEach(v => {
-            const ts = v.fechaTimestamp?.toDate?.();
-            if (!ts) return;
-            const h = ts.getHours();
-            if (h >= 7 && h <= 20) porHora[h] = (porHora[h] || 0) + 1;
-        });
-        const datosHoras = Object.entries(porHora).map(([h, count]) => ({
-            hora: `${h}:00`,
-            ventas: count,
-        }));
+        const horaMaxima = datosHoras.reduce((a, b) => b.ventas > a.ventas ? b : a, datosHoras[0]);
 
         return {
-            totalHoy, totalMes, totalAyer,
-            transaccionesHoy: ventasHoyArr.length,
-            ticketProm,
-            cambioHoy,
-            serviciosActivos,
-            datosPie: datosPie.length > 0 ? datosPie : [{ name: 'Sin datos', value: 100, color: '#334155' }],
-            datosVentasDiarias,
-            topServicios,
-            datosHoras,
+            ingresoHoyBs, ingresoAyerBs, ingresoMesBs,
+            ingresoHoyUSD, ingresoMesUSD,
+            txHoy, txAyer, txMes,
+            cambioIngresos, cambioTx,
+            datosHoras, datosVentasDiarias,
+            datosPie, topServicios, horaMaxima,
+            serviciosActivos: servicios.filter(s => s.activo !== false).length,
         };
     }, [ventas, servicios]);
 
-    const horaMaxima = kpis.datosHoras.reduce((max, h) => h.ventas > max.ventas ? h : max, { hora: '-', ventas: 0 });
+    const hora = ahora.toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' });
+    const fechaStr = ahora.toLocaleDateString('es-VE', { weekday: 'long', day: 'numeric', month: 'long' });
 
     return (
-        <div className="space-y-6 animate-fade-in">
+        <div style={{ minHeight: '100vh', padding: '24px', position: 'relative', background: 'hsl(var(--background))' }}>
 
-            {/* Header */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold">Dashboard</h1>
-                    <p className="text-muted-foreground text-sm mt-0.5">
-                        {new Date().toLocaleDateString('es-VE', {
-                            weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
-                        })}
-                    </p>
-                </div>
-                <button className="btn-secondary text-sm" onClick={() => setRefreshKey(k => k + 1)}>
-                    <RefreshCw className="w-4 h-4" /> Actualizar
-                </button>
+            {/* ── Orbes de luz ambiental ── */}
+            <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', overflow: 'hidden', zIndex: 0 }}>
+                <motion.div
+                    animate={{ x: [0, 40, -20, 0], y: [0, -30, 15, 0] }}
+                    transition={{ duration: 18, repeat: Infinity, ease: 'easeInOut' }}
+                    style={{
+                        position: 'absolute', top: '-10%', left: '-5%',
+                        width: '45vw', height: '45vw',
+                        background: 'radial-gradient(circle, rgba(234,179,8,0.06) 0%, transparent 70%)',
+                        borderRadius: '50%',
+                    }}
+                />
+                <motion.div
+                    animate={{ x: [0, -30, 20, 0], y: [0, 20, -25, 0] }}
+                    transition={{ duration: 22, repeat: Infinity, ease: 'easeInOut', delay: 3 }}
+                    style={{
+                        position: 'absolute', bottom: '-15%', right: '-5%',
+                        width: '40vw', height: '40vw',
+                        background: 'radial-gradient(circle, rgba(220,38,38,0.05) 0%, transparent 70%)',
+                        borderRadius: '50%',
+                    }}
+                />
+                <motion.div
+                    animate={{ x: [0, 20, -15, 0], y: [0, 10, -20, 0] }}
+                    transition={{ duration: 15, repeat: Infinity, ease: 'easeInOut', delay: 6 }}
+                    style={{
+                        position: 'absolute', top: '40%', left: '40%',
+                        width: '30vw', height: '30vw',
+                        background: 'radial-gradient(circle, rgba(59,130,246,0.04) 0%, transparent 70%)',
+                        borderRadius: '50%',
+                    }}
+                />
             </div>
 
-            {/* KPIs */}
-            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
-                {cargando ? (
-                    Array(8).fill(0).map((_, i) => <SkeletonKPI key={i} />)
-                ) : (
-                    <>
-                        <KPICard
-                            titulo="Ventas del Dia"
-                            valor={formatBs(kpis.totalHoy)}
-                            subtitulo={formatUSD(kpis.totalHoy / (tasas.bcv || 1))}
-                            icono={ShoppingCart}
-                            cambio={kpis.cambioHoy}
-                            tipo="positivo"
-                        />
-                        <KPICard
-                            titulo="Ventas del Mes"
-                            valor={formatBs(kpis.totalMes)}
-                            subtitulo={formatUSD(kpis.totalMes / (tasas.bcv || 1))}
-                            icono={TrendingUp}
-                            tipo="positivo"
-                        />
-                        <KPICard
-                            titulo="Transacciones Hoy"
-                            valor={kpis.transaccionesHoy.toString()}
-                            subtitulo="ventas realizadas"
-                            icono={Receipt}
-                            tipo="neutral"
-                        />
-                        <KPICard
-                            titulo="Ticket Promedio"
-                            valor={formatBs(kpis.ticketProm)}
-                            subtitulo={formatUSD(kpis.ticketProm / (tasas.bcv || 1))}
-                            icono={DollarSign}
-                            tipo="neutral"
-                        />
-                        <KPICard
-                            titulo="Total Ventas Registradas"
-                            valor={ventas.length.toString()}
-                            subtitulo="en historial completo"
-                            icono={Activity}
-                            tipo="neutral"
-                        />
-                        <KPICard
-                            titulo="Servicios Activos"
-                            valor={kpis.serviciosActivos.toString()}
-                            subtitulo={`de ${servicios.length} en catalogo`}
-                            icono={Package}
-                            tipo="neutral"
-                            onClick={() => window.location.href = '/inventario'}
-                        />
-                        <KPICard
-                            titulo="Hora Pico Hoy"
-                            valor={horaMaxima.hora}
-                            subtitulo={`${horaMaxima.ventas} transacciones`}
-                            icono={BarChart3}
-                            tipo="neutral"
-                        />
-                        <KPICard
-                            titulo="Ayer Total"
-                            valor={formatBs(kpis.totalAyer)}
-                            subtitulo={formatUSD(kpis.totalAyer / (tasas.bcv || 1))}
-                            icono={kpis.totalHoy >= kpis.totalAyer ? TrendingUp : TrendingDown}
-                            tipo={kpis.totalHoy >= kpis.totalAyer ? 'positivo' : 'negativo'}
-                        />
-                    </>
-                )}
-            </div>
+            <div style={{ position: 'relative', zIndex: 1, maxWidth: 1400, margin: '0 auto' }}>
 
-            {/* Grafica ventas diarias + metodos de pago */}
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-                <div className="xl:col-span-2 card-sistema">
-                    <div className="flex items-center justify-between mb-4">
-                        <div>
-                            <h3 className="font-semibold">Ventas Diarias</h3>
-                            <p className="text-xs text-muted-foreground">Ultimos 30 dias</p>
+                {/* ── PAGE HEADER ── */}
+                <motion.div
+                    initial={{ opacity: 0, y: -12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, ease: [0.25, 1, 0.5, 1] }}
+                    style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 32 }}
+                >
+                    <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                            <div style={{
+                                width: 6, height: 6, borderRadius: '50%',
+                                background: '#EAB308',
+                                boxShadow: '0 0 8px rgba(234,179,8,0.6)',
+                                animation: 'pulse 2s infinite',
+                            }} />
+                            <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(234,179,8,0.7)', fontFamily: 'DM Sans' }}>
+                                En vivo
+                            </span>
                         </div>
-                        <BarChart3 className="w-4 h-4 text-muted-foreground" />
+                        <h1 style={{
+                            fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em',
+                            color: 'rgba(255,255,255,0.95)', lineHeight: 1.2, fontFamily: 'DM Sans',
+                        }}>
+                            Dashboard
+                        </h1>
+                        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.35)', marginTop: 4, textTransform: 'capitalize', fontFamily: 'DM Sans' }}>
+                            {fechaStr}
+                        </p>
                     </div>
-                    {cargando ? (
-                        <div className="skeleton h-64 w-full rounded-xl" />
-                    ) : kpis.datosVentasDiarias.every(d => d.ventas === 0) ? (
-                        <div className="h-64 flex items-center justify-center text-muted-foreground text-sm">
-                            Sin ventas en los ultimos 30 dias
-                        </div>
-                    ) : (
-                        <ResponsiveContainer width="100%" height={260}>
-                            <BarChart data={kpis.datosVentasDiarias} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.08)" />
-                                <XAxis dataKey="dia" tick={{ fontSize: 10, fill: '#64748b' }} tickLine={false} axisLine={false} interval={4} />
-                                <YAxis tick={{ fontSize: 10, fill: '#64748b' }} tickLine={false} axisLine={false}
-                                    tickFormatter={v => v >= 1000 ? `${(v/1000).toFixed(0)}k` : v.toString()} />
-                                <Tooltip content={<TooltipPersonalizado />} />
-                                <Bar dataKey="ventas" name="Ventas (Bs)" fill="#3b82f6" radius={[4,4,0,0]} opacity={0.9} />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    )}
-                </div>
 
-                {/* Metodos de pago */}
-                <div className="card-sistema">
-                    <div className="mb-4">
-                        <h3 className="font-semibold">Metodos de Pago</h3>
-                        <p className="text-xs text-muted-foreground">Distribucion del mes</p>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        {/* Reloj */}
+                        <div style={{
+                            display: 'flex', alignItems: 'center', gap: 8,
+                            padding: '8px 14px', borderRadius: 10,
+                            background: 'rgba(255,255,255,0.03)',
+                            border: '1px solid rgba(255,255,255,0.06)',
+                        }}>
+                            <Clock size={13} strokeWidth={1.5} color="rgba(255,255,255,0.4)" />
+                            <span style={{ fontSize: 13, fontFamily: 'DM Mono', color: 'rgba(255,255,255,0.7)', letterSpacing: '0.05em' }}>
+                                {hora}
+                            </span>
+                        </div>
+
+                        {/* Tasa BCV inline */}
+                        <div style={{
+                            display: 'flex', alignItems: 'center', gap: 8,
+                            padding: '8px 14px', borderRadius: 10,
+                            background: 'rgba(59,130,246,0.08)',
+                            border: '1px solid rgba(59,130,246,0.2)',
+                        }}>
+                            <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', fontFamily: 'DM Sans' }}>BCV</span>
+                            <span style={{ fontSize: 13, fontFamily: 'DM Mono', fontWeight: 600, color: '#60A5FA' }}>
+                                Bs {tasas.bcv.toLocaleString('es-VE', { minimumFractionDigits: 2 })}
+                            </span>
+                        </div>
+
+                        <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => setRefreshKey(k => k + 1)}
+                            style={{
+                                width: 36, height: 36, borderRadius: 10,
+                                background: 'rgba(255,255,255,0.03)',
+                                border: '1px solid rgba(255,255,255,0.06)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                cursor: 'pointer',
+                            }}
+                            title="Actualizar"
+                        >
+                            <RefreshCw size={14} strokeWidth={1.5} color="rgba(255,255,255,0.5)" />
+                        </motion.button>
                     </div>
+                </motion.div>
+
+                {/* ── KPI GRID ── */}
+                <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                    gap: 12,
+                    marginBottom: 24,
+                }}>
                     {cargando ? (
-                        <div className="skeleton h-64 w-full rounded-xl" />
+                        Array.from({ length: 6 }).map((_, i) => <SkeletonKPI key={i} index={i} />)
                     ) : (
                         <>
-                            <ResponsiveContainer width="100%" height={180}>
-                                <PieChart>
-                                    <Pie data={kpis.datosPie} cx="50%" cy="50%"
-                                        innerRadius={48} outerRadius={72} paddingAngle={3} dataKey="value">
-                                        {kpis.datosPie.map((entry, i) => (
-                                            <Cell key={i} fill={entry.color} />
-                                        ))}
-                                    </Pie>
-                                    <Tooltip formatter={(v: any) => [`${v}%`, '']}
-                                        contentStyle={{ background: 'hsl(220 18% 12%)', border: '1px solid hsl(220 15% 20%)', borderRadius: '12px', fontSize: '12px' }} />
-                                </PieChart>
-                            </ResponsiveContainer>
-                            <div className="space-y-1.5 mt-2">
-                                {kpis.datosPie.map(item => (
-                                    <div key={item.name} className="flex items-center justify-between text-xs">
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: item.color }} />
-                                            <span className="text-muted-foreground truncate max-w-28">{item.name}</span>
-                                        </div>
-                                        <span className="font-semibold font-mono">{item.value}%</span>
-                                    </div>
-                                ))}
-                            </div>
+                            <KPICard index={0} titulo="Ingresos Hoy" valor={kpis.ingresoHoyBs} prefijo="Bs " decimales={0} icono={DollarSign} cambio={kpis.cambioIngresos} glowColor="gold" subtitulo={kpis.ingresoHoyUSD > 0 ? `≈ ${formatUSD(kpis.ingresoHoyUSD)} USD` : undefined} />
+                            <KPICard index={1} titulo="Ingresos del Mes" valor={kpis.ingresoMesBs} prefijo="Bs " decimales={0} icono={TrendingUp} glowColor="green" subtitulo={kpis.ingresoMesUSD > 0 ? `≈ ${formatUSD(kpis.ingresoMesUSD)} USD` : undefined} />
+                            <KPICard index={2} titulo="Transacciones Hoy" valor={kpis.txHoy} icono={Receipt} cambio={kpis.cambioTx} glowColor="blue" subtitulo={`${kpis.txAyer} ayer`} />
+                            <KPICard index={3} titulo="Transacciones Mes" valor={kpis.txMes} icono={ShoppingCart} glowColor="gold" subtitulo="Total del mes actual" />
+                            <KPICard index={4} titulo="Tasa BCV" valor={tasas.bcv} prefijo="Bs " decimales={2} icono={Wallet} glowColor="blue" subtitulo="Actualizada" />
+                            <KPICard index={5} titulo="Servicios Activos" valor={kpis.serviciosActivos} icono={Package} glowColor="green" subtitulo="En catálogo" />
                         </>
                     )}
                 </div>
-            </div>
 
-            {/* Top servicios + actividad por hora */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                <div className="card-sistema">
-                    <div className="mb-4">
-                        <h3 className="font-semibold">Servicios Mas Vendidos</h3>
-                        <p className="text-xs text-muted-foreground">Top del mes actual</p>
-                    </div>
-                    {cargando ? (
-                        <div className="skeleton h-64 w-full rounded-xl" />
-                    ) : kpis.topServicios.length === 0 ? (
-                        <div className="h-64 flex flex-col items-center justify-center text-muted-foreground text-sm gap-2">
-                            <Package className="w-8 h-8 opacity-20" />
-                            <p>Sin ventas este mes</p>
-                        </div>
-                    ) : (
-                        <ResponsiveContainer width="100%" height={260}>
-                            <BarChart layout="vertical" data={kpis.topServicios}
-                                margin={{ top: 5, right: 55, left: 5, bottom: 5 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.08)" horizontal={false} />
-                                <XAxis type="number" tick={{ fontSize: 10, fill: '#64748b' }} tickLine={false} axisLine={false}
-                                    tickFormatter={v => v >= 1000 ? `${(v/1000).toFixed(0)}k` : v.toString()} />
-                                <YAxis type="category" dataKey="nombre" tick={{ fontSize: 10, fill: '#94a3b8' }}
-                                    tickLine={false} axisLine={false} width={90} />
-                                <Tooltip content={<TooltipPersonalizado />} />
-                                <Bar dataKey="ingresos" name="Ingresos (Bs)" fill="#3b82f6" radius={[0,4,4,0]} opacity={0.9} />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    )}
-                </div>
+                {/* ── FILA 2: Ventas diarias + Métodos de pago ── */}
+                <motion.div
+                    variants={containerVariants}
+                    initial="hidden"
+                    animate="visible"
+                    style={{
+                        display: 'grid',
+                        gridTemplateColumns: '1fr 320px',
+                        gap: 12,
+                        marginBottom: 12,
+                    }}
+                    className="xl:grid-cols-[1fr_320px] grid-cols-1"
+                >
+                    <ChartCard>
+                        <SectionHeader
+                            title="Ventas Diarias"
+                            subtitle="Ingresos en Bs — últimos 30 días"
+                            action={<BarChart3 size={14} strokeWidth={1.5} color="rgba(255,255,255,0.25)" />}
+                        />
+                        {cargando ? (
+                            <div className="skeleton h-64 w-full rounded-xl" />
+                        ) : kpis.datosVentasDiarias.every(d => d.ventas === 0) ? (
+                            <div style={{ height: 256, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, color: 'rgba(255,255,255,0.2)' }}>
+                                <BarChart3 size={32} strokeWidth={1} />
+                                <p style={{ fontSize: 13 }}>Sin ventas en los últimos 30 días</p>
+                            </div>
+                        ) : (
+                            <ResponsiveContainer width="100%" height={256}>
+                                <AreaChart data={kpis.datosVentasDiarias} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                                    <defs>
+                                        <linearGradient id="gradientVentas" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="0%" stopColor="#EAB308" stopOpacity={0.25} />
+                                            <stop offset="100%" stopColor="#EAB308" stopOpacity={0} />
+                                        </linearGradient>
+                                    </defs>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+                                    <XAxis dataKey="dia" tick={{ fontSize: 10, fill: 'rgba(255,255,255,0.3)', fontFamily: 'DM Sans' }} tickLine={false} axisLine={false} interval={4} />
+                                    <YAxis tick={{ fontSize: 10, fill: 'rgba(255,255,255,0.3)', fontFamily: 'DM Mono' }} tickLine={false} axisLine={false}
+                                        tickFormatter={v => v >= 1000 ? `${(v/1000).toFixed(0)}k` : String(v)} width={42} />
+                                    <Tooltip content={<TooltipPremium />} />
+                                    <Area type="monotone" dataKey="ventas" name="Ventas (Bs)"
+                                        stroke="#EAB308" strokeWidth={2}
+                                        fill="url(#gradientVentas)"
+                                        dot={false} activeDot={{ r: 4, fill: '#EAB308', strokeWidth: 0 }} />
+                                </AreaChart>
+                            </ResponsiveContainer>
+                        )}
+                    </ChartCard>
 
-                <div className="card-sistema">
-                    <div className="mb-4">
-                        <h3 className="font-semibold">Actividad por Hora</h3>
-                        <p className="text-xs text-muted-foreground">Transacciones de hoy por hora</p>
-                    </div>
-                    {cargando ? (
-                        <div className="skeleton h-64 w-full rounded-xl" />
-                    ) : kpis.datosHoras.every(h => h.ventas === 0) ? (
-                        <div className="h-64 flex flex-col items-center justify-center text-muted-foreground text-sm gap-2">
-                            <Activity className="w-8 h-8 opacity-20" />
-                            <p>Sin actividad hoy todavia</p>
-                        </div>
-                    ) : (
-                        <ResponsiveContainer width="100%" height={260}>
-                            <BarChart data={kpis.datosHoras}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.08)" />
-                                <XAxis dataKey="hora" tick={{ fontSize: 10, fill: '#64748b' }} tickLine={false} axisLine={false} />
-                                <YAxis tick={{ fontSize: 10, fill: '#64748b' }} tickLine={false} axisLine={false} allowDecimals={false} />
-                                <Tooltip content={<TooltipPersonalizado />} />
-                                <Bar dataKey="ventas" name="Transacciones" radius={[4,4,0,0]}>
-                                    {kpis.datosHoras.map((entry, i) => (
-                                        <Cell key={i}
-                                            fill={entry.ventas === horaMaxima.ventas && entry.ventas > 0
-                                                ? '#3b82f6'
-                                                : entry.ventas > 0 ? '#6366f1' : '#1e293b'} />
+                    {/* Métodos de pago */}
+                    <ChartCard>
+                        <SectionHeader title="Métodos de Pago" subtitle="Distribución del mes" />
+                        {cargando ? (
+                            <div className="skeleton h-64 w-full rounded-xl" />
+                        ) : kpis.datosPie.length === 0 ? (
+                            <div style={{ height: 256, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, color: 'rgba(255,255,255,0.2)' }}>
+                                <CreditCard size={28} strokeWidth={1} />
+                                <p style={{ fontSize: 13 }}>Sin datos este mes</p>
+                            </div>
+                        ) : (
+                            <>
+                                <ResponsiveContainer width="100%" height={160}>
+                                    <PieChart>
+                                        <Pie data={kpis.datosPie} cx="50%" cy="50%"
+                                            innerRadius={44} outerRadius={68}
+                                            paddingAngle={3} dataKey="value"
+                                            strokeWidth={0}>
+                                            {kpis.datosPie.map((entry, i) => (
+                                                <Cell key={i} fill={entry.color} opacity={0.9} />
+                                            ))}
+                                        </Pie>
+                                        <Tooltip
+                                            formatter={(v: any) => [`${v}%`, '']}
+                                            contentStyle={{
+                                                background: 'rgba(8,8,8,0.95)',
+                                                border: '1px solid rgba(255,255,255,0.08)',
+                                                borderRadius: 10, fontSize: 12,
+                                                fontFamily: 'DM Sans',
+                                            }}
+                                        />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
+                                    {kpis.datosPie.map(item => (
+                                        <div key={item.name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                <div style={{ width: 8, height: 8, borderRadius: '50%', background: item.color, flexShrink: 0 }} />
+                                                <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', fontFamily: 'DM Sans', maxWidth: 110, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                    {item.name}
+                                                </span>
+                                            </div>
+                                            <span style={{ fontSize: 12, fontWeight: 600, fontFamily: 'DM Mono', color: 'rgba(255,255,255,0.8)' }}>
+                                                {item.value}%
+                                            </span>
+                                        </div>
                                     ))}
-                                </Bar>
-                            </BarChart>
-                        </ResponsiveContainer>
-                    )}
-                </div>
-            </div>
+                                </div>
+                            </>
+                        )}
+                    </ChartCard>
+                </motion.div>
 
-            {/* Evolucion tasa BCV */}
-            {historialTasas.length > 0 && (
-                <div className="card-sistema">
-                    <div className="mb-4">
-                        <h3 className="font-semibold">Evolucion Tasa Bs/USD</h3>
-                        <p className="text-xs text-muted-foreground">Ultimos 30 dias</p>
+                {/* ── FILA 3: Top Servicios + Actividad por hora ── */}
+                <motion.div
+                    variants={containerVariants}
+                    initial="hidden"
+                    animate="visible"
+                    style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}
+                    className="xl:grid-cols-2 grid-cols-1"
+                >
+                    <ChartCard>
+                        <SectionHeader title="Servicios Más Vendidos" subtitle="Top del mes por ingresos" action={<Target size={14} strokeWidth={1.5} color="rgba(255,255,255,0.25)" />} />
+                        {cargando ? (
+                            <div className="skeleton h-56 w-full rounded-xl" />
+                        ) : kpis.topServicios.length === 0 ? (
+                            <div style={{ height: 224, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, color: 'rgba(255,255,255,0.2)' }}>
+                                <Package size={28} strokeWidth={1} />
+                                <p style={{ fontSize: 13 }}>Sin ventas este mes</p>
+                            </div>
+                        ) : (
+                            <ResponsiveContainer width="100%" height={224}>
+                                <BarChart layout="vertical" data={kpis.topServicios} margin={{ top: 4, right: 50, left: 4, bottom: 0 }}>
+                                    <defs>
+                                        <linearGradient id="gradientBar" x1="0" y1="0" x2="1" y2="0">
+                                            <stop offset="0%" stopColor="#EAB308" stopOpacity={0.9} />
+                                            <stop offset="100%" stopColor="#CA8A04" stopOpacity={0.7} />
+                                        </linearGradient>
+                                    </defs>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" horizontal={false} />
+                                    <XAxis type="number" tick={{ fontSize: 10, fill: 'rgba(255,255,255,0.3)', fontFamily: 'DM Mono' }} tickLine={false} axisLine={false}
+                                        tickFormatter={v => v >= 1000 ? `${(v/1000).toFixed(0)}k` : String(v)} />
+                                    <YAxis type="category" dataKey="nombre" tick={{ fontSize: 11, fill: 'rgba(255,255,255,0.5)', fontFamily: 'DM Sans' }}
+                                        tickLine={false} axisLine={false} width={95} />
+                                    <Tooltip content={<TooltipPremium />} />
+                                    <Bar dataKey="ingresos" name="Ingresos (Bs)" fill="url(#gradientBar)" radius={[0, 4, 4, 0]} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        )}
+                    </ChartCard>
+
+                    <ChartCard>
+                        <SectionHeader title="Actividad por Hora" subtitle="Transacciones de hoy" action={<Activity size={14} strokeWidth={1.5} color="rgba(255,255,255,0.25)" />} />
+                        {cargando ? (
+                            <div className="skeleton h-56 w-full rounded-xl" />
+                        ) : kpis.datosHoras.every(h => h.ventas === 0) ? (
+                            <div style={{ height: 224, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, color: 'rgba(255,255,255,0.2)' }}>
+                                <Zap size={28} strokeWidth={1} />
+                                <p style={{ fontSize: 13 }}>Sin actividad hoy todavía</p>
+                            </div>
+                        ) : (
+                            <ResponsiveContainer width="100%" height={224}>
+                                <BarChart data={kpis.datosHoras} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+                                    <XAxis dataKey="hora" tick={{ fontSize: 9, fill: 'rgba(255,255,255,0.3)', fontFamily: 'DM Sans' }} tickLine={false} axisLine={false} interval={3} />
+                                    <YAxis tick={{ fontSize: 10, fill: 'rgba(255,255,255,0.3)', fontFamily: 'DM Mono' }} tickLine={false} axisLine={false} allowDecimals={false} width={28} />
+                                    <Tooltip content={<TooltipPremium />} />
+                                    <Bar dataKey="ventas" name="Transacciones" radius={[3, 3, 0, 0]}>
+                                        {kpis.datosHoras.map((entry, i) => (
+                                            <Cell key={i}
+                                                fill={
+                                                    entry.ventas === kpis.horaMaxima.ventas && entry.ventas > 0
+                                                        ? '#EAB308'
+                                                        : entry.ventas > 0
+                                                            ? 'rgba(234,179,8,0.35)'
+                                                            : 'rgba(255,255,255,0.04)'
+                                                }
+                                            />
+                                        ))}
+                                    </Bar>
+                                </BarChart>
+                            </ResponsiveContainer>
+                        )}
+                    </ChartCard>
+                </motion.div>
+
+                {/* ── FILA 4: Evolución tasa BCV ── */}
+                {historialTasas.length > 0 && (
+                    <motion.div
+                        variants={itemVariants}
+                        initial="hidden"
+                        animate="visible"
+                    >
+                        <ChartCard>
+                            <SectionHeader title="Evolución Tasa Bs/USD" subtitle="BCV vs Paralelo — últimos 30 días" />
+                            <ResponsiveContainer width="100%" height={180}>
+                                <LineChart data={historialTasas.slice(-30)} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                                    <defs>
+                                        <linearGradient id="gradientBCV" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="0%" stopColor="#60A5FA" stopOpacity={0.15} />
+                                            <stop offset="100%" stopColor="#60A5FA" stopOpacity={0} />
+                                        </linearGradient>
+                                    </defs>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+                                    <XAxis dataKey="fecha" tick={{ fontSize: 10, fill: 'rgba(255,255,255,0.3)', fontFamily: 'DM Sans' }} tickLine={false} axisLine={false}
+                                        tickFormatter={v => v?.slice(5) || v} interval={4} />
+                                    <YAxis tick={{ fontSize: 10, fill: 'rgba(255,255,255,0.3)', fontFamily: 'DM Mono' }} tickLine={false} axisLine={false}
+                                        domain={['auto', 'auto']} tickFormatter={v => v.toFixed(0)} width={42} />
+                                    <Tooltip content={<TooltipPremium />} />
+                                    <Line type="monotone" dataKey="bcv" name="BCV" stroke="#60A5FA" strokeWidth={2} dot={false} activeDot={{ r: 4, fill: '#60A5FA', strokeWidth: 0 }} />
+                                    <Line type="monotone" dataKey="paralelo" name="Paralelo" stroke="#EAB308" strokeWidth={2} dot={false} strokeDasharray="5 5" activeDot={{ r: 4, fill: '#EAB308', strokeWidth: 0 }} />
+                                </LineChart>
+                            </ResponsiveContainer>
+                        </ChartCard>
+                    </motion.div>
+                )}
+
+                {/* ── FOOTER ── */}
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 1.2, duration: 0.5 }}
+                    style={{
+                        marginTop: 24, paddingTop: 16,
+                        borderTop: '1px solid rgba(255,255,255,0.04)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    }}
+                >
+                    <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.2)', fontFamily: 'DM Sans', letterSpacing: '0.04em' }}>
+                        ATEMPO Sistema Financiero — Datos en tiempo real
+                    </p>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#34D399', boxShadow: '0 0 6px rgba(52,211,153,0.6)' }} />
+                        <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', fontFamily: 'DM Sans' }}>
+                            Firestore conectado
+                        </p>
                     </div>
-                    <ResponsiveContainer width="100%" height={200}>
-                        <LineChart data={historialTasas.slice(-30)}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.08)" />
-                            <XAxis dataKey="fecha" tick={{ fontSize: 10, fill: '#64748b' }} tickLine={false} axisLine={false}
-                                tickFormatter={v => v?.slice(5) || v} interval={4} />
-                            <YAxis tick={{ fontSize: 10, fill: '#64748b' }} tickLine={false} axisLine={false}
-                                domain={['auto', 'auto']} tickFormatter={v => v.toFixed(0)} />
-                            <Tooltip content={<TooltipPersonalizado />} />
-                            <Legend wrapperStyle={{ fontSize: '12px' }} />
-                            <Line type="monotone" dataKey="bcv" name="BCV" stroke="#3b82f6" strokeWidth={2} dot={false} />
-                            <Line type="monotone" dataKey="paralelo" name="Paralelo" stroke="#f59e0b" strokeWidth={2} dot={false} strokeDasharray="5 5" />
-                        </LineChart>
-                    </ResponsiveContainer>
-                </div>
-            )}
+                </motion.div>
+            </div>
         </div>
     );
 }
