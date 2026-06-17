@@ -28,6 +28,17 @@ export interface MetodoPagoVenta {
     banco?: string;
     telefono?: string;
     referencia?: string;
+    nombrePagador?: string;
+    numeroReferencia?: string;
+    comprobanteUrl?: string;
+    bancoOrigen?: string;
+    bancoDestino?: string;
+    bancoPOS?: string;
+    tipoTarjeta?: string;
+    ultimosCuatro?: string;
+    aprobacion?: string;
+    cedula?: string;
+    montoExtranjero?: number;
 }
 
 export interface Venta {
