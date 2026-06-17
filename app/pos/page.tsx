@@ -59,8 +59,8 @@ function MetodoPagoForm({ tipo, index, onActualizar, onEliminar, totalPendiente 
     onActualizar(index, nd as PagoMetodo);
   };
 
-  // Métodos que requieren datos de pagador/referencia (no efectivo)
-  const requiereComprobante = tipo !== 'efectivo_bs' && tipo !== 'efectivo_usd' && tipo !== 'efectivo_eur';
+  // Quién paga y comprobante aplican a TODOS los métodos, incluido efectivo
+  const esEfectivo = tipo === 'efectivo_bs' || tipo === 'efectivo_usd' || tipo === 'efectivo_eur';
 
   const subirComprobante = async (file: File) => {
     setSubiendoComprobante(true);
@@ -104,7 +104,7 @@ function MetodoPagoForm({ tipo, index, onActualizar, onEliminar, totalPendiente 
       </div>
 
       {/* Campos universales: quién paga + referencia — para todo excepto efectivo */}
-      {requiereComprobante && (
+      {true && (
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
@@ -115,10 +115,10 @@ function MetodoPagoForm({ tipo, index, onActualizar, onEliminar, totalPendiente 
               placeholder="Nombre de quien realiza el pago" />
           </div>
           <div>
-            <label className="text-xs text-muted-foreground mb-1 block">N° Referencia</label>
+            <label className="text-xs text-muted-foreground mb-1 block">N° Referencia {esEfectivo && '(opcional)'}</label>
             <input type="text" className="input-sistema" value={datos.numeroReferencia || ''}
               onChange={e => actualizar('numeroReferencia', e.target.value)}
-              placeholder="Referencia de la transacción" />
+              placeholder={esEfectivo ? 'Opcional — nota interna' : 'Referencia de la transacción'} />
           </div>
         </div>
       )}
@@ -198,10 +198,10 @@ function MetodoPagoForm({ tipo, index, onActualizar, onEliminar, totalPendiente 
       )}
 
       {/* Adjuntar captura de comprobante — para todo excepto efectivo */}
-      {requiereComprobante && (
+      {true && (
         <div>
           <label className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
-            <Camera className="w-3 h-3" /> Captura del comprobante
+            <Camera className="w-3 h-3" /> {esEfectivo ? 'Foto del recibo/billete (opcional)' : 'Captura del comprobante'}
           </label>
           <input ref={fileRef} type="file" accept="image/*" className="hidden"
             onChange={e => { const f = e.target.files?.[0]; if (f) subirComprobante(f); }} />
