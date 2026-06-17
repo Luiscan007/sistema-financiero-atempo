@@ -13,7 +13,7 @@ import {
   Search, Plus, Minus, Trash2, CreditCard, Smartphone, Banknote,
   DollarSign, ArrowLeftRight, X, CheckCircle2, Printer,
   MessageCircle, ShoppingCart, Tag, ChevronDown, ChevronUp,
-  Package, Scan, WifiOff, RefreshCw, AlertTriangle,
+  Package, Scan, WifiOff, RefreshCw, AlertTriangle, Camera, User, Upload, Loader2, ImageIcon,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useCarritoStore } from '@/lib/store';
@@ -27,6 +27,8 @@ import {
   contarVentasPendientes,
 } from '@/lib/offline-queue';
 import { formatBs, formatUSD, BANCOS_VENEZOLANOS, generarNumeroRecibo } from '@/lib/utils';
+import { storage } from '@/lib/firebase';
+import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { cn } from '@/lib/utils';
 import type { PagoMetodo } from '@/lib/store';
 
@@ -48,10 +50,32 @@ function MetodoPagoForm({ tipo, index, onActualizar, onEliminar, totalPendiente 
   totalPendiente: number;
 }) {
   const [datos, setDatos] = useState<any>({ tipo, monto: totalPendiente, tipoTarjeta: 'debito' });
+  const [subiendoComprobante, setSubiendoComprobante] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
   const actualizar = (campo: string, valor: any) => {
     const nd = { ...datos, [campo]: valor };
     setDatos(nd);
     onActualizar(index, nd as PagoMetodo);
+  };
+
+  // Métodos que requieren datos de pagador/referencia (no efectivo)
+  const requiereComprobante = tipo !== 'efectivo_bs' && tipo !== 'efectivo_usd' && tipo !== 'efectivo_eur';
+
+  const subirComprobante = async (file: File) => {
+    setSubiendoComprobante(true);
+    try {
+      const nombreArchivo = `comprobantes/${Date.now()}_${file.name}`;
+      const ref = storageRef(storage, nombreArchivo);
+      await uploadBytes(ref, file);
+      const url = await getDownloadURL(ref);
+      actualizar('comprobanteUrl', url);
+      toast.success('Comprobante adjuntado');
+    } catch (err: any) {
+      toast.error('Error al subir comprobante: ' + err.message);
+    } finally {
+      setSubiendoComprobante(false);
+    }
   };
 
   return (
@@ -78,6 +102,26 @@ function MetodoPagoForm({ tipo, index, onActualizar, onEliminar, totalPendiente 
           onChange={e => actualizar('monto', parseFloat(e.target.value) || 0)}
           placeholder="0.00" />
       </div>
+
+      {/* Campos universales: quién paga + referencia — para todo excepto efectivo */}
+      {requiereComprobante && (
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+              <User className="w-3 h-3" /> Quién paga
+            </label>
+            <input type="text" className="input-sistema" value={datos.nombrePagador || ''}
+              onChange={e => actualizar('nombrePagador', e.target.value)}
+              placeholder="Nombre de quien realiza el pago" />
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">N° Referencia</label>
+            <input type="text" className="input-sistema" value={datos.numeroReferencia || ''}
+              onChange={e => actualizar('numeroReferencia', e.target.value)}
+              placeholder="Referencia de la transacción" />
+          </div>
+        </div>
+      )}
 
       {tipo === 'punto_venta' && (
         <div className="grid grid-cols-2 gap-3">
@@ -150,6 +194,41 @@ function MetodoPagoForm({ tipo, index, onActualizar, onEliminar, totalPendiente 
         <div>
           <label className="text-xs text-muted-foreground mb-1 block">Monto en {tipo === 'efectivo_usd' ? 'USD' : 'EUR'}</label>
           <input type="number" className="input-sistema" value={datos.montoExtranjero || ''} onChange={e => actualizar('montoExtranjero', parseFloat(e.target.value) || 0)} placeholder="0.00" />
+        </div>
+      )}
+
+      {/* Adjuntar captura de comprobante — para todo excepto efectivo */}
+      {requiereComprobante && (
+        <div>
+          <label className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+            <Camera className="w-3 h-3" /> Captura del comprobante
+          </label>
+          <input ref={fileRef} type="file" accept="image/*" className="hidden"
+            onChange={e => { const f = e.target.files?.[0]; if (f) subirComprobante(f); }} />
+
+          {datos.comprobanteUrl ? (
+            <div className="relative group">
+              <img src={datos.comprobanteUrl} alt="Comprobante"
+                className="w-full h-24 object-cover rounded-lg border border-green-500/30" />
+              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
+                <button onClick={() => window.open(datos.comprobanteUrl, '_blank')}
+                  className="text-xs bg-white/10 hover:bg-white/20 text-white px-2 py-1 rounded">Ver</button>
+                <button onClick={() => fileRef.current?.click()}
+                  className="text-xs bg-white/10 hover:bg-white/20 text-white px-2 py-1 rounded">Cambiar</button>
+                <button onClick={() => actualizar('comprobanteUrl', '')}
+                  className="text-xs bg-red-500/30 hover:bg-red-500/50 text-white px-2 py-1 rounded">Quitar</button>
+              </div>
+            </div>
+          ) : (
+            <button onClick={() => fileRef.current?.click()} disabled={subiendoComprobante}
+              className="w-full border-2 border-dashed border-border rounded-lg py-3 flex flex-col items-center gap-1 text-muted-foreground hover:border-blue-500/40 hover:text-blue-400 transition-colors">
+              {subiendoComprobante ? (
+                <><Loader2 className="w-5 h-5 animate-spin" /><span className="text-xs">Subiendo...</span></>
+              ) : (
+                <><ImageIcon className="w-5 h-5" /><span className="text-xs">Click para adjuntar captura</span></>
+              )}
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -315,7 +394,7 @@ export default function POSPage() {
       totalUSD,
       tasaUsada:       tarifaActual,
       tipoTasa:        tasaSeleccionada,
-      metodoPago:      metodoPago.map(m => ({ tipo: m.tipo, monto: m.monto })),
+      metodoPago:      metodoPago.map(m => ({ ...m })), // incluye nombrePagador, numeroReferencia, comprobanteUrl, etc.
       usuarioId:       'pos',
       usuarioNombre:   'Punto de Venta',
     };
