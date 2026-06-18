@@ -82,6 +82,46 @@ function BadgeCategoria({ categoria }: { categoria: CategoriaProducto }) {
     );
 }
 
+// Estilos personalizados para las subcategorías (Atempo style)
+const SUBCATEGORIA_ESTILOS: Record<string, { bg: string; text: string; border: string }> = {
+    // Cafetín
+    'bebidas':    { bg: 'bg-blue-500/10',    text: 'text-blue-400',    border: 'border-blue-500/20' },
+    'refrescos':  { bg: 'bg-red-500/10',     text: 'text-red-400',     border: 'border-red-500/20' },
+    'jugos':      { bg: 'bg-orange-500/10',  text: 'text-orange-400',  border: 'border-orange-500/20' },
+    'helados':    { bg: 'bg-pink-500/10',    text: 'text-pink-400',    border: 'border-pink-500/20' },
+    'snacks':     { bg: 'bg-amber-500/10',   text: 'text-amber-400',   border: 'border-amber-500/20' },
+    'dulces':     { bg: 'bg-purple-500/10',  text: 'text-purple-400',  border: 'border-purple-500/20' },
+    'comidas':    { bg: 'bg-emerald-500/10', text: 'text-emerald-400', border: 'border-emerald-500/20' },
+    'otro':       { bg: 'bg-slate-500/10',   text: 'text-slate-400',   border: 'border-slate-500/20' },
+
+    // Merchandising
+    'gorras':     { bg: 'bg-teal-500/10',    text: 'text-teal-400',    border: 'border-teal-500/20' },
+    'franelas':   { bg: 'bg-indigo-500/10',  text: 'text-indigo-400',  border: 'border-indigo-500/20' },
+    'chaquetas':  { bg: 'bg-violet-500/10',  text: 'text-violet-400',  border: 'border-violet-500/20' },
+    'shorts':     { bg: 'bg-cyan-500/10',    text: 'text-cyan-400',    border: 'border-cyan-500/20' },
+    'medias':     { bg: 'bg-lime-500/10',    text: 'text-lime-400',    border: 'border-lime-500/20' },
+    'bolsos':     { bg: 'bg-sky-500/10',     text: 'text-sky-400',     border: 'border-sky-500/20' },
+    'accesorios': { bg: 'bg-rose-500/10',    text: 'text-rose-400',    border: 'border-rose-500/20' },
+};
+
+function BadgeSubcategoria({ subcategoria }: { subcategoria: string }) {
+    const key = subcategoria.toLowerCase().trim();
+    const estilo = SUBCATEGORIA_ESTILOS[key] || {
+        bg: 'bg-muted/50',
+        text: 'text-muted-foreground',
+        border: 'border-border/60',
+    };
+
+    return (
+        <span className={cn(
+            'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-all',
+            estilo.bg, estilo.text, estilo.border
+        )}>
+            {subcategoria}
+        </span>
+    );
+}
+
 // ─── Modal crear / editar producto ────────────────────────────────────────────
 
 // Opciones de tasa disponibles
@@ -411,9 +451,7 @@ function TarjetaProducto({
                     <div className="flex items-center gap-2 flex-wrap mb-1">
                         <BadgeCategoria categoria={producto.categoria} />
                         {producto.subcategoria && (
-                            <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-                                {producto.subcategoria}
-                            </span>
+                            <BadgeSubcategoria subcategoria={producto.subcategoria} />
                         )}
                         {!producto.activo && (
                             <span className="text-xs text-red-400 bg-red-500/10 px-2 py-0.5 rounded-full border border-red-500/20">
@@ -600,7 +638,7 @@ export default function ProductosPage() {
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                         <input
                             className="input-sistema pl-9 w-full"
-                            placeholder="Buscar producto..."
+                            placeholder="Buscar por nombre, descripción o subcategoría..."
                             value={busqueda}
                             onChange={e => setBusqueda(e.target.value)}
                         />
