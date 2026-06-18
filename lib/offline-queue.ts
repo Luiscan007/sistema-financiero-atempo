@@ -127,10 +127,35 @@ export async function sincronizarVentas(): Promise<{ exito: number; fallo: numbe
                 continue;
             }
 
+            // Normalizar para compatibilidad con registros IndexedDB antiguos
+            const vAny = datosVenta as any;
+            const total = vAny.total ?? vAny.totalBs ?? 0;
+            const timestampVal = vAny.timestamp ?? Date.now();
+            const fecha = vAny.fecha ?? new Date(timestampVal).toISOString().split('T')[0];
+            const subtotal = vAny.subtotal ?? total;
+            const descuentoGlobal = vAny.descuentoGlobal ?? 0;
+            const montoDescuento = vAny.montoDescuento ?? 0;
+            const tipoTasa = vAny.tipoTasa ?? 'bcv';
+            const ajusteRedondeo = vAny.ajusteRedondeo ?? 0;
+
+            const normalizedVenta = {
+                ...datosVenta,
+                total,
+                fecha,
+                subtotal,
+                descuentoGlobal,
+                montoDescuento,
+                tipoTasa,
+                ajusteRedondeo,
+            };
+            if ('totalBs' in normalizedVenta) {
+                delete (normalizedVenta as any).totalBs;
+            }
+
             const user = auth.currentUser;
 
             await addDoc(collection(db, COLECCIONES.VENTAS), {
-                ...datosVenta,
+                ...normalizedVenta,
                 usuarioId:    user?.uid   || 'anonimo',
                 usuarioNombre: user?.displayName || user?.email || 'Usuario',
                 timestamp: serverTimestamp(),
@@ -140,9 +165,15 @@ export async function sincronizarVentas(): Promise<{ exito: number; fallo: numbe
 
             // Descontar stock de los productos vendidos
             try {
-                const { doc: docRef, updateDoc, increment } = await import('firebase/firestore');
-                for (const item of datosVenta.items || []) {
-                    if (item.tipo === 'producto') {
+                const { doc: docRef, updateDoc, increment, getDoc } = await import('firebase/firestore');
+                for (const item of normalizedVenta.items || []) {
+                    let esProducto = item.tipo === 'producto';
+                    if (item.tipo === undefined) {
+                        // Buscar si existe en la colección de productos para compatibilidad antigua
+                        const prodDoc = await getDoc(docRef(db, 'productos_catalogo', item.id));
+                        esProducto = prodDoc.exists();
+                    }
+                    if (esProducto) {
                         await updateDoc(docRef(db, 'productos_catalogo', item.id), {
                             stock: increment(-item.cantidad)
                         });
