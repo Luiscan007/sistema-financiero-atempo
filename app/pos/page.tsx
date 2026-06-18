@@ -242,7 +242,7 @@ export default function POSPage() {
   const [descuentoGlobalInput, setDescuentoGlobalInput] = useState('0');
   const [ventaCompletada, setVentaCompletada] = useState(false);
   const [procesando, setProcesando] = useState(false);
-  const [tasaSeleccionada, setTasaSeleccionada] = useState<'bcv' | 'paralelo'>('bcv');
+  const [tasaSeleccionada, setTasaSeleccionada] = useState<'bcv' | 'paralelo' | 'eur'>('eur');
   const [online, setOnline]         = useState(true);
   const [pendientes, setPendientes] = useState(0);
   const [sincronizando, setSincronizando] = useState(false);
@@ -267,7 +267,11 @@ export default function POSPage() {
     limpiarCarrito, setTasaUsada,
   } = useCarritoStore();
 
-  const tarifaActual = Math.max(1, tasaSeleccionada === 'bcv' ? (tasas.bcv || 1) : (tasas.paralelo || 1));
+  const tarifaActual = Math.max(1,
+    tasaSeleccionada === 'bcv'      ? (tasas.bcv || 1) :
+    tasaSeleccionada === 'paralelo' ? (tasas.paralelo || 1) :
+    (tasas.eurBcv || 1) // EUR BCV
+  );
 
   // ── Detectar conexión ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -503,11 +507,11 @@ export default function POSPage() {
               )}
               {/* Selector tasa */}
               <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
-                {(['bcv', 'paralelo'] as const).map(t => (
-                  <button key={t} onClick={() => { setTasaSeleccionada(t); setTasaUsada(t === 'bcv' ? tasas.bcv : tasas.paralelo); }}
+                {([['bcv', 'BCV', 'bg-blue-600'], ['paralelo', 'Paralela', 'bg-yellow-600'], ['eur', '€ EUR', 'bg-purple-600']] as const).map(([t, label, activeColor]) => (
+                  <button key={t} onClick={() => { setTasaSeleccionada(t); setTasaUsada(t === 'bcv' ? tasas.bcv : t === 'paralelo' ? tasas.paralelo : (tasas.eurBcv || tasas.bcv)); }}
                     className={cn('px-3 py-1 rounded-md text-xs font-medium transition-all',
-                      tasaSeleccionada === t ? (t === 'bcv' ? 'bg-blue-600 text-white' : 'bg-yellow-600 text-white') : 'text-muted-foreground hover:text-foreground')}>
-                    {t === 'bcv' ? 'BCV' : 'Paralela'}
+                      tasaSeleccionada === t ? `${activeColor} text-white` : 'text-muted-foreground hover:text-foreground')}>
+                    {label}
                   </button>
                 ))}
               </div>

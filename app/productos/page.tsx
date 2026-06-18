@@ -84,16 +84,25 @@ function BadgeCategoria({ categoria }: { categoria: CategoriaProducto }) {
 
 // ─── Modal crear / editar producto ────────────────────────────────────────────
 
+// Opciones de tasa disponibles
+const OPCIONES_TASA = [
+    { key: 'eur',      label: '€ EUR BCV',   color: 'text-purple-400', bg: 'bg-purple-500/10', border: 'border-purple-500/30' },
+    { key: 'bcv',      label: '$ BCV',        color: 'text-blue-400',   bg: 'bg-blue-500/10',   border: 'border-blue-500/30'   },
+    { key: 'paralelo', label: '$ Paralelo',   color: 'text-amber-400',  bg: 'bg-amber-500/10',  border: 'border-amber-500/30'  },
+] as const;
+
+type TipoTasa = 'bcv' | 'paralelo' | 'eur';
+
 function ModalProducto({
     producto,
     onCerrar,
     onGuardar,
-    tasaBCV,
+    tasas,
 }: {
     producto: Partial<Producto> | null;
     onCerrar: () => void;
     onGuardar: (p: Producto) => void;
-    tasaBCV: number;
+    tasas: import('@/lib/tasas').TasasCambio;
 }) {
     const esEdicion = !!(producto as Producto)?.id;
 
@@ -109,11 +118,22 @@ function ModalProducto({
         activo:       true,
     });
 
+    // EUR BCV como tasa predeterminada
+    const [tasaSeleccionada, setTasaSeleccionada] = useState<TipoTasa>('eur');
+
     const set = (campo: keyof Producto, valor: unknown) =>
         setForm(prev => ({ ...prev, [campo]: valor }));
 
-    const precioBs = (form.precioUSD || 0) * tasaBCV;
+    // Calcular precio en Bs según la tasa elegida
+    const tasaValor = tasaSeleccionada === 'eur'
+        ? tasas.eurBcv
+        : tasaSeleccionada === 'paralelo'
+        ? tasas.paralelo
+        : tasas.bcv;
+
+    const precioBs = (form.precioUSD || 0) * tasaValor;
     const catCfg   = CONFIG_CATEGORIAS[form.categoria as CategoriaProducto] ?? CONFIG_CATEGORIAS['cafetín'];
+    const tasaOpc  = OPCIONES_TASA.find(o => o.key === tasaSeleccionada)!;
 
     const guardar = () => {
         if (!form.nombre?.trim())               { toast.error('Ingresa el nombre del producto'); return; }
@@ -219,6 +239,29 @@ function ModalProducto({
                             <DollarSign className="w-4 h-4 text-green-400" />
                             Precio
                         </h4>
+
+                        {/* Selector de tasa */}
+                        <div className="mb-4">
+                            <label className="text-xs text-muted-foreground mb-2 block">Tasa para conversión a Bs</label>
+                            <div className="flex gap-2">
+                                {OPCIONES_TASA.map(opt => (
+                                    <button
+                                        key={opt.key}
+                                        type="button"
+                                        onClick={() => setTasaSeleccionada(opt.key)}
+                                        className={cn(
+                                            'flex-1 py-1.5 px-2 rounded-lg text-xs font-semibold border transition-all',
+                                            tasaSeleccionada === opt.key
+                                                ? cn(opt.bg, opt.color, opt.border)
+                                                : 'border-border text-muted-foreground hover:border-muted-foreground'
+                                        )}
+                                    >
+                                        {opt.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <label className="text-xs text-muted-foreground mb-1 block">Precio (USD) *</label>
@@ -236,12 +279,12 @@ function ModalProducto({
                                 </div>
                             </div>
                             <div>
-                                <label className="text-xs text-muted-foreground mb-1 block">Equivale en Bs (BCV)</label>
-                                <div className="input-sistema bg-muted/40 flex items-center font-mono text-sm text-amber-400 font-semibold cursor-default select-none">
+                                <label className={cn('text-xs mb-1 block', tasaOpc.color)}>Equivale en Bs ({tasaOpc.label})</label>
+                                <div className={cn('input-sistema bg-muted/40 flex items-center font-mono text-sm font-semibold cursor-default select-none', tasaOpc.color)}>
                                     {precioBs > 0 ? formatBs(precioBs) : '0.00 Bs'}
                                 </div>
                                 <p className="text-xs text-muted-foreground mt-1">
-                                    Tasa: {tasaBCV.toFixed(2)} Bs/$
+                                    Tasa: {tasaValor.toFixed(2)} Bs/$
                                 </p>
                             </div>
                         </div>
@@ -659,7 +702,7 @@ export default function ProductosPage() {
                     producto={modalProducto}
                     onCerrar={() => setModalProducto(undefined)}
                     onGuardar={guardarProducto}
-                    tasaBCV={tasas.bcv}
+                    tasas={tasas}
                 />
             )}
         </div>

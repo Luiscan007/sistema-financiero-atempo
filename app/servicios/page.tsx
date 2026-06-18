@@ -48,22 +48,31 @@ return (
 );
 }
 
+// Opciones de tasa disponibles
+const OPCIONES_TASA = [
+    { key: 'eur',      label: '€ EUR BCV',   color: 'text-purple-400', bg: 'bg-purple-500/10', border: 'border-purple-500/30' },
+    { key: 'bcv',      label: '$ BCV',        color: 'text-blue-400',   bg: 'bg-blue-500/10',   border: 'border-blue-500/30'   },
+    { key: 'paralelo', label: '$ Paralelo',   color: 'text-amber-400',  bg: 'bg-amber-500/10',  border: 'border-amber-500/30'  },
+] as const;
+
+type TipoTasa = 'bcv' | 'paralelo' | 'eur';
+
 // ─── Modal crear / editar servicio ────────────────────────────────────────────
 
 function ModalServicio({
-servicio,
-onCerrar,
-onGuardar,
-tasaBCV,
-categorias,
-onNuevaCategoria,
+  servicio,
+  onCerrar,
+  onGuardar,
+  tasas,
+  categorias,
+  onNuevaCategoria,
 }: {
-servicio: Partial<Servicio> | null;
-onCerrar: () => void;
-onGuardar: (s: Servicio) => void;
-tasaBCV: number;
-categorias: string[];
-onNuevaCategoria: (c: string) => void;
+  servicio: Partial<Servicio> | null;
+  onCerrar: () => void;
+  onGuardar: (s: Servicio) => void;
+  tasas: { bcv: number; paralelo: number; eurBcv: number };
+  categorias: string[];
+  onNuevaCategoria: (c: string) => void;
 }) {
 const esEdicion = !!(servicio as Servicio)?.id;
 
@@ -82,11 +91,20 @@ const [form, setForm] = useState<Partial<Servicio>>(servicio || {
 
 const [nuevaCat, setNuevaCat] = useState('');
 const [mostrarNuevaCat, setMostrarNuevaCat] = useState(false);
+// EUR BCV como tasa predeterminada
+const [tasaSeleccionada, setTasaSeleccionada] = useState<TipoTasa>('eur');
 
 const set = (campo: keyof Servicio, valor: unknown) =>
     setForm(prev => ({ ...prev, [campo]: valor }));
 
-const preciosBs = (form.precioUSD || 0) * tasaBCV;
+const tasaValor = tasaSeleccionada === 'eur'
+    ? tasas.eurBcv
+    : tasaSeleccionada === 'paralelo'
+    ? tasas.paralelo
+    : tasas.bcv;
+
+const preciosBs = (form.precioUSD || 0) * tasaValor;
+const tasaOpc   = OPCIONES_TASA.find(o => o.key === tasaSeleccionada)!;
 
 const guardar = () => {
     if (!form.nombre?.trim()) { toast.error('Ingresa el nombre del servicio'); return; }
@@ -239,6 +257,29 @@ return (
                         <DollarSign className="w-4 h-4 text-green-400" />
                         Precio
                     </h4>
+
+                    {/* Selector de tasa */}
+                    <div className="mb-4">
+                        <label className="text-xs text-muted-foreground mb-2 block">Tasa para conversión a Bs</label>
+                        <div className="flex gap-2">
+                            {OPCIONES_TASA.map(opt => (
+                                <button
+                                    key={opt.key}
+                                    type="button"
+                                    onClick={() => setTasaSeleccionada(opt.key)}
+                                    className={cn(
+                                        'flex-1 py-1.5 px-2 rounded-lg text-xs font-semibold border transition-all',
+                                        tasaSeleccionada === opt.key
+                                            ? cn(opt.bg, opt.color, opt.border)
+                                            : 'border-border text-muted-foreground hover:border-muted-foreground'
+                                    )}
+                                >
+                                    {opt.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="text-xs text-muted-foreground mb-1 block">Precio (USD) *</label>
@@ -256,12 +297,12 @@ return (
                             </div>
                         </div>
                         <div>
-                            <label className="text-xs text-muted-foreground mb-1 block">Equivale en Bs (BCV)</label>
-                            <div className="input-sistema bg-muted/40 flex items-center font-mono text-sm text-amber-400 font-semibold cursor-default select-none">
+                            <label className={cn('text-xs mb-1 block', tasaOpc.color)}>Equivale en Bs ({tasaOpc.label})</label>
+                            <div className={cn('input-sistema bg-muted/40 flex items-center font-mono text-sm font-semibold cursor-default select-none', tasaOpc.color)}>
                                 {preciosBs > 0 ? formatBs(preciosBs) : '0.00 Bs'}
                             </div>
                             <p className="text-xs text-muted-foreground mt-1">
-                                Tasa: {tasaBCV.toFixed(2)} Bs/$
+                                Tasa: {tasaValor.toFixed(2)} Bs/$
                             </p>
                         </div>
                     </div>
@@ -609,7 +650,7 @@ return (
                 servicio={modalServicio}
                 onCerrar={() => setModalServicio(undefined)}
                 onGuardar={guardarServicio}
-                tasaBCV={tasas.bcv}
+                tasas={{ bcv: tasas.bcv, paralelo: tasas.paralelo, eurBcv: tasas.eurBcv ?? 0 }}
                 categorias={categoriasDinamicas}
                 onNuevaCategoria={(c) => {
                     if (!categoriasDinamicas.includes(c)) {

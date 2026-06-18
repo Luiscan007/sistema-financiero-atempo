@@ -303,6 +303,10 @@ export default function AppLayout({ children }: AppLayoutProps) {
                                         <span className="text-[10px] text-white/30 uppercase font-bold tracking-wider">Paralelo</span>
                                         <span className="text-[13px] text-amber-400 font-mono font-medium">Bs {tasas.paralelo.toLocaleString('es-VE', { minimumFractionDigits: 2 })}</span>
                                     </div>
+                                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-purple-500/10 border border-purple-500/20">
+                                        <span className="text-[10px] text-white/30 uppercase font-bold tracking-wider">EUR BCV</span>
+                                        <span className="text-[13px] text-purple-400 font-mono font-medium">Bs {(tasas.eurBcv ?? 0).toLocaleString('es-VE', { minimumFractionDigits: 2 })}</span>
+                                    </div>
                                 </div>
                             )}
                         </div>
