@@ -110,10 +110,23 @@ export async function sincronizarVentas(): Promise<{ exito: number; fallo: numbe
         try {
             // Importar Firestore dinámicamente para no romper el service worker
             const { db, COLECCIONES, auth } = await import('./firebase');
-            const { addDoc, collection, serverTimestamp } = await import('firebase/firestore');
+            const { addDoc, collection, serverTimestamp, getDocs, query, where } = await import('firebase/firestore');
 
             // Separar campos de control de IndexedDB del documento final de Firestore
             const { id, sincronizada, errorSincronizacion, ...datosVenta } = venta;
+
+            // Evitar duplicados si la persistencia nativa de Firestore ya la subió en segundo plano
+            const existentes = await getDocs(
+                query(collection(db, COLECCIONES.VENTAS), where('numeroRecibo', '==', datosVenta.numeroRecibo))
+            );
+
+            if (!existentes.empty) {
+                console.log(`La venta ${datosVenta.numeroRecibo} ya existe en Firestore. Evitando duplicar.`);
+                await marcarVentaSincronizada(id!);
+                exito++;
+                continue;
+            }
+
             const user = auth.currentUser;
 
             await addDoc(collection(db, COLECCIONES.VENTAS), {
