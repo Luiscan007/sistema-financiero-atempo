@@ -79,10 +79,10 @@ export function useVentas() {
                 return {
                     ...data,
                     id: d.id,
-                    // ✅ fecha como YYYY-MM-DD para filtros consistentes
-                    fecha: data.fechaTimestamp instanceof Timestamp
+                    // ✅ Priorizar la fecha explícita (p. ej. retroactiva) y usar fechaTimestamp como fallback para registros antiguos
+                    fecha: data.fecha || (data.fechaTimestamp instanceof Timestamp
                         ? data.fechaTimestamp.toDate().toISOString().split('T')[0]
-                        : data.fecha || '',
+                        : ''),
                     fechaTimestamp: data.fechaTimestamp instanceof Timestamp
                         ? data.fechaTimestamp : undefined,
                 } as Venta;
@@ -95,11 +95,20 @@ export function useVentas() {
     const guardarVenta = async (datos: Omit<Venta, 'id'>) => {
         const auth = getAuth();
         const user = auth.currentUser;
+        
+        let fechaTimestampVal: any = serverTimestamp();
+        if (datos.fecha) {
+            // Convertir YYYY-MM-DD local a Timestamp al mediodía para evitar desfases de zona horaria
+            const [year, month, day] = datos.fecha.split('-').map(Number);
+            const dateObj = new Date(year, month - 1, day, 12, 0, 0);
+            fechaTimestampVal = Timestamp.fromDate(dateObj);
+        }
+
         await addDoc(collection(db, COLECCION), {
             ...datos,
             usuarioId:    user?.uid   || 'anonimo',
             usuarioNombre: user?.displayName || user?.email || 'Usuario',
-            fechaTimestamp: serverTimestamp(),
+            fechaTimestamp: fechaTimestampVal,
         });
     };
 
@@ -108,9 +117,18 @@ export function useVentas() {
         await deleteDoc(doc(db, COLECCION, id));
     };
 
-    // ✅ NUEVO: editar campos de una venta existente (ej: número de recibo, items, etc.)
-    const actualizarVenta = async (id: string, datos: Partial<Omit<Venta, 'id' | 'fechaTimestamp'>>) => {
-        await updateDoc(doc(db, COLECCION, id), { ...datos });
+    // ✅ NUEVO: editar campos de una venta existente (ej: número de recibo, fecha, etc.)
+    const actualizarVenta = async (id: string, datos: Partial<Omit<Venta, 'id'>>) => {
+        const updateData: any = { ...datos };
+        
+        if (datos.fecha) {
+            // Si se edita la fecha, actualizar también fechaTimestamp para mantener la ordenación
+            const [year, month, day] = datos.fecha.split('-').map(Number);
+            const dateObj = new Date(year, month - 1, day, 12, 0, 0);
+            updateData.fechaTimestamp = Timestamp.fromDate(dateObj);
+        }
+        
+        await updateDoc(doc(db, COLECCION, id), updateData);
     };
 
     return { ventas, cargando, guardarVenta, eliminarVenta, actualizarVenta };

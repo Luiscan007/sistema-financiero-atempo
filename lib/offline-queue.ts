@@ -110,7 +110,7 @@ export async function sincronizarVentas(): Promise<{ exito: number; fallo: numbe
         try {
             // Importar Firestore dinámicamente para no romper el service worker
             const { db, COLECCIONES, auth } = await import('./firebase');
-            const { addDoc, collection, serverTimestamp, getDocs, query, where } = await import('firebase/firestore');
+            const { addDoc, collection, serverTimestamp, getDocs, query, where, Timestamp } = await import('firebase/firestore');
 
             // Separar campos de control de IndexedDB del documento final de Firestore
             const { id, sincronizada, errorSincronizacion, ...datosVenta } = venta;
@@ -154,12 +154,22 @@ export async function sincronizarVentas(): Promise<{ exito: number; fallo: numbe
 
             const user = auth.currentUser;
 
+            // Calcular fechaTimestamp basado en el timestamp o la fecha
+            let fechaTimestampVal: any = serverTimestamp();
+            if (normalizedVenta.fecha) {
+                const [year, month, day] = normalizedVenta.fecha.split('-').map(Number);
+                const dateObj = new Date(year, month - 1, day, 12, 0, 0);
+                fechaTimestampVal = Timestamp.fromDate(dateObj);
+            } else if (timestampVal) {
+                fechaTimestampVal = Timestamp.fromMillis(timestampVal);
+            }
+
             await addDoc(collection(db, COLECCIONES.VENTAS), {
                 ...normalizedVenta,
                 usuarioId:    user?.uid   || 'anonimo',
                 usuarioNombre: user?.displayName || user?.email || 'Usuario',
                 timestamp: serverTimestamp(),
-                fechaTimestamp: serverTimestamp(),
+                fechaTimestamp: fechaTimestampVal,
                 origenOffline: true,
             });
 
