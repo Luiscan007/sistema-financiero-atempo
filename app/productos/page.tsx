@@ -385,16 +385,17 @@ function ModalProducto({
 
 function TarjetaProducto({
     producto,
-    tasaBCV,
+    eurBcv,
     onEditar,
     onEliminar,
 }: {
     producto: Producto;
-    tasaBCV: number;
+    eurBcv: number;   // Tasa EUR BCV (predeterminada)
     onEditar: () => void;
     onEliminar: () => void;
 }) {
-    const precioBs    = producto.precioUSD * tasaBCV;
+    const precioBs    = producto.precioUSD * eurBcv;
+    const unidad      = producto.unidad || 'und';   // fallback seguro
     const stockBajo   = producto.stock <= producto.stockMinimo;
     const sinStock    = producto.stock === 0;
     const catCfg      = CONFIG_CATEGORIAS[producto.categoria];
@@ -459,8 +460,8 @@ function TarjetaProducto({
                     {sinStock
                         ? 'Sin stock'
                         : stockBajo
-                        ? `Stock bajo: ${producto.stock} ${producto.unidad}`
-                        : `${producto.stock} ${producto.unidad}`}
+                        ? `Stock bajo: ${producto.stock} ${unidad}`
+                        : `${producto.stock} ${unidad}`}
                 </span>
             </div>
 
@@ -473,11 +474,11 @@ function TarjetaProducto({
                     </p>
                 </div>
                 <div className="text-right">
-                    <p className="text-xs text-muted-foreground mb-0.5">Equivale a</p>
-                    <p className="text-sm font-semibold text-amber-400 font-mono">
+                    <p className="text-xs text-muted-foreground mb-0.5">€ EUR BCV</p>
+                    <p className="text-sm font-semibold text-purple-400 font-mono">
                         {formatBs(precioBs)}
                     </p>
-                    <p className="text-xs text-muted-foreground">tasa {tasaBCV.toFixed(2)}</p>
+                    <p className="text-xs text-muted-foreground">tasa {eurBcv.toFixed(2)}</p>
                 </div>
             </div>
         </div>
@@ -684,7 +685,7 @@ export default function ProductosPage() {
                                         <TarjetaProducto
                                             key={producto.id}
                                             producto={producto}
-                                            tasaBCV={tasas.bcv}
+                                            eurBcv={tasas.eurBcv ?? tasas.bcv}
                                             onEditar={() => setModalProducto(producto)}
                                             onEliminar={() => eliminarProducto(producto.id)}
                                         />

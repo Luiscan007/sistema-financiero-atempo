@@ -495,18 +495,6 @@ export default function DashboardPage() {
                             </span>
                         </div>
 
-                        <div style={{
-                            display: 'flex', alignItems: 'center', gap: 8,
-                            padding: '8px 14px', borderRadius: 10,
-                            background: 'rgba(59,130,246,0.08)',
-                            border: '1px solid rgba(59,130,246,0.2)',
-                        }}>
-                            <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', fontFamily: 'DM Sans' }}>BCV</span>
-                            <span style={{ fontSize: 13, fontFamily: 'DM Mono', fontWeight: 600, color: '#60A5FA' }}>
-                                Bs {tasas?.bcv?.toLocaleString('es-VE', { minimumFractionDigits: 2 }) || '0.00'}
-                            </span>
-                        </div>
-
                         <motion.button
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
@@ -533,15 +521,33 @@ export default function DashboardPage() {
                     marginBottom: 24,
                 }}>
                     {cargando ? (
-                        Array.from({ length: 6 }).map((_, i) => <SkeletonKPI key={`sk-${i}`} index={i} />)
+                        Array.from({ length: 5 }).map((_, i) => <SkeletonKPI key={`sk-${i}`} index={i} />)
                     ) : (
                         <>
-                            <KPICard index={0} titulo="Ingresos Hoy" valor={kpis.ingresoHoyBs} prefijo="Bs " decimales={0} icono={DollarSign} cambio={kpis.cambioIngresos} glowColor="gold" subtitulo={kpis.ingresoHoyUSD > 0 ? `≈ ${formatUSDLocal(kpis.ingresoHoyUSD)}` : undefined} />
-                            <KPICard index={1} titulo="Ingresos del Mes" valor={kpis.ingresoMesBs} prefijo="Bs " decimales={0} icono={TrendingUp} glowColor="green" subtitulo={kpis.ingresoMesUSD > 0 ? `≈ ${formatUSDLocal(kpis.ingresoMesUSD)}` : undefined} />
+                            <KPICard
+                                index={0}
+                                titulo="Ingresos Hoy"
+                                valor={kpis.ingresoHoyUSD}
+                                prefijo="$"
+                                decimales={2}
+                                icono={DollarSign}
+                                cambio={kpis.cambioIngresos}
+                                glowColor="gold"
+                                subtitulo={`€ EUR: Bs ${(kpis.ingresoHoyUSD * (tasas?.eurBcv || tasas?.bcv || 1)).toLocaleString('es-VE', { maximumFractionDigits: 0 })}`}
+                            />
+                            <KPICard
+                                index={1}
+                                titulo="Ingresos del Mes"
+                                valor={kpis.ingresoMesUSD}
+                                prefijo="$"
+                                decimales={2}
+                                icono={TrendingUp}
+                                glowColor="green"
+                                subtitulo={`€ EUR: Bs ${(kpis.ingresoMesUSD * (tasas?.eurBcv || tasas?.bcv || 1)).toLocaleString('es-VE', { maximumFractionDigits: 0 })}`}
+                            />
                             <KPICard index={2} titulo="Transacciones Hoy" valor={kpis.txHoy} icono={Receipt} cambio={kpis.cambioTx} glowColor="blue" subtitulo={`${kpis.txAyer} ayer`} />
                             <KPICard index={3} titulo="Transacciones Mes" valor={kpis.txMes} icono={ShoppingCart} glowColor="gold" subtitulo="Total del mes actual" />
-                            <KPICard index={4} titulo="Tasa BCV" valor={tasas?.bcv || 0} prefijo="Bs " decimales={2} icono={Wallet} glowColor="blue" subtitulo="Actualizada" />
-                            <KPICard index={5} titulo="Servicios Activos" valor={kpis.serviciosActivos} icono={Package} glowColor="green" subtitulo="En catálogo" />
+                            <KPICard index={4} titulo="Servicios Activos" valor={kpis.serviciosActivos} icono={Package} glowColor="green" subtitulo="En catálogo" />
                         </>
                     )}
                 </div>
