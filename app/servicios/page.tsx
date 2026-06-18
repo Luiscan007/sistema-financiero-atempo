@@ -547,7 +547,8 @@ return (
         ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {serviciosFiltrados.map(servicio => {
-                    const precioBs = servicio.precioUSD * tasas.bcv;
+                    const eurBcv  = tasas.eurBcv ?? tasas.bcv;
+                    const precioBs = servicio.precioUSD * eurBcv;
                     return (
                         <div
                             key={servicio.id}
@@ -632,11 +633,11 @@ return (
                                     </p>
                                 </div>
                                 <div className="text-right">
-                                    <p className="text-xs text-muted-foreground mb-0.5">Equivale a</p>
-                                    <p className="text-sm font-semibold text-amber-400 font-mono">
+                                    <p className="text-xs text-muted-foreground mb-0.5">€ EUR BCV</p>
+                                    <p className="text-sm font-semibold text-purple-400 font-mono">
                                         {formatBs(precioBs)}
                                     </p>
-                                    <p className="text-xs text-muted-foreground">tasa {tasas.bcv.toFixed(2)}</p>
+                                    <p className="text-xs text-muted-foreground">tasa {eurBcv.toFixed(2)}</p>
                                 </div>
                             </div>
                         </div>

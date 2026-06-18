@@ -5,7 +5,7 @@
  * Control de gastos de la academia - conectado a Firestore
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
     Plus, Search, Trash2, X, CheckCircle2, Loader2,
     TrendingDown, Wallet, Edit2, Calendar, Tag, Receipt,
@@ -25,6 +25,15 @@ const METODOS_PAGO: Record<MetodoPagoGasto, string> = {
     punto_venta:  'Punto de Venta',
 };
 
+// Opciones de tasa disponibles
+const OPCIONES_TASA = [
+    { key: 'eur',      label: '€ EUR BCV',   color: 'text-purple-400', bg: 'bg-purple-500/10', border: 'border-purple-500/30' },
+    { key: 'bcv',      label: '$ BCV',        color: 'text-blue-400',   bg: 'bg-blue-500/10',   border: 'border-blue-500/30'   },
+    { key: 'paralelo', label: '$ Paralelo',   color: 'text-amber-400',  bg: 'bg-amber-500/10',  border: 'border-amber-500/30'  },
+] as const;
+
+type TipoTasa = 'bcv' | 'paralelo' | 'eur';
+
 /* ── Modal nuevo/editar gasto ───────────── */
 function ModalGasto({
     gasto, onCerrar, onGuardar,
@@ -36,19 +45,39 @@ function ModalGasto({
     const { tasas } = useTasas();
     const esEdicion = !!(gasto as any)?.id;
 
+    // EUR BCV como tasa predeterminada
+    const [tasaSeleccionada, setTasaSeleccionada] = useState<TipoTasa>('eur');
+
     const [form, setForm] = useState<Partial<Gasto>>(gasto || {
         descripcion: '',
         categoria:   'otro',
         montoBs:     0,
         montoUSD:    0,
-        tasaUsada:   tasas.bcv || 0,
+        tasaUsada:   tasas.eurBcv || tasas.bcv || 0,
         metodoPago:  'transferencia',
         fecha:       new Date().toISOString().split('T')[0],
     });
     const set = (k: string, v: any) => setForm(p => ({ ...p, [k]: v }));
 
-    const calcularBs = (usd: number) => Math.round(usd * (tasas.bcv || 1) * 100) / 100;
-    const calcularUSD = (bs: number) => Math.round((bs / (tasas.bcv || 1)) * 100) / 100;
+    const tasaValor = tasaSeleccionada === 'eur'
+        ? (tasas.eurBcv || tasas.bcv)
+        : tasaSeleccionada === 'paralelo'
+        ? tasas.paralelo
+        : tasas.bcv;
+
+    const tasaOpc = OPCIONES_TASA.find(o => o.key === tasaSeleccionada)!;
+
+    const calcularBs = (usd: number) => Math.round(usd * (tasaValor || 1) * 100) / 100;
+    const calcularUSD = (bs: number) => Math.round((bs / (tasaValor || 1)) * 100) / 100;
+
+    // Actualizar el monto en Bs o USD cuando cambia la tasa seleccionada
+    useEffect(() => {
+        if (form.montoUSD) {
+            setForm(p => ({ ...p, montoBs: Math.round(p.montoUSD! * tasaValor * 100) / 100, tasaUsada: tasaValor }));
+        } else if (form.montoBs) {
+            setForm(p => ({ ...p, montoUSD: Math.round((p.montoBs! / tasaValor) * 100) / 100, tasaUsada: tasaValor }));
+        }
+    }, [tasaSeleccionada, tasaValor]);
 
     const guardar = () => {
         if (!form.descripcion?.trim()) { toast.error('La descripcion es requerida'); return; }
@@ -58,7 +87,7 @@ function ModalGasto({
             categoria:   form.categoria   || 'otro',
             montoBs:     form.montoBs     || 0,
             montoUSD:    form.montoUSD     || 0,
-            tasaUsada:   form.tasaUsada    || tasas.bcv || 0,
+            tasaUsada:   form.tasaUsada    || tasaValor || 0,
             metodoPago:  form.metodoPago   || 'transferencia',
             proveedor:   form.proveedor    || '',
             referencia:  form.referencia   || '',
@@ -107,24 +136,54 @@ function ModalGasto({
                                 ))}
                             </select>
                         </div>
+
+                        {/* Selector de tasa */}
+                        <div className="col-span-2 border-t border-border/40 my-1 pt-3">
+                            <label className="text-xs text-muted-foreground mb-2 block font-medium">Tasa para conversión de montos</label>
+                            <div className="flex gap-2">
+                                {OPCIONES_TASA.map(opt => (
+                                    <button
+                                        key={opt.key}
+                                        type="button"
+                                        onClick={() => setTasaSeleccionada(opt.key)}
+                                        className={cn(
+                                            'flex-1 py-1.5 px-2 rounded-lg text-xs font-semibold border transition-all',
+                                            tasaSeleccionada === opt.key
+                                                ? cn(opt.bg, opt.color, opt.border)
+                                                : 'border-border text-muted-foreground hover:border-muted-foreground'
+                                        )}
+                                    >
+                                        {opt.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
                         <div>
                             <label className="text-xs text-muted-foreground mb-1 block font-medium">Monto USD</label>
-                            <input type="number" className="input-sistema font-mono" placeholder="0.00"
-                                value={form.montoUSD || ''}
-                                onChange={e => {
-                                    const usd = parseFloat(e.target.value) || 0;
-                                    setForm(p => ({ ...p, montoUSD: usd, montoBs: calcularBs(usd), tasaUsada: tasas.bcv }));
-                                }} />
+                            <div className="relative">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-green-400 text-sm font-bold">$</span>
+                                <input type="number" className="input-sistema pl-7 font-mono" placeholder="0.00"
+                                    value={form.montoUSD || ''}
+                                    onChange={e => {
+                                        const usd = parseFloat(e.target.value) || 0;
+                                        setForm(p => ({ ...p, montoUSD: usd, montoBs: Math.round(usd * tasaValor * 100) / 100, tasaUsada: tasaValor }));
+                                    }} />
+                            </div>
                         </div>
                         <div>
-                            <label className="text-xs text-muted-foreground mb-1 block font-medium">Monto Bs</label>
-                            <input type="number" className="input-sistema font-mono" placeholder="0.00"
-                                value={form.montoBs || ''}
-                                onChange={e => {
-                                    const bs = parseFloat(e.target.value) || 0;
-                                    setForm(p => ({ ...p, montoBs: bs, montoUSD: calcularUSD(bs), tasaUsada: tasas.bcv }));
-                                }} />
+                            <label className={cn('text-xs mb-1 block font-medium', tasaOpc.color)}>Monto Bs ({tasaOpc.label})</label>
+                            <div className="relative">
+                                <span className={cn('absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold', tasaOpc.color)}>Bs</span>
+                                <input type="number" className="input-sistema pl-8 font-mono" placeholder="0.00"
+                                    value={form.montoBs || ''}
+                                    onChange={e => {
+                                        const bs = parseFloat(e.target.value) || 0;
+                                        setForm(p => ({ ...p, montoBs: bs, montoUSD: Math.round((bs / tasaValor) * 100) / 100, tasaUsada: tasaValor }));
+                                    }} />
+                            </div>
                         </div>
+
                         <div>
                             <label className="text-xs text-muted-foreground mb-1 block font-medium">Proveedor</label>
                             <input className="input-sistema" value={form.proveedor || ''}

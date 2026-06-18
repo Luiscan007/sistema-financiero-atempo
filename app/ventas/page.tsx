@@ -161,8 +161,11 @@ export default function VentasPage() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="kpi-card">
                     <TrendingUp className="w-4 h-4 text-green-400 mb-2" />
-                    <p className="text-xl font-bold font-mono text-green-400">{formatBs(totalBs)}</p>
+                    <p className="text-xl font-bold font-mono text-green-400">{formatUSD(totalUSD)}</p>
                     <p className="text-xs text-muted-foreground">Total periodo</p>
+                    <p className="text-xs text-purple-400 font-mono mt-0.5">
+                        € {formatBs(totalUSD * (tasas.eurBcv ?? tasas.bcv))}
+                    </p>
                 </div>
                 <div className="kpi-card">
                     <Receipt className="w-4 h-4 text-blue-400 mb-2" />
@@ -171,8 +174,11 @@ export default function VentasPage() {
                 </div>
                 <div className="kpi-card">
                     <DollarSign className="w-4 h-4 text-purple-400 mb-2" />
-                    <p className="text-xl font-bold font-mono text-purple-400">{formatBs(ticketPromedio)}</p>
+                    <p className="text-xl font-bold font-mono text-purple-400">{formatUSD(totalUSD > 0 && ventasFiltradas.length > 0 ? totalUSD / ventasFiltradas.length : 0)}</p>
                     <p className="text-xs text-muted-foreground">Ticket promedio</p>
+                    <p className="text-xs text-purple-400/60 font-mono mt-0.5">
+                        € {formatBs(totalUSD > 0 && ventasFiltradas.length > 0 ? (totalUSD / ventasFiltradas.length) * (tasas.eurBcv ?? tasas.bcv) : 0)}
+                    </p>
                 </div>
                 <div className="kpi-card">
                     <DollarSign className="w-4 h-4 text-yellow-400 mb-2" />
@@ -222,7 +228,7 @@ export default function VentasPage() {
                                     <th>Metodo Pago</th>
                                     <th>Total (Bs)</th>
                                     <th>Total (USD)</th>
-                                    <th>Tasa</th>
+                                    <th>€ EUR</th>
                                     <th>Ver</th>
                                     <th>Anular</th>
                                 </tr>
@@ -253,8 +259,8 @@ export default function VentasPage() {
                                         <td className="font-mono text-sm text-muted-foreground">
                                             {formatUSD(venta.totalUSD || 0)}
                                         </td>
-                                        <td className="font-mono text-xs text-muted-foreground">
-                                            {(venta.tasaUsada || 0).toFixed(2)}
+                                        <td className="font-mono text-xs text-purple-400">
+                                            € {(tasas.eurBcv ?? tasas.bcv).toFixed(2)}
                                         </td>
                                         <td>
                                             <button className="text-muted-foreground hover:text-blue-400 transition-colors"
