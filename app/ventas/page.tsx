@@ -8,7 +8,7 @@
 import { useState } from 'react';
 import {
     Search, Download, Receipt, CreditCard, Smartphone,
-    Banknote, DollarSign, ArrowLeftRight, Eye, TrendingUp, Loader2, X, Trash2, AlertTriangle,
+    Banknote, DollarSign, ArrowLeftRight, Eye, TrendingUp, Loader2, X, Trash2, AlertTriangle, Camera,
 } from 'lucide-react';
 import { useTasas } from '@/components/providers/TasasProvider';
 import { formatBs, formatUSD } from '@/lib/utils';
@@ -55,10 +55,12 @@ function MetodosBadges({ metodos }: { metodos: Venta['metodoPago'] }) {
     if (!metodos || metodos.length === 0) return <span className="text-muted-foreground text-xs">-</span>;
     const tipo = metodos.length === 1 ? metodos[0].tipo : 'mixto';
     const Icono = ICONOS_PAGO[tipo] || Receipt;
+    const tieneComprobante = metodos.some((m: any) => !!m.comprobanteUrl);
     return (
-        <span className={badgePago(tipo)}>
+        <span className={badgePago(tipo) + ' gap-1.5'}>
             <Icono className="w-3 h-3" />
             {LABELS_PAGO[tipo] || tipo}
+            {tieneComprobante && <Camera className="w-3 h-3 text-blue-400" titleAccess="Tiene comprobante adjunto" />}
         </span>
     );
 }
@@ -317,20 +319,74 @@ export default function VentasPage() {
                             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
                                 Metodos de Pago
                             </p>
-                            <div className="space-y-2 mb-4">
+                            <div className="space-y-3 mb-4">
                                 {(ventaDetalle.metodoPago || []).map((m: any, i: number) => {
                                     const Icono = ICONOS_PAGO[m.tipo] || Receipt;
+                                    const bancoMostrar = m.bancoOrigen || m.bancoDestino || m.bancoPOS || m.banco || '';
+                                    const refMostrar = m.numeroReferencia || m.referencia || '';
                                     return (
-                                        <div key={i} className="flex items-center justify-between text-sm">
-                                            <div className="flex items-center gap-2">
-                                                <Icono className="w-3.5 h-3.5 text-muted-foreground" />
-                                                <span className="text-muted-foreground capitalize">
-                                                    {LABELS_PAGO[m.tipo] || m.tipo}
-                                                    {m.banco ? ' - ' + m.banco : ''}
-                                                    {m.referencia ? ' #' + m.referencia : ''}
-                                                </span>
+                                        <div key={i} className="bg-muted/20 border border-border rounded-lg p-3 space-y-2">
+                                            <div className="flex items-center justify-between text-sm">
+                                                <div className="flex items-center gap-2">
+                                                    <Icono className="w-3.5 h-3.5 text-muted-foreground" />
+                                                    <span className="text-muted-foreground capitalize">
+                                                        {LABELS_PAGO[m.tipo] || m.tipo}
+                                                        {bancoMostrar ? ' - ' + bancoMostrar : ''}
+                                                    </span>
+                                                </div>
+                                                <span className="font-mono font-semibold">{formatBs(m.monto || 0)}</span>
                                             </div>
-                                            <span className="font-mono">{formatBs(m.monto || 0)}</span>
+
+                                            {/* Quién paga */}
+                                            {m.nombrePagador && (
+                                                <div className="flex items-center justify-between text-xs">
+                                                    <span className="text-muted-foreground">Quién paga</span>
+                                                    <span>{m.nombrePagador}</span>
+                                                </div>
+                                            )}
+
+                                            {/* Referencia */}
+                                            {refMostrar && (
+                                                <div className="flex items-center justify-between text-xs">
+                                                    <span className="text-muted-foreground">N° Referencia</span>
+                                                    <span className="font-mono text-blue-400">{refMostrar}</span>
+                                                </div>
+                                            )}
+
+                                            {/* Otros datos según tipo */}
+                                            {m.telefonoCliente && (
+                                                <div className="flex items-center justify-between text-xs">
+                                                    <span className="text-muted-foreground">Teléfono</span>
+                                                    <span className="font-mono">{m.telefonoCliente}</span>
+                                                </div>
+                                            )}
+                                            {m.cedula && (
+                                                <div className="flex items-center justify-between text-xs">
+                                                    <span className="text-muted-foreground">Cédula</span>
+                                                    <span className="font-mono">{m.cedula}</span>
+                                                </div>
+                                            )}
+                                            {m.ultimosCuatro && (
+                                                <div className="flex items-center justify-between text-xs">
+                                                    <span className="text-muted-foreground">Tarjeta</span>
+                                                    <span className="font-mono">**** {m.ultimosCuatro}</span>
+                                                </div>
+                                            )}
+
+                                            {/* Comprobante adjunto */}
+                                            {m.comprobanteUrl && (
+                                                <div>
+                                                    <p className="text-xs text-muted-foreground mb-1">Comprobante</p>
+                                                    <a href={m.comprobanteUrl} target="_blank" rel="noopener noreferrer"
+                                                        className="block relative group">
+                                                        <img src={m.comprobanteUrl} alt="Comprobante"
+                                                            className="w-full h-32 object-cover rounded-lg border border-border" />
+                                                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
+                                                            <span className="text-xs text-white bg-black/40 px-2 py-1 rounded">Ver completo</span>
+                                                        </div>
+                                                    </a>
+                                                </div>
+                                            )}
                                         </div>
                                     );
                                 })}
