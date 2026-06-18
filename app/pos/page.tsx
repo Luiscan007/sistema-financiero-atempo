@@ -333,7 +333,7 @@ export default function POSPage() {
   const vueltoUSD = vuelto / (tarifaActual || 1);
   const falta = Math.max(0, total - totalPagado);
   const diferencia = totalPagado - totalOriginal;
-  const puedeAjustar = items.length > 0 && totalPagado > 0 && ajusteRedondeo === 0 && Math.abs(diferencia) > 0.01 && Math.abs(diferencia) < 150;
+  const puedeAjustar = items.length > 0 && totalPagado > 0 && ajusteRedondeo === 0 && Math.abs(diferencia) > 0.01;
 
   const aplicarAjuste = () => {
     setAjusteRedondeo(diferencia);
