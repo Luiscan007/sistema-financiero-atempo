@@ -57,6 +57,7 @@ export interface Venta {
     usuarioId: string;
     usuarioNombre: string;
     fechaTimestamp?: Timestamp;
+    ajusteRedondeo?: number;
 }
 
 const COLECCION = 'ventas';

@@ -384,6 +384,15 @@ export default function VentasPage() {
                                         <span className="font-mono">-{formatBs(ventaDetalle.montoDescuento || 0)}</span>
                                     </div>
                                 )}
+                                {ventaDetalle.ajusteRedondeo !== undefined && ventaDetalle.ajusteRedondeo !== 0 && (
+                                    <div className="flex justify-between text-yellow-500/90 text-xs my-1">
+                                        <span>Redondeo de Pago</span>
+                                        <span className="font-mono">
+                                            {ventaDetalle.ajusteRedondeo > 0 ? '+' : ''}
+                                            {formatBs(ventaDetalle.ajusteRedondeo)}
+                                        </span>
+                                    </div>
+                                )}
                                 <div className="flex justify-between font-bold text-base border-t border-border pt-2">
                                     <span>TOTAL</span>
                                     <div className="text-right">

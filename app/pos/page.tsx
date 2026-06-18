@@ -489,6 +489,7 @@ export default function POSPage() {
           totalUSD,
           tasaUsada:     tarifaActual,
           metodoPago:    datosVenta.metodoPago,
+          ajusteRedondeo,
         });
         await actualizarPendientes();
         toast.dismiss();
@@ -497,6 +498,7 @@ export default function POSPage() {
       setUltimoRecibo(numeroRecibo);
       setVentaCompletada(true);
     } catch (err: any) {
+      console.error("Error al registrar venta en Firestore:", err);
       // Si falla Firestore, guardar offline como respaldo
       try {
         await guardarVentaOffline({
@@ -505,13 +507,14 @@ export default function POSPage() {
           totalBs: total, totalUSD,
           tasaUsada: tarifaActual,
           metodoPago: datosVenta.metodoPago,
+          ajusteRedondeo,
         });
         await actualizarPendientes();
-        toast.error(`Error de conexión — guardado offline como respaldo`, { duration: 5000, id: 'venta-fallback' });
+        toast.error(`Error de conexión (${err?.message || err}) — guardado offline como respaldo`, { duration: 10000, id: 'venta-fallback' });
         setUltimoRecibo(numeroRecibo);
         setVentaCompletada(true);
-      } catch {
-        toast.error(`Error al procesar la venta: ${err.message}`);
+      } catch (errFallback: any) {
+        toast.error(`Error al procesar la venta: ${errFallback.message || errFallback}`);
       }
     } finally {
       setProcesando(false);

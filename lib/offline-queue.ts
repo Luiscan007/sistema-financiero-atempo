@@ -57,6 +57,7 @@ export interface VentaOffline {
     notas?: string;
     sincronizada: boolean;
     errorSincronizacion?: string;
+    ajusteRedondeo?: number;
 }
 
 /**
@@ -108,16 +109,23 @@ export async function sincronizarVentas(): Promise<{ exito: number; fallo: numbe
     for (const venta of pendientes) {
         try {
             // Importar Firestore dinámicamente para no romper el service worker
-            const { db, COLECCIONES } = await import('./firebase');
+            const { db, COLECCIONES, auth } = await import('./firebase');
             const { addDoc, collection, serverTimestamp } = await import('firebase/firestore');
 
+            // Separar campos de control de IndexedDB del documento final de Firestore
+            const { id, sincronizada, errorSincronizacion, ...datosVenta } = venta;
+            const user = auth.currentUser;
+
             await addDoc(collection(db, COLECCIONES.VENTAS), {
-                ...venta,
+                ...datosVenta,
+                usuarioId:    user?.uid   || 'anonimo',
+                usuarioNombre: user?.displayName || user?.email || 'Usuario',
                 timestamp: serverTimestamp(),
+                fechaTimestamp: serverTimestamp(),
                 origenOffline: true,
             });
 
-            await marcarVentaSincronizada(venta.id!);
+            await marcarVentaSincronizada(id!);
             exito++;
         } catch (error) {
             console.error('Error sincronizando venta offline:', error);
