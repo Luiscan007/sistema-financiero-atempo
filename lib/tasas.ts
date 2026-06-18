@@ -39,17 +39,13 @@ export const TASAS_DEMO: TasasCambio = {
 
 // ============================
 // OBTENER TASA BCV OFICIAL
-// Método: API Route interna que hace scraping de bcv.org.ve
 // ============================
 export async function obtenerTasaBCV(): Promise<number> {
     try {
-        const response = await fetch('/api/tasas/bcv', {
-            next: { revalidate: 1800 }, // Revalidar cada 30 minutos
-        });
-
+        const response = await fetch('/api/tasas');
         if (!response.ok) throw new Error('Error al obtener tasa BCV');
         const data = await response.json();
-        return data.tasa || TASAS_DEMO.bcv;
+        return data.bcv || TASAS_DEMO.bcv;
     } catch (error) {
         console.error('Error BCV:', error);
         return TASAS_DEMO.bcv;
@@ -61,54 +57,43 @@ export async function obtenerTasaBCV(): Promise<number> {
 // ============================
 export async function obtenerTasaParalela(): Promise<number> {
     try {
-        const response = await fetch('/api/tasas/paralelo');
+        const response = await fetch('/api/tasas');
         if (!response.ok) throw new Error('Error al obtener tasa paralela');
         const data = await response.json();
-        return data.tasa || TASAS_DEMO.paralelo;
+        return data.paralelo || TASAS_DEMO.paralelo;
     } catch (error) {
-        console.error('Error tasa paralela:', error);
+        console.error('Error tasa paralelo:', error);
         return TASAS_DEMO.paralelo;
     }
 }
 
 // ============================
 // OBTENER PRECIO USDT
-// Fuente: CoinGecko API (gratuita, sin key requerida)
 // ============================
 export async function obtenerPrecioUSDT(): Promise<number> {
     try {
-        const response = await fetch(
-            'https://api.coingecko.com/api/v3/simple/price?ids=tether&vs_currencies=usd',
-            { next: { revalidate: 300 } } // Cada 5 minutos
-        );
-
-        if (!response.ok) throw new Error('Error CoinGecko');
+        const response = await fetch('/api/tasas');
+        if (!response.ok) throw new Error('Error al obtener precio USDT');
         const data = await response.json();
-        return data.tether?.usd || 1.001;
+        return data.usdtUsd || TASAS_DEMO.usdtUsd;
     } catch (error) {
-        console.error('Error USDT CoinGecko:', error);
-        // Fallback: Binance P2P (precio promedio típico)
-        return 1.0015;
+        console.error('Error USDT:', error);
+        return TASAS_DEMO.usdtUsd;
     }
 }
 
 // ============================
 // OBTENER EUR/USD
-// Fuente: Frankfurter API (gratuita)
 // ============================
 export async function obtenerEURUSD(): Promise<number> {
     try {
-        const response = await fetch(
-            'https://api.frankfurter.app/latest?from=EUR&to=USD',
-            { next: { revalidate: 3600 } } // Cada hora
-        );
-
-        if (!response.ok) throw new Error('Error Frankfurter EUR');
+        const response = await fetch('/api/tasas');
+        if (!response.ok) throw new Error('Error al obtener ratio EUR/USD');
         const data = await response.json();
-        return data.rates?.USD || 1.085;
+        return data.eurUsd || TASAS_DEMO.eurUsd;
     } catch (error) {
         console.error('Error EUR/USD:', error);
-        return 1.085;
+        return TASAS_DEMO.eurUsd;
     }
 }
 
@@ -118,41 +103,12 @@ export async function obtenerEURUSD(): Promise<number> {
 // ============================
 export async function obtenerTodasLasTasas(): Promise<TasasCambio> {
     try {
-        const [bcv, paralelo, usdtUsd, eurUsd] = await Promise.allSettled([
-            obtenerTasaBCV(),
-            obtenerTasaParalela(),
-            obtenerPrecioUSDT(),
-            obtenerEURUSD(),
-        ]);
-
-        const tasaBCV = bcv.status === 'fulfilled' ? bcv.value : TASAS_DEMO.bcv;
-        const tasaParalelo = paralelo.status === 'fulfilled' ? paralelo.value : TASAS_DEMO.paralelo;
-        const precioUSDT = usdtUsd.status === 'fulfilled' ? usdtUsd.value : TASAS_DEMO.usdtUsd;
-        const ratioEUR = eurUsd.status === 'fulfilled' ? eurUsd.value : TASAS_DEMO.eurUsd;
-
-        // Calcular derivados
-        const eurBcv = tasaBCV * ratioEUR;
-        const eurParalelo = tasaParalelo * ratioEUR;
-        const usdtBs = tasaParalelo * precioUSDT;
-
-        // Calcular brechas
-        const brechaUSD = calcularBrecha(tasaParalelo, tasaBCV);
-        const brechaEUR = calcularBrecha(eurParalelo, eurBcv);
-        const brechaUSDT = calcularBrecha(usdtBs, tasaBCV * precioUSDT);
-
+        const response = await fetch('/api/tasas');
+        if (!response.ok) throw new Error('Error al obtener tasas consolidadas');
+        const data = await response.json();
         return {
-            bcv: tasaBCV,
-            paralelo: tasaParalelo,
-            eurUsd: ratioEUR,
-            eurBcv,
-            eurParalelo,
-            usdtUsd: precioUSDT,
-            usdtBs,
-            brechaUSD,
-            brechaEUR,
-            brechaUSDT,
-            ultimaActualizacion: new Date(),
-            fuente: 'live',
+            ...data,
+            ultimaActualizacion: new Date(data.ultimaActualizacion),
         };
     } catch (error) {
         console.error('Error obteniendo tasas:', error);
