@@ -24,7 +24,7 @@ export interface ProductoCarrito {
 }
 
 export interface PagoMetodo {
-    tipo: 'punto_venta' | 'pago_movil' | 'efectivo_bs' | 'efectivo_usd' | 'efectivo_eur' | 'transferencia';
+    tipo: 'punto_venta' | 'pago_movil' | 'efectivo_bs' | 'efectivo_usd' | 'efectivo_eur' | 'transferencia' | 'credito';
     monto: number; // En Bs siempre
     // Universal — quién realiza el pago y comprobante (aplica a todos los métodos)
     nombrePagador?: string;
@@ -48,6 +48,11 @@ export interface PagoMetodo {
     // Transferencia
     bancoDestino?: string;
     fechaTransferencia?: string;
+    // Crédito / Fiado
+    fechaVencimiento?: string;
+    clienteNombre?: string;
+    clienteTelefono?: string;
+    clienteCedula?: string;
 }
 
 export interface ConfigNegocio {

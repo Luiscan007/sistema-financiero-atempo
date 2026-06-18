@@ -173,6 +173,37 @@ export async function sincronizarVentas(): Promise<{ exito: number; fallo: numbe
                 origenOffline: true,
             });
 
+            // Crear cuentas por cobrar automáticas si la venta offline tiene métodos de pago de tipo 'credito'
+            try {
+                for (const pago of normalizedVenta.metodoPago || []) {
+                    if (pago.tipo === 'credito') {
+                        const clienteNombre = pago.clienteNombre || 'Cliente POS';
+                        const fechaVencimiento = pago.fechaVencimiento || new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0];
+                        const creditConcept = `Venta POS - Recibo #${normalizedVenta.numeroRecibo}`;
+                        const creditMontoBs = pago.monto || 0;
+                        const creditMontoUSD = normalizedVenta.tasaUsada ? creditMontoBs / normalizedVenta.tasaUsada : creditMontoBs / 602.33;
+
+                        await addDoc(collection(db, COLECCIONES.CUENTAS_COBRAR), {
+                            alumnoId:         '', // cliente general o vacío
+                            alumnoNombre:     clienteNombre,
+                            concepto:         creditConcept,
+                            montoBs:          creditMontoBs,
+                            montoUSD:         parseFloat(creditMontoUSD.toFixed(2)),
+                            montoPagado:      0,
+                            montoPagadoUSD:   0,
+                            fechaEmision:     normalizedVenta.fecha || new Date().toISOString().split('T')[0],
+                            fechaVencimiento: fechaVencimiento,
+                            estado:           'pendiente',
+                            historialPagos:   [],
+                            notas:            `Registrado automáticamente desde POS (Sincronización). Teléfono: ${pago.clienteTelefono || ''}. Cédula: ${pago.clienteCedula || ''}`,
+                            fechaTimestamp:   fechaTimestampVal,
+                        });
+                    }
+                }
+            } catch (errCredit) {
+                console.error("Error creando cuenta por cobrar durante sincronización:", errCredit);
+            }
+
             // Descontar stock de los productos vendidos
             try {
                 const { doc: docRef, updateDoc, increment, getDoc } = await import('firebase/firestore');

@@ -382,6 +382,7 @@ function FilaCuenta({
 
 /* ── Pagina principal ───────────────────── */
 export default function CuentasCobrarPage() {
+    const { tasas } = useTasas();
     const {
         cuentas, cargando, pendientes, vencidas,
         totalPendiente, totalUSDPendiente,
@@ -438,10 +439,18 @@ export default function CuentasCobrarPage() {
 
     return (
         <div className="space-y-6 animate-fade-in">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold">Cuentas por Cobrar</h1>
-                    <p className="text-muted-foreground text-sm">{pendientes.length} pendientes</p>
+                    <div className="flex flex-wrap items-center gap-3 mt-1 text-sm text-muted-foreground">
+                        <span>{pendientes.length} pendientes</span>
+                        <span className="text-white/10">|</span>
+                        <span className="text-blue-400">BCV: <strong className="font-mono text-white">Bs {tasas.bcv?.toFixed(2)}</strong></span>
+                        <span className="text-white/10">|</span>
+                        <span className="text-yellow-400">Paralelo: <strong className="font-mono text-white">Bs {tasas.paralelo?.toFixed(2)}</strong></span>
+                        <span className="text-white/10">|</span>
+                        <span className="text-purple-400">EUR: <strong className="font-mono text-white">Bs {tasas.eurBcv?.toFixed(2)}</strong></span>
+                    </div>
                 </div>
                 <button onClick={() => setModalCuenta(null)} className="btn-primary">
                     <Plus className="w-4 h-4" /> Nueva Cuenta

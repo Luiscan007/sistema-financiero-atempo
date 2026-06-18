@@ -8,7 +8,7 @@
 import { useState } from 'react';
 import {
     Search, Download, Receipt, CreditCard, Smartphone,
-    Banknote, DollarSign, ArrowLeftRight, Eye, TrendingUp, Loader2, X, Trash2, AlertTriangle, Camera, Pencil, Save,
+    Banknote, DollarSign, ArrowLeftRight, Eye, TrendingUp, Loader2, X, Trash2, AlertTriangle, Camera, Pencil, Save, Wallet,
 } from 'lucide-react';
 import { useTasas } from '@/components/providers/TasasProvider';
 import { formatBs, formatUSD } from '@/lib/utils';
@@ -23,6 +23,7 @@ const ICONOS_PAGO: Record<string, any> = {
     efectivo_usd: DollarSign,
     efectivo_eur: DollarSign,
     transferencia: ArrowLeftRight,
+    credito: Wallet,
     mixto: Receipt,
 };
 
@@ -33,6 +34,7 @@ const LABELS_PAGO: Record<string, string> = {
     efectivo_usd: 'Efectivo USD',
     efectivo_eur: 'Efectivo EUR',
     transferencia: 'Transferencia',
+    credito: 'Crédito / Fiado',
     mixto: 'Mixto',
 };
 
@@ -43,6 +45,7 @@ const COLORES_PAGO: Record<string, string> = {
     efectivo_usd: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20',
     efectivo_eur: 'bg-purple-500/15 text-purple-400 border-purple-500/20',
     transferencia: 'bg-cyan-500/15 text-cyan-400 border-cyan-500/20',
+    credito: 'bg-amber-500/15 text-amber-400 border-amber-500/20',
     mixto: 'bg-blue-500/15 text-blue-400 border-blue-500/20',
 };
 
@@ -203,6 +206,7 @@ export default function VentasPage() {
                     <option value="efectivo_bs">Efectivo Bs</option>
                     <option value="efectivo_usd">Efectivo USD</option>
                     <option value="transferencia">Transferencia</option>
+                    <option value="credito">Crédito / Fiado</option>
                     <option value="mixto">Mixto</option>
                 </select>
             </div>

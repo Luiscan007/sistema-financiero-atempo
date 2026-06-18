@@ -13,7 +13,7 @@ import {
   Search, Plus, Minus, Trash2, CreditCard, Smartphone, Banknote,
   DollarSign, ArrowLeftRight, X, CheckCircle2, Printer,
   MessageCircle, ShoppingCart, Tag, ChevronDown, ChevronUp,
-  Package, Scan, WifiOff, RefreshCw, AlertTriangle, Camera, User, Upload, Loader2, ImageIcon,
+  Package, Scan, WifiOff, RefreshCw, AlertTriangle, Camera, User, Upload, Loader2, ImageIcon, Wallet,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useCarritoStore } from '@/lib/store';
@@ -21,6 +21,7 @@ import { useTasas } from '@/components/providers/TasasProvider';
 import { useVentas } from '@/lib/useVentas';
 import { useProductos } from '@/lib/useProductos';
 import { useServicios } from '@/lib/useServicios';
+import { useAlumnos } from '@/lib/useAlumnos';
 import {
   guardarVentaOffline,
   sincronizarVentas,
@@ -50,8 +51,20 @@ function MetodoPagoForm({ tipo, index, onActualizar, onEliminar, totalPendiente,
   totalPendiente: number;
   tasa: number;
 }) {
+  const { alumnos = [] } = useAlumnos();
   const [datos, setDatos] = useState<any>(() => {
     const isForeign = tipo === 'efectivo_usd' || tipo === 'efectivo_eur';
+    if (tipo === 'credito') {
+      const in30 = new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0];
+      return {
+        tipo,
+        monto: totalPendiente,
+        fechaVencimiento: in30,
+        clienteNombre: '',
+        clienteTelefono: '',
+        clienteCedula: ''
+      };
+    }
     return {
       tipo,
       monto: totalPendiente,
@@ -118,7 +131,8 @@ function MetodoPagoForm({ tipo, index, onActualizar, onEliminar, totalPendiente,
           {tipo === 'efectivo_usd' && <DollarSign   className="w-4 h-4 text-emerald-400" />}
           {tipo === 'efectivo_eur' && <DollarSign   className="w-4 h-4 text-purple-400" />}
           {tipo === 'transferencia'&& <ArrowLeftRight className="w-4 h-4 text-cyan-400" />}
-          <span className="text-sm font-medium capitalize">{tipo.replace('_', ' ')}</span>
+          {tipo === 'credito'      && <Wallet        className="w-4 h-4 text-amber-400" />}
+          <span className="text-sm font-medium capitalize">{tipo === 'credito' ? 'Crédito / Fiado' : tipo.replace('_', ' ')}</span>
         </div>
         <button onClick={() => onEliminar(index)} className="text-muted-foreground hover:text-red-400 transition-colors">
           <X className="w-4 h-4" />
@@ -133,8 +147,8 @@ function MetodoPagoForm({ tipo, index, onActualizar, onEliminar, totalPendiente,
           placeholder="0.00" />
       </div>
 
-      {/* Campos universales: quién paga + referencia — para todo excepto efectivo */}
-      {true && (
+      {/* Campos universales: quién paga + referencia — para todo excepto efectivo y crédito */}
+      {tipo !== 'credito' && (
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
@@ -149,6 +163,87 @@ function MetodoPagoForm({ tipo, index, onActualizar, onEliminar, totalPendiente,
             <input type="text" className="input-sistema" value={datos.numeroReferencia || ''}
               onChange={e => actualizar('numeroReferencia', e.target.value)}
               placeholder={esEfectivo ? 'Opcional — nota interna' : 'Referencia de la transacción'} />
+          </div>
+        </div>
+      )}
+
+      {tipo === 'credito' && (
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">Asociar Alumno / Cliente</label>
+            <select className="input-sistema"
+              value={datos.alumnoId || ''}
+              onChange={e => {
+                const aId = e.target.value;
+                if (aId === 'manual') {
+                  setDatos((p: any) => {
+                    const nd = { ...p, alumnoId: 'manual', clienteNombre: '', clienteTelefono: '', clienteCedula: '' };
+                    onActualizar(index, nd);
+                    return nd;
+                  });
+                } else {
+                  const a = alumnos.find((al: any) => al.id === aId);
+                  if (a) {
+                    setDatos((p: any) => {
+                      const nd = {
+                        ...p,
+                        alumnoId: a.id,
+                        clienteNombre: a.nombre,
+                        clienteTelefono: a.telefono || '',
+                        clienteCedula: a.cedula || ''
+                      };
+                      onActualizar(index, nd);
+                      return nd;
+                    });
+                  } else {
+                    setDatos((p: any) => {
+                      const nd = { ...p, alumnoId: '', clienteNombre: '', clienteTelefono: '', clienteCedula: '' };
+                      onActualizar(index, nd);
+                      return nd;
+                    });
+                  }
+                }
+              }}>
+              <option value="">-- Cliente nuevo o manual --</option>
+              {alumnos.map((a: any) => (
+                <option key={a.id} value={a.id}>{a.nombre}</option>
+              ))}
+              <option value="manual">Otro (Escribir manualmente)...</option>
+            </select>
+          </div>
+
+          {(!datos.alumnoId || datos.alumnoId === 'manual') && (
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block font-medium">Nombre del Cliente *</label>
+              <input type="text" className="input-sistema"
+                value={datos.clienteNombre || ''}
+                onChange={e => actualizar('clienteNombre', e.target.value)}
+                placeholder="Nombre completo del deudor" />
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block font-medium">Teléfono (opcional)</label>
+              <input type="text" className="input-sistema"
+                value={datos.clienteTelefono || ''}
+                onChange={e => actualizar('clienteTelefono', e.target.value)}
+                placeholder="04XX-XXX-XXXX" />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block font-medium">Cédula (opcional)</label>
+              <input type="text" className="input-sistema"
+                value={datos.clienteCedula || ''}
+                onChange={e => actualizar('clienteCedula', e.target.value)}
+                placeholder="V-XXXXXXXX" />
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block font-medium">Fecha de Vencimiento</label>
+            <input type="date" className="input-sistema"
+              value={datos.fechaVencimiento || ''}
+              onChange={e => actualizar('fechaVencimiento', e.target.value)} />
           </div>
         </div>
       )}
@@ -227,8 +322,8 @@ function MetodoPagoForm({ tipo, index, onActualizar, onEliminar, totalPendiente,
         </div>
       )}
 
-      {/* Adjuntar captura de comprobante — para todo excepto efectivo */}
-      {true && (
+      {/* Adjuntar captura de comprobante — para todo excepto efectivo y crédito */}
+      {tipo !== 'credito' && (
         <div>
           <label className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
             <Camera className="w-3 h-3" /> {esEfectivo ? 'Foto del recibo/billete (opcional)' : 'Captura del comprobante'}
@@ -481,6 +576,46 @@ export default function POSPage() {
       if (online) {
         // ✅ ONLINE: guardar directo en Firestore
         await guardarVenta(datosVenta);
+
+        // Crear cuentas por cobrar automáticas si hay algún pago de tipo 'credito'
+        try {
+          const { addDoc, collection, Timestamp } = await import('firebase/firestore');
+          const { db: firestoreDb } = await import('@/lib/firebase');
+          for (const pago of datosVenta.metodoPago || []) {
+            if (pago.tipo === 'credito') {
+              const clienteNombre = pago.clienteNombre || 'Cliente POS';
+              const fechaVencimiento = pago.fechaVencimiento || new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0];
+              const creditConcept = `Venta POS - Recibo #${numeroRecibo}`;
+              const creditMontoBs = pago.monto || 0;
+              const creditMontoUSD = totalUSD ? (creditMontoBs / total) * totalUSD : creditMontoBs / 602.33;
+
+              let fechaTimestampVal: any = Timestamp.now();
+              if (fecha) {
+                const [year, month, day] = fecha.split('-').map(Number);
+                const dateObj = new Date(year, month - 1, day, 12, 0, 0);
+                fechaTimestampVal = Timestamp.fromDate(dateObj);
+              }
+
+              await addDoc(collection(firestoreDb, 'cuentas_cobrar'), {
+                alumnoId:         pago.alumnoId === 'manual' ? '' : (pago.alumnoId || ''),
+                alumnoNombre:     clienteNombre,
+                concepto:         creditConcept,
+                montoBs:          creditMontoBs,
+                montoUSD:         parseFloat(creditMontoUSD.toFixed(2)),
+                montoPagado:      0,
+                montoPagadoUSD:   0,
+                fechaEmision:     fecha || new Date().toISOString().split('T')[0],
+                fechaVencimiento: fechaVencimiento,
+                estado:           'pendiente',
+                historialPagos:   [],
+                notas:            `Registrado automáticamente desde POS. Teléfono: ${pago.clienteTelefono || ''}. Cédula: ${pago.clienteCedula || ''}`,
+                fechaTimestamp:   fechaTimestampVal,
+              });
+            }
+          }
+        } catch (errCredit) {
+          console.error("Error al crear cuenta por cobrar:", errCredit);
+        }
 
         // Descontar stock de los productos vendidos
         try {
@@ -814,6 +949,7 @@ export default function POSPage() {
                       { tipo: 'efectivo_usd', icon: DollarSign,    label: 'USD',     color: 'text-emerald-400' },
                       { tipo: 'transferencia',icon: ArrowLeftRight, label: 'Transfer',color: 'text-cyan-400' },
                       { tipo: 'efectivo_eur', icon: DollarSign,    label: 'EUR',     color: 'text-purple-400' },
+                      { tipo: 'credito',      icon: Wallet,        label: 'Fiado',   color: 'text-amber-400' },
                     ].map(m => (
                       <button key={m.tipo} onClick={() => agregarMetodo(m.tipo)}
                         className="flex flex-col items-center gap-1 p-2 bg-muted/30 border border-border rounded-lg hover:border-blue-500/40 hover:bg-blue-500/5 transition-all text-xs">
