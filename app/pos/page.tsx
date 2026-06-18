@@ -279,6 +279,14 @@ export default function POSPage() {
   const [ultimoRecibo, setUltimoRecibo]   = useState('');
   const [tabActiva, setTabActiva]   = useState<'productos' | 'servicios'>('productos');
   const [ajusteRedondeo, setAjusteRedondeo] = useState(0);
+  const getLocalTodayStr = () => {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const r = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${r}`;
+  };
+  const [fechaVenta, setFechaVenta] = useState(getLocalTodayStr);
 
   const [hidratado, setHidratado] = useState(false);
   const procesandoRef = useRef(false); // bloquea doble click
@@ -422,7 +430,7 @@ export default function POSPage() {
 
     setProcesando(true);
     const numeroRecibo = generarNumeroRecibo();
-    const fecha        = new Date().toISOString().split('T')[0];
+    const fecha        = fechaVenta;
     const totalUSD     = total / (tarifaActual || 1);
 
     const datosVenta = {
@@ -459,7 +467,7 @@ export default function POSPage() {
         // 📴 OFFLINE: guardar en IndexedDB
         await guardarVentaOffline({
           numeroRecibo,
-          timestamp:     Date.now(),
+          timestamp:     new Date(fecha).getTime(),
           items:         datosVenta.items,
           totalBs:       total,
           totalUSD,
@@ -476,7 +484,7 @@ export default function POSPage() {
       // Si falla Firestore, guardar offline como respaldo
       try {
         await guardarVentaOffline({
-          numeroRecibo, timestamp: Date.now(),
+          numeroRecibo, timestamp: new Date(fecha).getTime(),
           items: datosVenta.items,
           totalBs: total, totalUSD,
           tasaUsada: tarifaActual,
@@ -494,7 +502,7 @@ export default function POSPage() {
       procesandoRef.current = false;
     }
   }, [items, metodoPago, online, total, calcularTotalPagado, calcularSubtotal,
-      calcularDescuento, descuentoGlobal, tarifaActual, tasaSeleccionada, guardarVenta, ajusteRedondeo]);
+      calcularDescuento, descuentoGlobal, tarifaActual, tasaSeleccionada, guardarVenta, ajusteRedondeo, fechaVenta]);
 
   const nuevaVenta = () => {
     limpiarCarrito();
@@ -502,6 +510,7 @@ export default function POSPage() {
     setVentaCompletada(false);
     setDescuentoGlobalInput('0');
     setAjusteRedondeo(0);
+    setFechaVenta(getLocalTodayStr());
   };
 
   const enviarWhatsApp = () => {
@@ -705,13 +714,25 @@ export default function POSPage() {
 
             {items.length > 0 && (
               <div className="border-t border-border p-4 space-y-4">
-                {/* Descuento */}
-                <div className="flex items-center gap-2">
-                  <Tag className="w-4 h-4 text-yellow-400" />
-                  <input type="number" className="input-sistema flex-1 text-sm"
-                    placeholder="Descuento global %" value={descuentoGlobalInput}
-                    onChange={e => { setDescuentoGlobalInput(e.target.value); setDescuentoGlobal(parseFloat(e.target.value) || 0); }}
-                    min="0" max="100" />
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Descuento */}
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Descuento Global %</label>
+                    <div className="flex items-center gap-2 relative">
+                      <Tag className="w-4 h-4 text-yellow-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input type="number" className="input-sistema pl-9 text-sm"
+                        placeholder="0" value={descuentoGlobalInput}
+                        onChange={e => { setDescuentoGlobalInput(e.target.value); setDescuentoGlobal(parseFloat(e.target.value) || 0); }}
+                        min="0" max="100" />
+                    </div>
+                  </div>
+                  {/* Fecha de venta */}
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Fecha de Venta</label>
+                    <input type="date" className="input-sistema text-sm font-sans"
+                      value={fechaVenta}
+                      onChange={e => setFechaVenta(e.target.value)} />
+                  </div>
                 </div>
 
                 {/* Totales */}
