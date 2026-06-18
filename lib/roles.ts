@@ -4,12 +4,12 @@ export type RolUsuario = 'admin' | 'recepcionista' | 'profesor';
 export const PERMISOS_POR_ROL: Record<RolUsuario, string[]> = {
   admin: [
     '/dashboard', '/pos', '/estudio', '/clientes', '/asistencia', 
-    '/inventario', '/ventas', '/gastos', '/contabilidad', 
-    '/cuentas', '/agenda', '/cambio', '/conciliacion', 
-    '/configuracion', '/whatsapp'
+    '/servicios', '/productos', '/inventario', '/ventas', '/gastos',
+    '/contabilidad', '/cuentas', '/agenda', '/cambio', '/conciliacion',
+    '/sociedad', '/analitica', '/configuracion', '/whatsapp'
   ],
   recepcionista: [
-    '/pos', '/clientes', '/asistencia', '/agenda'
+    '/pos', '/clientes', '/asistencia', '/agenda', '/productos'
   ],
   profesor: [
     '/asistencia', '/agenda', '/estudio'

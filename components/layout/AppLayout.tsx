@@ -9,7 +9,7 @@ import {
     ChevronLeft, ChevronRight, LogOut, Bell, RefreshCw,
     Menu, X, AlertTriangle, GraduationCap, ClipboardList, 
     Wallet, CalendarDays, LayoutGrid, Scale, MessageSquare, 
-    Boxes, Layers, Handshake, BarChart2,
+    Boxes, Layers, Handshake, BarChart2, ShoppingBag,
 } from 'lucide-react';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { useTasas } from '@/components/providers/TasasProvider';
@@ -39,6 +39,7 @@ const NAV_ITEMS = [
         titulo: 'GESTION & COBROS',
         items: [
             { label: 'Servicios',    href: '/servicios',    icon: Layers    },
+            { label: 'Productos',    href: '/productos',    icon: ShoppingBag },
             { label: 'Inventario',   href: '/inventario',   icon: Boxes     },
             { label: 'Ventas',       href: '/ventas',       icon: Receipt   },
             { label: 'Gastos',       href: '/gastos',       icon: TrendingUp},
