@@ -43,18 +43,48 @@ interface ItemVendible {
 }
 
 // ── Método de pago form ───────────────────────────────────────────────────────
-function MetodoPagoForm({ tipo, index, onActualizar, onEliminar, totalPendiente }: {
+function MetodoPagoForm({ tipo, index, onActualizar, onEliminar, totalPendiente, tasa }: {
   tipo: string; index: number;
   onActualizar: (i: number, m: PagoMetodo) => void;
   onEliminar: (i: number) => void;
   totalPendiente: number;
+  tasa: number;
 }) {
-  const [datos, setDatos] = useState<any>({ tipo, monto: totalPendiente, tipoTarjeta: 'debito' });
+  const [datos, setDatos] = useState<any>(() => {
+    const isForeign = tipo === 'efectivo_usd' || tipo === 'efectivo_eur';
+    return {
+      tipo,
+      monto: totalPendiente,
+      montoExtranjero: isForeign ? Math.round((totalPendiente / tasa) * 100) / 100 : undefined,
+      tipoTarjeta: 'debito'
+    };
+  });
   const [subiendoComprobante, setSubiendoComprobante] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const actualizar = (campo: string, valor: any) => {
     const nd = { ...datos, [campo]: valor };
+    setDatos(nd);
+    onActualizar(index, nd as PagoMetodo);
+  };
+
+  const handleMontoBsChange = (val: number) => {
+    const isForeign = tipo === 'efectivo_usd' || tipo === 'efectivo_eur';
+    const nd = {
+      ...datos,
+      monto: val,
+      montoExtranjero: isForeign ? Math.round((val / tasa) * 100) / 100 : undefined
+    };
+    setDatos(nd);
+    onActualizar(index, nd as PagoMetodo);
+  };
+
+  const handleMontoExtranjeroChange = (val: number) => {
+    const nd = {
+      ...datos,
+      montoExtranjero: val,
+      monto: Math.round(val * tasa * 100) / 100
+    };
     setDatos(nd);
     onActualizar(index, nd as PagoMetodo);
   };
@@ -99,7 +129,7 @@ function MetodoPagoForm({ tipo, index, onActualizar, onEliminar, totalPendiente 
         <label className="text-xs text-muted-foreground mb-1 block">Monto (Bs)</label>
         <input type="number" className="input-sistema"
           value={datos.monto}
-          onChange={e => actualizar('monto', parseFloat(e.target.value) || 0)}
+          onChange={e => handleMontoBsChange(parseFloat(e.target.value) || 0)}
           placeholder="0.00" />
       </div>
 
@@ -193,7 +223,7 @@ function MetodoPagoForm({ tipo, index, onActualizar, onEliminar, totalPendiente 
       {(tipo === 'efectivo_usd' || tipo === 'efectivo_eur') && (
         <div>
           <label className="text-xs text-muted-foreground mb-1 block">Monto en {tipo === 'efectivo_usd' ? 'USD' : 'EUR'}</label>
-          <input type="number" className="input-sistema" value={datos.montoExtranjero || ''} onChange={e => actualizar('montoExtranjero', parseFloat(e.target.value) || 0)} placeholder="0.00" />
+          <input type="number" className="input-sistema" value={datos.montoExtranjero || ''} onChange={e => handleMontoExtranjeroChange(parseFloat(e.target.value) || 0)} placeholder="0.00" />
         </div>
       )}
 
@@ -248,6 +278,7 @@ export default function POSPage() {
   const [sincronizando, setSincronizando] = useState(false);
   const [ultimoRecibo, setUltimoRecibo]   = useState('');
   const [tabActiva, setTabActiva]   = useState<'productos' | 'servicios'>('productos');
+  const [ajusteRedondeo, setAjusteRedondeo] = useState(0);
 
   const [hidratado, setHidratado] = useState(false);
   const procesandoRef = useRef(false); // bloquea doble click
@@ -272,6 +303,20 @@ export default function POSPage() {
     tasaSeleccionada === 'paralelo' ? (tasas.paralelo || 1) :
     (tasas.eurBcv || 1) // EUR BCV
   );
+
+  const totalOriginal = calcularTotal();
+  const total = Math.max(0, totalOriginal + ajusteRedondeo);
+  const totalPagado = calcularTotalPagado();
+  const vuelto = Math.max(0, totalPagado - total);
+  const vueltoUSD = vuelto / (tarifaActual || 1);
+  const falta = Math.max(0, total - totalPagado);
+  const diferencia = totalPagado - totalOriginal;
+  const puedeAjustar = items.length > 0 && totalPagado > 0 && ajusteRedondeo === 0 && Math.abs(diferencia) > 0.01 && Math.abs(diferencia) < 150;
+
+  const aplicarAjuste = () => {
+    setAjusteRedondeo(diferencia);
+    toast.success('Total ajustado por redondeo');
+  };
 
   // ── Detectar conexión ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -356,7 +401,7 @@ export default function POSPage() {
   };
 
   const agregarMetodo = (tipo: string) => {
-    const totalPendiente = calcularTotal() - calcularTotalPagado();
+    const totalPendiente = total - totalPagado;
     agregarMetodoPago({ tipo: tipo as any, monto: Math.max(0, totalPendiente) });
     setMetodosSeleccionados([...metodosSeleccionados, tipo]);
   };
@@ -366,12 +411,12 @@ export default function POSPage() {
     if (procesandoRef.current) return; // evitar doble click
     procesandoRef.current = true;
     if (items.length === 0)      { procesandoRef.current = false; toast.error('El carrito está vacío'); return; }
-    if (metodoPago.length === 0) { toast.error('Selecciona un método de pago'); return; }
+    if (metodoPago.length === 0) { procesandoRef.current = false; toast.error('Selecciona un método de pago'); return; }
 
     const totalPagado = calcularTotalPagado();
-    const total       = calcularTotal();
     if (totalPagado < total - 0.01) {
       toast.error(`Falta pagar ${formatBs(total - totalPagado)}`);
+      procesandoRef.current = false;
       return;
     }
 
@@ -401,6 +446,7 @@ export default function POSPage() {
       metodoPago:      metodoPago.map(m => ({ ...m })), // incluye nombrePagador, numeroReferencia, comprobanteUrl, etc.
       usuarioId:       'pos',
       usuarioNombre:   'Punto de Venta',
+      ajusteRedondeo,
     };
 
     try {
@@ -447,18 +493,18 @@ export default function POSPage() {
       setProcesando(false);
       procesandoRef.current = false;
     }
-  }, [items, metodoPago, online, calcularTotal, calcularTotalPagado, calcularSubtotal,
-      calcularDescuento, descuentoGlobal, tarifaActual, tasaSeleccionada, guardarVenta]);
+  }, [items, metodoPago, online, total, calcularTotalPagado, calcularSubtotal,
+      calcularDescuento, descuentoGlobal, tarifaActual, tasaSeleccionada, guardarVenta, ajusteRedondeo]);
 
   const nuevaVenta = () => {
     limpiarCarrito();
     setMetodosSeleccionados([]);
     setVentaCompletada(false);
     setDescuentoGlobalInput('0');
+    setAjusteRedondeo(0);
   };
 
   const enviarWhatsApp = () => {
-    const total    = calcularTotal();
     const totalUSD = total / (tarifaActual || 1);
     const texto = `🧾 *RECIBO ATEMPO*\nRecibo: ${ultimoRecibo}\nFecha: ${new Date().toLocaleString('es-VE')}\n\n*PRODUCTOS:*\n` +
       items.map(i => `• ${i.nombre} x${i.cantidad}: ${formatBs(i.subtotal)}`).join('\n') +
@@ -588,7 +634,7 @@ export default function POSPage() {
             <h3 className="text-xl font-bold text-green-400 mb-1">¡Venta Completada!</h3>
             {!online && <p className="text-xs text-yellow-400 mb-2">📴 Guardada offline — se sincronizará al reconectar</p>}
             <p className="text-muted-foreground text-sm mb-1">Recibo: {ultimoRecibo}</p>
-            <p className="text-muted-foreground text-sm mb-6">Total: {formatBs(calcularTotal())}</p>
+            <p className="text-muted-foreground text-sm mb-6">Total: {formatBs(total)}</p>
             <div className="flex flex-col gap-3 w-full">
               <button className="btn-secondary justify-center" onClick={() => window.print()}>
                 <Printer className="w-4 h-4" /> Imprimir Recibo
@@ -683,9 +729,9 @@ export default function POSPage() {
                   <div className="flex justify-between font-bold text-base border-t border-border pt-2">
                     <span>TOTAL</span>
                     <div className="text-right">
-                      <p className="font-mono text-blue-400">{formatBs(calcularTotal())}</p>
+                      <p className="font-mono text-blue-400">{formatBs(total)}</p>
                       <p className="text-xs text-muted-foreground font-mono">
-                        {formatUSD(calcularTotal() / (tarifaActual || 1))} ({tasaSeleccionada.toUpperCase()})
+                        {formatUSD(total / (tarifaActual || 1))} ({tasaSeleccionada.toUpperCase()})
                       </p>
                     </div>
                   </div>
@@ -697,7 +743,8 @@ export default function POSPage() {
                   {metodoPago.map((m, i) => (
                     <MetodoPagoForm key={i} tipo={m.tipo} index={i}
                       onActualizar={actualizarMetodoPago} onEliminar={quitarMetodoPago}
-                      totalPendiente={calcularTotal() - calcularTotalPagado() + m.monto} />
+                      totalPendiente={total - totalPagado + m.monto}
+                      tasa={tarifaActual} />
                   ))}
                   <div className="grid grid-cols-3 gap-2">
                     {[
@@ -719,23 +766,48 @@ export default function POSPage() {
 
                 {/* Balance */}
                 {metodoPago.length > 0 && (
-                  <div className="space-y-1 text-sm">
+                  <div className="space-y-1 text-sm bg-white/[0.02] border border-border/40 rounded-xl p-3">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Pagado</span>
-                      <span className={cn('font-mono', calcularTotalPagado() >= calcularTotal() ? 'text-green-400' : 'text-red-400')}>
-                        {formatBs(calcularTotalPagado())}
+                      <span className={cn('font-mono', totalPagado >= total ? 'text-green-400' : 'text-red-400')}>
+                        {formatBs(totalPagado)}
                       </span>
                     </div>
-                    {calcularVuelto() > 0 && (
+                    {vuelto > 0 && (
                       <div className="flex justify-between font-semibold text-green-400">
                         <span>Vuelto</span>
-                        <span className="font-mono">{formatBs(calcularVuelto())}</span>
+                        <div className="text-right">
+                          <p className="font-mono">{formatBs(vuelto)}</p>
+                          <p className="text-[10px] text-muted-foreground font-mono">≈ {formatUSD(vueltoUSD)}</p>
+                        </div>
                       </div>
                     )}
-                    {calcularTotalPagado() < calcularTotal() && (
+                    {falta > 0 && (
                       <div className="flex justify-between font-semibold text-red-400">
                         <span>Falta</span>
-                        <span className="font-mono">{formatBs(calcularTotal() - calcularTotalPagado())}</span>
+                        <span className="font-mono">{formatBs(falta)}</span>
+                      </div>
+                    )}
+                    {puedeAjustar && (
+                      <div className="pt-2 border-t border-border/40 mt-1 flex justify-end">
+                        <button
+                          onClick={aplicarAjuste}
+                          className="px-2.5 py-1 text-[11px] font-semibold bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500/20 rounded-lg transition-all flex items-center gap-1"
+                        >
+                          <ArrowLeftRight className="w-3 h-3" />
+                          Ajustar a Pago Exacto ({diferencia > 0 ? '+' : ''}{formatBs(diferencia)})
+                        </button>
+                      </div>
+                    )}
+                    {ajusteRedondeo !== 0 && (
+                      <div className="pt-2 border-t border-border/40 mt-1 flex justify-between items-center text-xs text-muted-foreground">
+                        <span>Redondeo: {ajusteRedondeo > 0 ? '+' : ''}{formatBs(ajusteRedondeo)}</span>
+                        <button
+                          onClick={() => setAjusteRedondeo(0)}
+                          className="text-red-400 hover:underline"
+                        >
+                          Restablecer
+                        </button>
                       </div>
                     )}
                   </div>
