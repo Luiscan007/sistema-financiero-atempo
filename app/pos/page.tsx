@@ -319,7 +319,7 @@ export default function POSPage() {
     .map(p => ({
       id: p.id, nombre: p.nombre,
       codigo: p.codigo || p.id.slice(0, 6),
-      precioBs: p.precioBs, stock: p.stock, tipo: 'producto',
+      precioBs: p.precioUSD * (tarifaActual || 1), stock: p.stock, tipo: 'producto',
     }));
 
   const serviciosVendibles: ItemVendible[] = servicios
