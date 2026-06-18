@@ -25,6 +25,7 @@ export type CategoriaProducto = 'cafetín' | 'merchandising';
 export interface Producto {
     id: string;
     nombre: string;
+    codigo?: string;             // código interno opcional
     categoria: CategoriaProducto;
     subcategoria: string;        // ej: "Bebidas", "Snacks", "Gorras", "Ropa"
     descripcion: string;
