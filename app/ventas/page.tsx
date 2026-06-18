@@ -251,10 +251,11 @@ export default function VentasPage() {
             {ventaDetalle && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
                     onClick={() => setVentaDetalle(null)}>
-                    <div className="bg-card border border-border rounded-2xl w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto"
+                    <div className="bg-card border border-border rounded-2xl w-full max-w-md shadow-2xl max-h-[90vh] flex flex-col"
                         onClick={e => e.stopPropagation()}>
-                        <div className="p-6">
 
+                        {/* Header fijo */}
+                        <div className="p-6 pb-0 flex-shrink-0">
                             <div className="flex items-center justify-between mb-4">
                                 <div>
                                     <h3 className="font-bold text-lg">Detalle de Venta</h3>
@@ -272,7 +273,10 @@ export default function VentasPage() {
                                     Vendedor: <span className="text-foreground">{ventaDetalle.usuarioNombre}</span>
                                 </div>
                             )}
+                        </div>
 
+                        {/* Body con scroll */}
+                        <div className="px-6 overflow-y-auto flex-1">
                             <div className="border-t border-border my-3" />
 
                             {/* Items */}
@@ -396,8 +400,12 @@ export default function VentasPage() {
                                 <span>Tasa usada ({ventaDetalle.tipoTasa || 'BCV'})</span>
                                 <span className="font-mono">Bs {(ventaDetalle.tasaUsada || 0).toFixed(2)}</span>
                             </div>
+                            <div className="pb-4" />
+                        </div>{/* cierre body scrolleable */}
 
-                            <div className="flex gap-3 mt-5">
+                        {/* Footer fijo */}
+                        <div className="p-6 pt-4 flex-shrink-0 border-t border-border">
+                            <div className="flex gap-3">
                                 <button className="flex-1 btn-secondary justify-center"
                                     onClick={() => setVentaDetalle(null)}>
                                     Cerrar
