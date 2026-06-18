@@ -20,6 +20,7 @@ export interface ItemVenta {
     precio: number;
     subtotal: number;
     descuento: number;
+    tipo?: 'producto' | 'servicio';
 }
 
 export interface MetodoPagoVenta {

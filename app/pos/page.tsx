@@ -450,14 +450,18 @@ export default function POSPage() {
     const datosVentaRaw = {
       numeroRecibo,
       fecha,
-      items: items.map(i => ({
-        id:        i.id,
-        nombre:    i.nombre,
-        cantidad:  i.cantidad,
-        precio:    i.precio,
-        subtotal:  i.subtotal,
-        descuento: i.descuento,
-      })),
+      items: items.map(i => {
+        const esProducto = productos.some(p => p.id === i.id);
+        return {
+          id:        i.id,
+          nombre:    i.nombre,
+          cantidad:  i.cantidad,
+          precio:    i.precio,
+          subtotal:  i.subtotal,
+          descuento: i.descuento,
+          tipo:      (esProducto ? 'producto' : 'servicio') as 'producto' | 'servicio',
+        };
+      }),
       subtotal:        calcularSubtotal(),
       descuentoGlobal: descuentoGlobal,
       montoDescuento:  calcularDescuento(),
@@ -477,6 +481,22 @@ export default function POSPage() {
       if (online) {
         // ✅ ONLINE: guardar directo en Firestore
         await guardarVenta(datosVenta);
+
+        // Descontar stock de los productos vendidos
+        try {
+          const { doc: docRef, updateDoc, increment } = await import('firebase/firestore');
+          const { db: firestoreDb } = await import('@/lib/firebase');
+          for (const item of datosVenta.items) {
+            if (item.tipo === 'producto') {
+              await updateDoc(docRef(firestoreDb, 'productos_catalogo', item.id), {
+                stock: increment(-item.cantidad)
+              });
+            }
+          }
+        } catch (errStock) {
+          console.error("Error descontando stock de productos:", errStock);
+        }
+
         toast.dismiss();
         toast.success(`✅ Venta completada · Recibo ${numeroRecibo}`, { duration: 5000, id: 'venta-ok' });
       } else {

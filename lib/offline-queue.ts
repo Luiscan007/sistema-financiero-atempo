@@ -125,6 +125,20 @@ export async function sincronizarVentas(): Promise<{ exito: number; fallo: numbe
                 origenOffline: true,
             });
 
+            // Descontar stock de los productos vendidos
+            try {
+                const { doc: docRef, updateDoc, increment } = await import('firebase/firestore');
+                for (const item of datosVenta.items || []) {
+                    if (item.tipo === 'producto') {
+                        await updateDoc(docRef(db, 'productos_catalogo', item.id), {
+                            stock: increment(-item.cantidad)
+                        });
+                    }
+                }
+            } catch (errStock) {
+                console.error("Error descontando stock durante sincronización:", errStock);
+            }
+
             await marcarVentaSincronizada(id!);
             exito++;
         } catch (error) {
