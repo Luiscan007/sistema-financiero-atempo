@@ -60,7 +60,7 @@ function MetodosBadges({ metodos }: { metodos: Venta['metodoPago'] }) {
         <span className={badgePago(tipo) + ' gap-1.5'}>
             <Icono className="w-3 h-3" />
             {LABELS_PAGO[tipo] || tipo}
-            {tieneComprobante && <Camera className="w-3 h-3 text-blue-400" titleAccess="Tiene comprobante adjunto" />}
+            {tieneComprobante && <span title="Tiene comprobante adjunto"><Camera className="w-3 h-3 text-blue-400" /></span>}
         </span>
     );
 }
