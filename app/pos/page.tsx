@@ -265,6 +265,20 @@ function MetodoPagoForm({ tipo, index, onActualizar, onEliminar, totalPendiente,
   );
 }
 
+function limpiarUndefined(obj: any): any {
+  if (Array.isArray(obj)) {
+    return obj.map(limpiarUndefined);
+  } else if (obj !== null && typeof obj === 'object') {
+    return Object.entries(obj).reduce((acc: any, [key, value]) => {
+      if (value !== undefined) {
+        acc[key] = limpiarUndefined(value);
+      }
+      return acc;
+    }, {});
+  }
+  return obj;
+}
+
 // ── COMPONENTE PRINCIPAL ──────────────────────────────────────────────────────
 export default function POSPage() {
   const [busqueda, setBusqueda]     = useState('');
@@ -433,7 +447,7 @@ export default function POSPage() {
     const fecha        = fechaVenta;
     const totalUSD     = total / (tarifaActual || 1);
 
-    const datosVenta = {
+    const datosVentaRaw = {
       numeroRecibo,
       fecha,
       items: items.map(i => ({
@@ -456,6 +470,8 @@ export default function POSPage() {
       usuarioNombre:   'Punto de Venta',
       ajusteRedondeo,
     };
+
+    const datosVenta = limpiarUndefined(datosVentaRaw);
 
     try {
       if (online) {
