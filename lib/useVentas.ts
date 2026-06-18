@@ -6,7 +6,7 @@
 
 import { useState, useEffect } from 'react';
 import {
-    collection, addDoc, deleteDoc, doc,
+    collection, addDoc, deleteDoc, doc, updateDoc,
     onSnapshot, query, orderBy, limit,
     serverTimestamp, Timestamp,
 } from 'firebase/firestore';
@@ -106,5 +106,10 @@ export function useVentas() {
         await deleteDoc(doc(db, COLECCION, id));
     };
 
-    return { ventas, cargando, guardarVenta, eliminarVenta };
+    // ✅ NUEVO: editar campos de una venta existente (ej: número de recibo, items, etc.)
+    const actualizarVenta = async (id: string, datos: Partial<Omit<Venta, 'id' | 'fechaTimestamp'>>) => {
+        await updateDoc(doc(db, COLECCION, id), { ...datos });
+    };
+
+    return { ventas, cargando, guardarVenta, eliminarVenta, actualizarVenta };
 }
