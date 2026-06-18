@@ -24,13 +24,13 @@ import toast from 'react-hot-toast';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
-type Categoria = 'equipo_audio' | 'equipo_video' | 'mobiliario' | 'herramienta' | 'limpieza' | 'otro';
 type EstadoItem = 'bueno' | 'regular' | 'danado' | 'en_reparacion' | 'dado_de_baja';
 
 interface ItemInventario {
     id: string;
     nombre: string;
-    categoria: Categoria;
+    categoria: string;
+    subcategoria?: string;
     descripcion?: string;
     cantidad: number;
     cantidadDisponible: number;
@@ -42,6 +42,12 @@ interface ItemInventario {
     notas?: string;
     creadoEn: Timestamp;
     actualizadoEn?: Timestamp;
+}
+
+interface CategoriaInventario {
+    id: string;
+    nombre: string;
+    subcategorias: string[];
 }
 
 interface Prestamo {
@@ -61,14 +67,22 @@ interface Prestamo {
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
-const CATEGORIAS: Record<Categoria, { label: string; color: string; bg: string }> = {
-    equipo_audio:  { label: 'Audio',       color: 'text-blue-400',   bg: 'bg-blue-500/10 border-blue-500/20'     },
-    equipo_video:  { label: 'Video',       color: 'text-purple-400', bg: 'bg-purple-500/10 border-purple-500/20' },
-    mobiliario:    { label: 'Mobiliario',  color: 'text-amber-400',  bg: 'bg-amber-500/10 border-amber-500/20'   },
-    herramienta:   { label: 'Herramienta', color: 'text-orange-400', bg: 'bg-orange-500/10 border-orange-500/20' },
-    limpieza:      { label: 'Limpieza',    color: 'text-cyan-400',   bg: 'bg-cyan-500/10 border-cyan-500/20'     },
-    otro:          { label: 'Otro',        color: 'text-slate-400',  bg: 'bg-slate-500/10 border-slate-500/20'   },
-};
+const COLORES_DINAMICOS = [
+    { color: 'text-blue-400',    bg: 'bg-blue-500/10 border-blue-500/20' },
+    { color: 'text-purple-400',  bg: 'bg-purple-500/10 border-purple-500/20' },
+    { color: 'text-amber-400',   bg: 'bg-amber-500/10 border-amber-500/20' },
+    { color: 'text-orange-400',  bg: 'bg-orange-500/10 border-orange-500/20' },
+    { color: 'text-cyan-400',    bg: 'bg-cyan-500/10 border-cyan-500/20' },
+    { color: 'text-pink-400',    bg: 'bg-pink-500/10 border-pink-500/20' },
+    { color: 'text-teal-400',    bg: 'bg-teal-500/10 border-teal-500/20' },
+    { color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/20' },
+];
+
+function getEstiloCategoria(catNombre: string) {
+    if (!catNombre) return { color: 'text-slate-400', bg: 'bg-slate-500/10 border-slate-500/20' };
+    const hash = catNombre.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    return COLORES_DINAMICOS[hash % COLORES_DINAMICOS.length];
+}
 
 const ESTADOS: Record<EstadoItem, { label: string; color: string; bg: string; icon: React.ElementType }> = {
     bueno:         { label: 'Bueno',         color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/20', icon: ShieldCheck   },
@@ -89,11 +103,19 @@ function diasDesde(ts: Timestamp): number {
     return Math.floor((Date.now() - ts.toDate().getTime()) / 86400000);
 }
 
-function BadgeCategoria({ cat }: { cat: Categoria }) {
-    const c = CATEGORIAS[cat] ?? { label: cat || 'Otro', color: 'text-slate-400', bg: 'bg-slate-500/10 border-slate-500/20' };
+function BadgeCategoria({ cat }: { cat: string }) {
+    const c = getEstiloCategoria(cat);
     return (
-        <span className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border', c.bg, c.color)}>
-            {c.label}
+        <span className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border', c.bg, c.color)}>
+            {cat}
+        </span>
+    );
+}
+
+function BadgeSubcategoria({ subcategoria }: { subcategoria: string }) {
+    return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-muted/60 text-muted-foreground border border-border/40">
+            {subcategoria}
         </span>
     );
 }
@@ -108,32 +130,211 @@ function BadgeEstado({ estado }: { estado: EstadoItem }) {
     );
 }
 
+// ─── Modal Gestionar Categorías ──────────────────────────────────────────────────
+
+function ModalGestionarCategorias({
+    categorias,
+    onCerrar,
+    onGuardar,
+    onEliminar,
+}: {
+    categorias: CategoriaInventario[];
+    onCerrar: () => void;
+    onGuardar: (id: string | null, nombre: string, subcategorias: string[]) => Promise<void>;
+    onEliminar: (id: string) => Promise<void>;
+}) {
+    const [nuevaCatNombre, setNuevaCatNombre] = useState('');
+    const [editandoCatId, setEditandoCatId] = useState<string | null>(null);
+    const [editandoCatNombre, setEditandoCatNombre] = useState('');
+    const [nuevaSubcat, setNuevaSubcat] = useState<Record<string, string>>({});
+
+    const handleCrearCategoria = async () => {
+        if (!nuevaCatNombre.trim()) { toast.error('Ingresa un nombre'); return; }
+        await onGuardar(null, nuevaCatNombre, []);
+        setNuevaCatNombre('');
+    };
+
+    const handleRename = async (cat: CategoriaInventario) => {
+        if (!editandoCatNombre.trim()) return;
+        await onGuardar(cat.id, editandoCatNombre, cat.subcategorias);
+        setEditandoCatId(null);
+    };
+
+    const handleAddSubcat = async (cat: CategoriaInventario) => {
+        const sub = nuevaSubcat[cat.id] || '';
+        if (!sub.trim()) return;
+        if (cat.subcategorias.includes(sub.trim())) { toast.error('Ya existe esta subcategoría'); return; }
+        const actualizadas = [...cat.subcategorias, sub.trim()];
+        await onGuardar(cat.id, cat.nombre, actualizadas);
+        setNuevaSubcat(p => ({ ...p, [cat.id]: '' }));
+    };
+
+    const handleRemoveSubcat = async (cat: CategoriaInventario, subIndex: number) => {
+        const actualizadas = cat.subcategorias.filter((_, i) => i !== subIndex);
+        await onGuardar(cat.id, cat.nombre, actualizadas);
+    };
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <div className="bg-card border border-border rounded-2xl w-full max-w-lg shadow-2xl max-h-[85vh] flex flex-col">
+                <div className="flex items-center justify-between p-5 border-b border-border flex-shrink-0">
+                    <h3 className="text-base font-semibold flex items-center gap-2">
+                        <Tag className="w-4 h-4 text-purple-400" />
+                        Gestionar Categorías y Subcategorías
+                    </h3>
+                    <button onClick={onCerrar} className="p-1.5 hover:bg-muted rounded-lg transition-colors">
+                        <X className="w-4 h-4" />
+                    </button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-5 space-y-4">
+                    <div className="bg-muted/20 border border-border p-3.5 rounded-xl space-y-2">
+                        <label className="text-xs text-muted-foreground font-medium block">Crear Nueva Categoría Principal</label>
+                        <div className="flex gap-2">
+                            <input
+                                className="input-sistema py-1.5 text-sm flex-1"
+                                placeholder="Ej: Depósito, Cafetín, Oficina..."
+                                value={nuevaCatNombre}
+                                onChange={e => setNuevaCatNombre(e.target.value)}
+                            />
+                            <button onClick={handleCrearCategoria} className="btn-primary py-1.5 px-3 text-xs">
+                                <Plus className="w-3.5 h-3.5" /> Agregar
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="border-t border-border my-2" />
+
+                    <div className="space-y-3">
+                        {categorias.length === 0 ? (
+                            <p className="text-xs text-muted-foreground text-center py-6">No hay categorías configuradas. Crea una arriba.</p>
+                        ) : (
+                            categorias.map(cat => {
+                                const isEditing = editandoCatId === cat.id;
+                                return (
+                                    <div key={cat.id} className="bg-muted/10 border border-border rounded-xl p-3 space-y-3">
+                                        <div className="flex items-center justify-between gap-2">
+                                            {isEditing ? (
+                                                <div className="flex gap-1.5 flex-1">
+                                                    <input
+                                                        className="input-sistema py-1 text-xs flex-1"
+                                                        value={editandoCatNombre}
+                                                        onChange={e => setEditandoCatNombre(e.target.value)}
+                                                    />
+                                                    <button onClick={() => handleRename(cat)} className="text-xs text-green-400 hover:underline">Listo</button>
+                                                    <button onClick={() => setEditandoCatId(null)} className="text-xs text-muted-foreground hover:underline">X</button>
+                                                </div>
+                                            ) : (
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className="font-semibold text-sm">{cat.nombre}</span>
+                                                    <button
+                                                        onClick={() => {
+                                                            setEditandoCatId(cat.id);
+                                                            setEditandoCatNombre(cat.nombre);
+                                                        }}
+                                                        className="p-1 hover:bg-muted rounded text-muted-foreground hover:text-foreground"
+                                                    >
+                                                        <Edit2 className="w-3 h-3" />
+                                                    </button>
+                                                </div>
+                                            )}
+
+                                            {!isEditing && (
+                                                <button
+                                                    onClick={() => onEliminar(cat.id)}
+                                                    className="p-1 hover:bg-red-500/15 rounded text-muted-foreground hover:text-red-400"
+                                                >
+                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Subcategorías</p>
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {cat.subcategorias.length === 0 ? (
+                                                    <span className="text-xs text-muted-foreground italic">Sin subcategorías</span>
+                                                ) : (
+                                                    cat.subcategorias.map((sub, i) => (
+                                                        <span key={i} className="inline-flex items-center gap-1 bg-background border border-border text-xs px-2 py-0.5 rounded-full text-foreground">
+                                                            {sub}
+                                                            <button
+                                                                onClick={() => handleRemoveSubcat(cat, i)}
+                                                                className="text-muted-foreground hover:text-red-400 ml-0.5 font-bold"
+                                                            >
+                                                                ×
+                                                            </button>
+                                                        </span>
+                                                    ))
+                                                )}
+                                            </div>
+
+                                            <div className="flex gap-1.5 pt-1">
+                                                <input
+                                                    className="input-sistema py-1 text-xs flex-1"
+                                                    placeholder="Nueva subcategoría..."
+                                                    value={nuevaSubcat[cat.id] || ''}
+                                                    onChange={e => setNuevaSubcat(p => ({ ...p, [cat.id]: e.target.value }))}
+                                                    onKeyDown={e => {
+                                                        if (e.key === 'Enter') handleAddSubcat(cat);
+                                                    }}
+                                                />
+                                                <button
+                                                    onClick={() => handleAddSubcat(cat)}
+                                                    className="px-2 py-1 bg-purple-500/10 border border-purple-500/20 text-purple-400 rounded-lg text-xs hover:bg-purple-500/20 transition-all font-semibold"
+                                                >
+                                                    +
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })
+                        )}
+                    </div>
+                </div>
+
+                <div className="p-4 border-t border-border flex justify-end flex-shrink-0">
+                    <button onClick={onCerrar} className="btn-secondary py-2 px-4 text-xs font-semibold">
+                        Cerrar
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 // ─── Modal Item ───────────────────────────────────────────────────────────────
 
 function ModalItem({
     item,
     onCerrar,
     onGuardar,
+    categorias,
 }: {
     item: Partial<ItemInventario> | null;
     onCerrar: () => void;
     onGuardar: (data: Partial<ItemInventario>) => Promise<void>;
+    categorias: CategoriaInventario[];
 }) {
     const esEdicion = !!(item as ItemInventario)?.id;
-    const [form, setForm] = useState<Partial<ItemInventario>>(item || {
-        nombre: '',
-        categoria: 'otro',
-        cantidad: 1,
-        cantidadDisponible: 1,
-        estado: 'bueno',
-        ubicacion: '',
-        descripcion: '',
-        numeroSerie: '',
-        valorUSD: undefined,
-        notas: '',
+    const [form, setForm] = useState<Partial<ItemInventario>>(() => {
+        const defaults = {
+            nombre: '',
+            categoria: categorias[0]?.nombre || 'Otro',
+            subcategoria: '',
+            cantidad: 1,
+            cantidadDisponible: 1,
+            estado: 'bueno' as EstadoItem,
+            ubicacion: '',
+            descripcion: '',
+            numeroSerie: '',
+            valorUSD: undefined,
+            notas: '',
+        };
+        return { ...defaults, ...item };
     });
 
-    // Strings para inputs numericos — evita el bug de "no deja borrar el 1"
     const [cantidadStr, setCantidadStr] = useState(
         String((item as ItemInventario)?.cantidad ?? 1)
     );
@@ -189,7 +390,7 @@ function ModalItem({
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
             <div className="bg-card border border-border rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
-                <div className="flex items-center justify-between p-5 border-b border-border">
+                <div className="flex items-center justify-between p-5 border-b border-border flex-shrink-0">
                     <h3 className="text-base font-semibold flex items-center gap-2">
                         <Boxes className="w-4 h-4 text-blue-400" />
                         {esEdicion ? 'Editar Item' : 'Nuevo Item'}
@@ -203,7 +404,7 @@ function ModalItem({
 
                     {/* Nombre */}
                     <div>
-                        <label className="text-xs text-muted-foreground mb-1 block">Nombre del item *</label>
+                        <label className="text-xs text-muted-foreground mb-1 block font-medium">Nombre del item *</label>
                         <input
                             className="input-sistema"
                             placeholder="Ej: Parlante JBL EON615"
@@ -215,19 +416,28 @@ function ModalItem({
                     {/* Categoria + Estado */}
                     <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <label className="text-xs text-muted-foreground mb-1 block">Categoria *</label>
+                            <label className="text-xs text-muted-foreground mb-1 block font-medium">Categoría *</label>
                             <select
                                 className="input-sistema"
-                                value={form.categoria || 'otro'}
-                                onChange={e => set('categoria', e.target.value as Categoria)}
+                                value={form.categoria || ''}
+                                onChange={e => {
+                                    const catNombre = e.target.value;
+                                    const matchingCat = categorias.find(c => c.nombre === catNombre);
+                                    setForm(prev => ({
+                                        ...prev,
+                                        categoria: catNombre,
+                                        subcategoria: matchingCat?.subcategorias[0] || '',
+                                    }));
+                                }}
                             >
-                                {Object.entries(CATEGORIAS).map(([k, v]) => (
-                                    <option key={k} value={k}>{v.label}</option>
+                                {categorias.map(cat => (
+                                    <option key={cat.id} value={cat.nombre}>{cat.nombre}</option>
                                 ))}
+                                <option value="Otro">Otro</option>
                             </select>
                         </div>
                         <div>
-                            <label className="text-xs text-muted-foreground mb-1 block">Estado *</label>
+                            <label className="text-xs text-muted-foreground mb-1 block font-medium">Estado *</label>
                             <select
                                 className="input-sistema"
                                 value={form.estado || 'bueno'}
@@ -240,14 +450,29 @@ function ModalItem({
                         </div>
                     </div>
 
+                    {/* Subcategoria */}
+                    <div>
+                        <label className="text-xs text-muted-foreground mb-1 block font-medium">Subcategoría</label>
+                        <select
+                            className="input-sistema"
+                            value={form.subcategoria || ''}
+                            onChange={e => set('subcategoria', e.target.value)}
+                        >
+                            <option value="">Sin subcategoría</option>
+                            {categorias.find(c => c.nombre === form.categoria)?.subcategorias.map(sub => (
+                                <option key={sub} value={sub}>{sub}</option>
+                            ))}
+                        </select>
+                    </div>
+
                     {/* Cantidad + Disponible */}
                     <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <label className="text-xs text-muted-foreground mb-1 block">Cantidad total *</label>
+                            <label className="text-xs text-muted-foreground mb-1 block font-medium">Cantidad total *</label>
                             <input
                                 type="number"
                                 min="1"
-                                className="input-sistema"
+                                className="input-sistema font-mono"
                                 value={cantidadStr}
                                 onChange={e => handleCantidadChange(e.target.value)}
                                 onBlur={() => {
@@ -257,12 +482,12 @@ function ModalItem({
                             />
                         </div>
                         <div>
-                            <label className="text-xs text-muted-foreground mb-1 block">Disponibles</label>
+                            <label className="text-xs text-muted-foreground mb-1 block font-medium">Disponibles</label>
                             <input
                                 type="number"
                                 min="0"
                                 max={parseInt(cantidadStr) || 1}
-                                className="input-sistema"
+                                className="input-sistema font-mono"
                                 value={disponibleStr}
                                 onChange={e => handleDisponibleChange(e.target.value)}
                                 onBlur={() => {
@@ -278,7 +503,7 @@ function ModalItem({
 
                     {/* Ubicacion */}
                     <div>
-                        <label className="text-xs text-muted-foreground mb-1 block">Ubicacion</label>
+                        <label className="text-xs text-muted-foreground mb-1 block font-medium">Ubicacion</label>
                         <input
                             className="input-sistema"
                             placeholder="Ej: Salon principal, Deposito, Recepcion..."
@@ -290,23 +515,23 @@ function ModalItem({
                     {/* N. Serie + Valor */}
                     <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <label className="text-xs text-muted-foreground mb-1 block">N. de serie / codigo</label>
+                            <label className="text-xs text-muted-foreground mb-1 block font-medium">N. de serie / codigo</label>
                             <input
-                                className="input-sistema"
+                                className="input-sistema font-mono"
                                 placeholder="Opcional"
                                 value={form.numeroSerie || ''}
                                 onChange={e => set('numeroSerie', e.target.value)}
                             />
                         </div>
                         <div>
-                            <label className="text-xs text-muted-foreground mb-1 block">Valor aprox. (USD)</label>
+                            <label className="text-xs text-muted-foreground mb-1 block font-medium">Valor aprox. (USD)</label>
                             <div className="relative">
                                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-green-400 text-sm font-bold">$</span>
                                 <input
                                     type="number"
                                     min="0"
                                     step="0.01"
-                                    className="input-sistema pl-7"
+                                    className="input-sistema pl-7 font-mono"
                                     placeholder="0.00"
                                     value={form.valorUSD || ''}
                                     onChange={e => set('valorUSD', parseFloat(e.target.value) || undefined)}
@@ -317,7 +542,7 @@ function ModalItem({
 
                     {/* Fecha adquisicion */}
                     <div>
-                        <label className="text-xs text-muted-foreground mb-1 block">Fecha de adquisicion</label>
+                        <label className="text-xs text-muted-foreground mb-1 block font-medium">Fecha de adquisicion</label>
                         <input
                             type="date"
                             className="input-sistema"
@@ -328,7 +553,7 @@ function ModalItem({
 
                     {/* Notas */}
                     <div>
-                        <label className="text-xs text-muted-foreground mb-1 block">Descripcion / Notas</label>
+                        <label className="text-xs text-muted-foreground mb-1 block font-medium">Descripcion / Notas</label>
                         <textarea
                             className="input-sistema resize-none"
                             rows={2}
@@ -339,7 +564,7 @@ function ModalItem({
                     </div>
                 </div>
 
-                <div className="flex gap-3 p-5 border-t border-border">
+                <div className="flex gap-3 p-5 border-t border-border flex-shrink-0">
                     <button onClick={onCerrar} className="flex-1 btn-secondary py-2.5 text-sm justify-center">
                         Cancelar
                     </button>
@@ -626,11 +851,12 @@ export default function InventarioPage() {
 
     const [items, setItems] = useState<ItemInventario[]>([]);
     const [prestamos, setPrestamos] = useState<Prestamo[]>([]);
+    const [categorias, setCategorias] = useState<CategoriaInventario[]>([]);
     const [cargandoItems, setCargandoItems] = useState(true);
     const [cargandoPrestamos, setCargandoPrestamos] = useState(true);
 
     const [busqueda, setBusqueda] = useState('');
-    const [filtroCategoria, setFiltroCategoria] = useState<'todas' | Categoria>('todas');
+    const [filtroCategoria, setFiltroCategoria] = useState<string>('todas');
     const [filtroEstado, setFiltroEstado] = useState<'todos' | EstadoItem>('todos');
     const [filtroDisponibilidad, setFiltroDisponibilidad] = useState<'todos' | 'disponible' | 'prestado'>('todos');
 
@@ -638,10 +864,9 @@ export default function InventarioPage() {
     const [modalPrestamo, setModalPrestamo] = useState<ItemInventario | null>(null);
     const [panelHistorial, setPanelHistorial] = useState<ItemInventario | null>(null);
     const [itemExpandido, setItemExpandido] = useState<string | null>(null);
+    const [modalCategoriasOpen, setModalCategoriasOpen] = useState(false);
 
     // ─── Listeners Firestore ─────────────────────────────────────────────────
-    // Sin orderBy para no requerir indice — coleccion puede ser nueva
-    // El ordenamiento se hace en el cliente
 
     useEffect(() => {
         const unsub = onSnapshot(collection(db, 'inventario'), snap => {
@@ -679,15 +904,67 @@ export default function InventarioPage() {
         return unsub;
     }, []);
 
+    useEffect(() => {
+        const unsub = onSnapshot(collection(db, 'inventario_categorias'), snap => {
+            const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as CategoriaInventario));
+            // Si está vacío, sembrar categorías por defecto: Depósito y Cafetín
+            if (data.length === 0 && !snap.metadata.hasPendingWrites) {
+                const defaults = [
+                    { nombre: 'Depósito', subcategorias: ['Equipos', 'Herramientas', 'Mobiliario'] },
+                    { nombre: 'Cafetín', subcategorias: ['Vasos', 'Servilletas', 'Bebidas', 'Alimentos'] }
+                ];
+                defaults.forEach(async (c) => {
+                    await addDoc(collection(db, 'inventario_categorias'), c);
+                });
+            }
+            setCategorias(data);
+        }, err => {
+            console.error('inventario_categorias listener:', err.message);
+        });
+        return unsub;
+    }, []);
+
+    // ─── CRUD Categorías ─────────────────────────────────────────────────────
+
+    const guardarCategoria = async (id: string | null, nombre: string, subcategorias: string[]) => {
+        try {
+            const payload = {
+                nombre: nombre.trim(),
+                subcategorias: subcategorias.map(s => s.trim()),
+            };
+            if (id) {
+                await updateDoc(doc(db, 'inventario_categorias', id), payload);
+                toast.success('Categoría actualizada');
+            } else {
+                await addDoc(collection(db, 'inventario_categorias'), payload);
+                toast.success('Categoría creada');
+            }
+        } catch (error) {
+            console.error('Error al guardar categoría:', error);
+            toast.error('Error al guardar categoría');
+        }
+    };
+
+    const eliminarCategoria = async (id: string) => {
+        if (!confirm('¿Seguro que deseas eliminar esta categoría?')) return;
+        try {
+            await deleteDoc(doc(db, 'inventario_categorias', id));
+            toast.success('Categoría eliminada');
+        } catch (error) {
+            console.error('Error al eliminar categoría:', error);
+            toast.error('Error al eliminar categoría');
+        }
+    };
+
     // ─── CRUD Items ──────────────────────────────────────────────────────────
 
     const guardarItem = async (data: Partial<ItemInventario>) => {
         const esEdicion = !!(data as ItemInventario).id;
 
-        // Nunca enviar undefined a Firestore — usar fallbacks seguros
         const payload: Record<string, unknown> = {
             nombre: data.nombre || '',
-            categoria: data.categoria || 'otro',
+            categoria: data.categoria || 'Otro',
+            subcategoria: data.subcategoria || '',
             descripcion: data.descripcion || '',
             cantidad: data.cantidad || 1,
             cantidadDisponible: data.cantidadDisponible ?? data.cantidad ?? 1,
@@ -699,7 +976,6 @@ export default function InventarioPage() {
             actualizadoEn: serverTimestamp(),
         };
 
-        // Solo incluir valorUSD si tiene valor — nunca guardar undefined/null en Firestore
         if (data.valorUSD && data.valorUSD > 0) {
             payload.valorUSD = Number(data.valorUSD);
         }
@@ -755,7 +1031,9 @@ export default function InventarioPage() {
     const itemsFiltrados = useMemo(() => items.filter(item => {
         const matchBusq = !busqueda
             || item.nombre.toLowerCase().includes(busqueda.toLowerCase())
-            || (item.ubicacion || '').toLowerCase().includes(busqueda.toLowerCase());
+            || (item.ubicacion || '').toLowerCase().includes(busqueda.toLowerCase())
+            || (item.categoria || '').toLowerCase().includes(busqueda.toLowerCase())
+            || (item.subcategoria || '').toLowerCase().includes(busqueda.toLowerCase());
         const matchCat  = filtroCategoria === 'todas' || item.categoria === filtroCategoria;
         const matchEst  = filtroEstado === 'todos' || item.estado === filtroEstado;
         const matchDisp =
@@ -799,10 +1077,19 @@ export default function InventarioPage() {
                         Control de equipos, muebles y prestamos de ATEMPO
                     </p>
                 </div>
-                <button onClick={() => setModalItem({})} className="btn-primary text-sm py-2.5">
-                    <Plus className="w-4 h-4" />
-                    Agregar item
-                </button>
+                <div className="flex items-center gap-2 shrink-0">
+                    <button
+                        onClick={() => setModalCategoriasOpen(true)}
+                        className="px-4 py-2.5 bg-purple-500/10 border border-purple-500/20 text-purple-400 rounded-xl text-sm font-semibold hover:bg-purple-500/20 transition-all flex items-center gap-2"
+                    >
+                        <Tag className="w-4 h-4" />
+                        Gestionar Categorías
+                    </button>
+                    <button onClick={() => setModalItem({})} className="btn-primary text-sm py-2.5">
+                        <Plus className="w-4 h-4" />
+                        Agregar item
+                    </button>
+                </div>
             </div>
 
             {/* KPIs */}
@@ -856,7 +1143,7 @@ export default function InventarioPage() {
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                         <input
                             className="input-sistema pl-9 w-full"
-                            placeholder="Buscar por nombre o ubicacion..."
+                            placeholder="Buscar por nombre, ubicación, categoría o subcategoría..."
                             value={busqueda}
                             onChange={e => setBusqueda(e.target.value)}
                         />
@@ -864,11 +1151,11 @@ export default function InventarioPage() {
                     <select
                         className="input-sistema sm:w-40"
                         value={filtroCategoria}
-                        onChange={e => setFiltroCategoria(e.target.value as typeof filtroCategoria)}
+                        onChange={e => setFiltroCategoria(e.target.value)}
                     >
-                        <option value="todas">Todas las categorias</option>
-                        {Object.entries(CATEGORIAS).map(([k, v]) => (
-                            <option key={k} value={k}>{v.label}</option>
+                        <option value="todas">Todas las categorías</option>
+                        {categorias.map(cat => (
+                            <option key={cat.id} value={cat.nombre}>{cat.nombre}</option>
                         ))}
                     </select>
                     <select
@@ -912,6 +1199,7 @@ export default function InventarioPage() {
                         const prestamosItem = prestamos.filter(p => p.itemId === item.id && !p.devuelto);
                         const expandido = itemExpandido === item.id;
                         const porcentajeDisp = item.cantidad > 0 ? (item.cantidadDisponible / item.cantidad) * 100 : 0;
+                        const catEstilo = getEstiloCategoria(item.categoria);
 
                         return (
                             <div
@@ -919,14 +1207,15 @@ export default function InventarioPage() {
                                 className={cn('glass-card overflow-hidden transition-all', item.estado === 'dado_de_baja' && 'opacity-50')}
                             >
                                 <div className="p-4 flex items-center gap-3">
-                                    <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border', (CATEGORIAS[item.categoria] ?? CATEGORIAS['otro']).bg)}>
-                                        <Package className={cn('w-5 h-5', (CATEGORIAS[item.categoria] ?? CATEGORIAS['otro']).color)} />
+                                    <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border', catEstilo.bg)}>
+                                        <Package className={cn('w-5 h-5', catEstilo.color)} />
                                     </div>
 
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2 flex-wrap">
                                             <span className="font-semibold text-sm truncate">{item.nombre}</span>
                                             <BadgeCategoria cat={item.categoria} />
+                                            {item.subcategoria && <BadgeSubcategoria subcategoria={item.subcategoria} />}
                                             <BadgeEstado estado={item.estado} />
                                         </div>
                                         <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
@@ -1062,6 +1351,15 @@ export default function InventarioPage() {
                     item={modalItem}
                     onCerrar={() => setModalItem(undefined)}
                     onGuardar={guardarItem}
+                    categorias={categorias}
+                />
+            )}
+            {modalCategoriasOpen && (
+                <ModalGestionarCategorias
+                    categorias={categorias}
+                    onCerrar={() => setModalCategoriasOpen(false)}
+                    onGuardar={guardarCategoria}
+                    onEliminar={eliminarCategoria}
                 />
             )}
             {modalPrestamo && (
