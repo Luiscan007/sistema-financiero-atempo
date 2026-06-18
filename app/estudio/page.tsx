@@ -108,7 +108,7 @@ export default function EstudioPage() {
   const resumenProductos = useMemo(() => productosActivos.map(p => ({
     nombre:      p.nombre,
     categoria:   p.categoria || '',
-    precioBs:    p.precioBs,
+    precioUSD:   p.precioUSD,
     stock:       p.stock,
     stockMinimo: p.stockMinimo,
     unidad:      p.unidad || 'und',
