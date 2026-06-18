@@ -8,7 +8,7 @@
 import { useState } from 'react';
 import {
     Search, Download, Receipt, CreditCard, Smartphone,
-    Banknote, DollarSign, ArrowLeftRight, Eye, TrendingUp, Loader2, X, Trash2, AlertTriangle, Camera,
+    Banknote, DollarSign, ArrowLeftRight, Eye, TrendingUp, Loader2, X, Trash2, AlertTriangle, Camera, Pencil, Save,
 } from 'lucide-react';
 import { useTasas } from '@/components/providers/TasasProvider';
 import { formatBs, formatUSD } from '@/lib/utils';
@@ -67,12 +67,16 @@ function MetodosBadges({ metodos }: { metodos: Venta['metodoPago'] }) {
 
 export default function VentasPage() {
     const { tasas } = useTasas();
-    const { ventas, cargando, eliminarVenta } = useVentas();
+    const { ventas, cargando, eliminarVenta, actualizarVenta } = useVentas();
     const [busqueda, setBusqueda] = useState('');
     const [metodoPagoFiltro, setMetodoPagoFiltro] = useState('todos');
     const [ventaDetalle, setVentaDetalle] = useState<Venta | null>(null);
     const [ventaAEliminar, setVentaAEliminar] = useState<Venta | null>(null);
     const [eliminando, setEliminando] = useState(false);
+    const [editando, setEditando] = useState(false);
+    const [numeroReciboEdit, setNumeroReciboEdit] = useState('');
+    const [fechaEdit, setFechaEdit] = useState('');
+    const [guardandoEdicion, setGuardandoEdicion] = useState(false);
 
     const confirmarEliminacion = async () => {
         if (!ventaAEliminar) return;
@@ -85,6 +89,32 @@ export default function VentasPage() {
             alert('Error al eliminar la venta');
         } finally {
             setEliminando(false);
+        }
+    };
+
+    const iniciarEdicion = () => {
+        if (!ventaDetalle) return;
+        setNumeroReciboEdit(ventaDetalle.numeroRecibo);
+        setFechaEdit(ventaDetalle.fecha);
+        setEditando(true);
+    };
+
+    const cancelarEdicion = () => setEditando(false);
+
+    const guardarEdicion = async () => {
+        if (!ventaDetalle) return;
+        setGuardandoEdicion(true);
+        try {
+            await actualizarVenta(ventaDetalle.id, {
+                numeroRecibo: numeroReciboEdit,
+                fecha: fechaEdit,
+            });
+            setVentaDetalle({ ...ventaDetalle, numeroRecibo: numeroReciboEdit, fecha: fechaEdit });
+            setEditando(false);
+        } catch (err) {
+            alert('Error al guardar los cambios');
+        } finally {
+            setGuardandoEdicion(false);
         }
     };
 
@@ -257,18 +287,58 @@ export default function VentasPage() {
                         {/* Header fijo */}
                         <div className="p-6 pb-0 flex-shrink-0">
                             <div className="flex items-center justify-between mb-4">
-                                <div>
-                                    <h3 className="font-bold text-lg">Detalle de Venta</h3>
-                                    <p className="text-sm font-mono text-blue-400">{ventaDetalle.numeroRecibo}</p>
-                                    <p className="text-xs text-muted-foreground mt-0.5">{ventaDetalle.fecha}</p>
+                                <div className="flex-1">
+                                    <div className="flex items-center gap-2">
+                                        <h3 className="font-bold text-lg">Detalle de Venta</h3>
+                                        {!editando && (
+                                            <button onClick={iniciarEdicion}
+                                                className="p-1 hover:bg-muted rounded-md transition-colors text-muted-foreground hover:text-blue-400"
+                                                title="Editar recibo/fecha">
+                                                <Pencil className="w-3.5 h-3.5" />
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    {editando ? (
+                                        <div className="space-y-2 mt-2">
+                                            <div>
+                                                <label className="text-xs text-muted-foreground block mb-1">N° de Recibo</label>
+                                                <input type="text" value={numeroReciboEdit}
+                                                    onChange={e => setNumeroReciboEdit(e.target.value)}
+                                                    className="input-sistema text-sm font-mono w-full" />
+                                            </div>
+                                            <div>
+                                                <label className="text-xs text-muted-foreground block mb-1">Fecha</label>
+                                                <input type="date" value={fechaEdit}
+                                                    onChange={e => setFechaEdit(e.target.value)}
+                                                    className="input-sistema text-sm w-full" />
+                                            </div>
+                                            <div className="flex gap-2 pt-1">
+                                                <button onClick={guardarEdicion} disabled={guardandoEdicion}
+                                                    className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-green-500/15 border border-green-500/30 text-green-400 hover:bg-green-500/25 transition-colors disabled:opacity-50">
+                                                    {guardandoEdicion ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+                                                    Guardar
+                                                </button>
+                                                <button onClick={cancelarEdicion} disabled={guardandoEdicion}
+                                                    className="text-xs px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:bg-muted transition-colors">
+                                                    Cancelar
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <p className="text-sm font-mono text-blue-400">{ventaDetalle.numeroRecibo}</p>
+                                            <p className="text-xs text-muted-foreground mt-0.5">{ventaDetalle.fecha}</p>
+                                        </>
+                                    )}
                                 </div>
-                                <button onClick={() => setVentaDetalle(null)}
-                                    className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground">
+                                <button onClick={() => { setVentaDetalle(null); setEditando(false); }}
+                                    className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground flex-shrink-0">
                                     <X className="w-4 h-4" />
                                 </button>
                             </div>
 
-                            {ventaDetalle.usuarioNombre && (
+                            {ventaDetalle.usuarioNombre && !editando && (
                                 <div className="text-xs text-muted-foreground mb-4">
                                     Vendedor: <span className="text-foreground">{ventaDetalle.usuarioNombre}</span>
                                 </div>
@@ -276,7 +346,7 @@ export default function VentasPage() {
                         </div>
 
                         {/* Body con scroll */}
-                        <div className="px-6 overflow-y-auto flex-1">
+                        <div className="px-6 overflow-y-auto flex-1 min-h-0">
                             <div className="border-t border-border my-3" />
 
                             {/* Items */}
