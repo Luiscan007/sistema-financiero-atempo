@@ -388,6 +388,9 @@ export default function POSPage() {
   const [ultimoRecibo, setUltimoRecibo]   = useState('');
   const [tabActiva, setTabActiva]   = useState<'productos' | 'servicios'>('productos');
   const [ajusteRedondeo, setAjusteRedondeo] = useState(0);
+  const [mostrarModalWA, setMostrarModalWA] = useState(false);
+  const [telefonoWA, setTelefonoWA] = useState('');
+  const [enviandoWA, setEnviandoWA] = useState(false);
   const getLocalTodayStr = () => {
     const d = new Date();
     const y = d.getFullYear();
@@ -687,12 +690,117 @@ export default function POSPage() {
     setFechaVenta(getLocalTodayStr());
   };
 
-  const enviarWhatsApp = () => {
+  const generarTextoRecibo = useCallback(() => {
     const totalUSD = total / (tarifaActual || 1);
-    const texto = `🧾 *RECIBO ATEMPO*\nRecibo: ${ultimoRecibo}\nFecha: ${new Date().toLocaleString('es-VE')}\n\n*PRODUCTOS:*\n` +
-      items.map(i => `• ${i.nombre} x${i.cantidad}: ${formatBs(i.subtotal)}`).join('\n') +
-      `\n\n*TOTAL: ${formatBs(total)}*\n(≈ ${formatUSD(totalUSD)})\n\n¡Gracias! 🛒`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank');
+    const fechaStr = new Date().toLocaleString('es-VE');
+    
+    let msg = `🧾 *RECIBO DE VENTA - ESTUDIO ATEMPO*\n`;
+    msg += `------------------------------------------\n`;
+    msg += `*Recibo:* ${ultimoRecibo}\n`;
+    msg += `*Fecha:* ${fechaStr}\n`;
+    msg += `------------------------------------------\n\n`;
+    
+    msg += `*DETALLE:*\n`;
+    msg += items.map(i => `• ${i.nombre}\n  Cant: ${i.cantidad} x ${formatBs(i.precio)} = ${formatBs(i.subtotal)}`).join('\n\n') + `\n\n`;
+    
+    msg += `------------------------------------------\n`;
+    msg += `*Subtotal:* ${formatBs(calcularSubtotal())}\n`;
+    if (descuentoGlobal > 0) {
+      msg += `*Descuento (${descuentoGlobal}%):* -${formatBs(calcularDescuento())}\n`;
+    }
+    if (ajusteRedondeo !== 0) {
+      msg += `*Ajuste Redondeo:* ${ajusteRedondeo > 0 ? '+' : ''}${formatBs(ajusteRedondeo)}\n`;
+    }
+    msg += `*TOTAL:* ${formatBs(total)}\n`;
+    msg += `*Total USD:* ${formatUSD(totalUSD)} (Tasa: ${tarifaActual} Bs/${tasaSeleccionada.toUpperCase()})\n`;
+    msg += `------------------------------------------\n\n`;
+    
+    msg += `*PAGOS:*\n`;
+    metodoPago.forEach(p => {
+      let detail = '';
+      if (p.tipo === 'efectivo_usd') detail = ` ($${p.montoExtranjero})`;
+      if (p.tipo === 'efectivo_eur') detail = ` (€${p.montoExtranjero})`;
+      if (p.referencia) detail = ` (Ref: ${p.referencia})`;
+      if (p.tipo === 'credito') detail = ` (Límite: ${p.fechaVencimiento})`;
+      
+      const label = p.tipo === 'punto_venta' ? 'Punto de Venta' :
+                    p.tipo === 'pago_movil' ? 'Pago Móvil' :
+                    p.tipo === 'efectivo_bs' ? 'Efectivo Bs' :
+                    p.tipo === 'efectivo_usd' ? 'Efectivo USD' :
+                    p.tipo === 'efectivo_eur' ? 'Efectivo EUR' :
+                    p.tipo === 'transferencia' ? 'Transferencia' :
+                    p.tipo === 'credito' ? 'Crédito/Fiado' : p.tipo;
+                    
+      msg += `• ${label}: ${formatBs(p.monto)}${detail}\n`;
+    });
+    
+    if (vuelto > 0) {
+      msg += `\n*Vuelto:* ${formatBs(vuelto)} (≈ ${formatUSD(vueltoUSD)})\n`;
+    }
+    
+    const creditoPago = metodoPago.find(p => p.tipo === 'credito');
+    if (creditoPago) {
+      msg += `\n*Cliente:* ${creditoPago.clienteNombre || 'Cliente POS'}\n`;
+      if (creditoPago.clienteCedula) msg += `*Cédula:* ${creditoPago.clienteCedula}\n`;
+      if (creditoPago.clienteTelefono) msg += `*Teléfono:* ${creditoPago.clienteTelefono}\n`;
+      msg += `*Fecha Vencimiento:* ${creditoPago.fechaVencimiento}\n`;
+    }
+    
+    msg += `\n------------------------------------------\n`;
+    msg += `Estudio ATEMPO · Teléfono: +58 4241785256\n`;
+    msg += `¡Gracias por su preferencia! 🛒✨`;
+    
+    return msg;
+  }, [items, total, tarifaActual, tasaSeleccionada, descuentoGlobal, ajusteRedondeo, metodoPago, ultimoRecibo, vuelto, vueltoUSD]);
+
+  const enviarWhatsApp = () => {
+    // Si hay un pago a crédito, pre-completar el teléfono del cliente
+    const creditoPago = metodoPago.find(p => p.tipo === 'credito');
+    setTelefonoWA(creditoPago?.clienteTelefono || '');
+    setMostrarModalWA(true);
+  };
+
+  const handleEnviarWATwilio = async () => {
+    if (!telefonoWA.trim()) {
+      toast.error('Por favor ingresa un número de teléfono válido.');
+      return;
+    }
+    setEnviandoWA(true);
+    const textMessage = generarTextoRecibo();
+    
+    try {
+      const res = await fetch('/api/whatsapp/send-receipt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to: telefonoWA, message: textMessage }),
+      });
+      
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Error al enviar por WhatsApp');
+      
+      toast.success('✅ Recibo enviado desde el número oficial de Atempo');
+      setMostrarModalWA(false);
+    } catch (err: any) {
+      console.error(err);
+      toast.error(`Error: ${err.message || 'No se pudo enviar. Intenta el método manual.'}`);
+    } finally {
+      setEnviandoWA(false);
+    }
+  };
+
+  const handleEnviarWAManual = () => {
+    if (!telefonoWA.trim()) {
+      toast.error('Por favor ingresa un número de teléfono.');
+      return;
+    }
+    let cleanTo = telefonoWA.replace(/[^\d]/g, '');
+    if (!cleanTo.startsWith('58') && !cleanTo.startsWith('+')) {
+      if (cleanTo.startsWith('0')) cleanTo = '58' + cleanTo.slice(1);
+      else cleanTo = '58' + cleanTo;
+    }
+    const textMessage = generarTextoRecibo();
+    window.open(`https://wa.me/${cleanTo}?text=${encodeURIComponent(textMessage)}`, '_blank');
+    setMostrarModalWA(false);
   };
 
   const cargando = false; // No bloquear UI — los items aparecen cuando cargan
@@ -1032,6 +1140,175 @@ export default function POSPage() {
             )}
           </>
         )}
+      </div>
+
+      {/* ── MODAL WHATSAPP ────────────────────────────────────────────────── */}
+      {mostrarModalWA && (
+        <div className="modal-overlay">
+          <div className="glass-card w-full max-w-md p-5 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-border">
+              <h3 className="font-semibold text-lg flex items-center gap-2">
+                <MessageCircle className="w-5 h-5 text-green-400" /> Enviar por WhatsApp
+              </h3>
+              <button onClick={() => setMostrarModalWA(false)} className="p-1 hover:bg-muted rounded-lg text-muted-foreground transition-all">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            
+            <div className="space-y-3">
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                El recibo será enviado al cliente con todo el desglose detallado de su compra.
+              </p>
+              
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block font-medium">
+                  Número de Teléfono del Cliente
+                </label>
+                <input
+                  type="text"
+                  className="input-sistema font-mono"
+                  placeholder="ej: +58 4241234567 o 04241234567"
+                  value={telefonoWA}
+                  onChange={e => setTelefonoWA(e.target.value)}
+                />
+              </div>
+            </div>
+            
+            <div className="flex flex-col gap-2 pt-2">
+              <button
+                onClick={handleEnviarWATwilio}
+                disabled={enviandoWA}
+                className="btn-primary justify-center text-sm font-medium py-2.5 bg-green-600 hover:bg-green-700 text-white"
+              >
+                {enviandoWA ? (
+                  <><RefreshCw className="w-4 h-4 animate-spin mr-2" /> Enviando...</>
+                ) : (
+                  <><MessageCircle className="w-4 h-4 mr-2" /> Enviar Automático (Atempo Official)</>
+                )}
+              </button>
+              
+              <button
+                onClick={handleEnviarWAManual}
+                disabled={enviandoWA}
+                className="btn-secondary justify-center text-sm font-medium py-2.5"
+              >
+                <ArrowLeftRight className="w-4 h-4 mr-2" /> Abrir Chat Manual (WhatsApp Web)
+              </button>
+              
+              <button
+                onClick={() => setMostrarModalWA(false)}
+                disabled={enviandoWA}
+                className="text-xs text-muted-foreground hover:text-foreground text-center py-1 mt-1 transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── TICKET IMPRIMIBLE (PDF / TÉRMICO) ─────────────────────────────── */}
+      <div id="print-receipt-ticket" className="hidden print:block text-black bg-white p-4 font-mono text-[11px] leading-relaxed w-[80mm] mx-auto select-none">
+        <div className="text-center mb-4">
+          <img src="/ATEMPO_LOGO.svg" alt="Atempo Logo" className="w-32 h-auto mx-auto mb-2 filter brightness-0" />
+          <h2 className="text-sm font-bold uppercase tracking-wider">Estudio Atempo</h2>
+          <p className="text-[10px] text-gray-700">RIF: J-501438965</p>
+          <p className="text-[10px] text-gray-700">Tel: +58 4241785256</p>
+          <p className="text-[10px] text-gray-700">Caracas, Venezuela</p>
+        </div>
+
+        <div className="border-t border-b border-black border-dashed py-2 mb-3 space-y-0.5">
+          <p><strong>Recibo:</strong> {ultimoRecibo}</p>
+          <p><strong>Fecha:</strong> {new Date().toLocaleString('es-VE')}</p>
+          <p><strong>Cajero:</strong> Punto de Venta</p>
+        </div>
+
+        <div className="mb-3">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="border-b border-black border-dashed">
+                <th className="pb-1">Cant/Desc</th>
+                <th className="pb-1 text-right">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((i, idx) => (
+                <tr key={idx} className="align-top">
+                  <td className="py-1">
+                    <div>{i.nombre}</div>
+                    <div className="text-[10px] text-gray-700">{i.cantidad} x {formatBs(i.precio)}</div>
+                  </td>
+                  <td className="py-1 text-right font-semibold">{formatBs(i.subtotal)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="border-t border-black border-dashed pt-2 mb-3 space-y-1 text-right">
+          <div className="flex justify-between">
+            <span>Subtotal:</span>
+            <span>{formatBs(calcularSubtotal())}</span>
+          </div>
+          {descuentoGlobal > 0 && (
+            <div className="flex justify-between text-gray-700">
+              <span>Descuento ({descuentoGlobal}%):</span>
+              <span>-{formatBs(calcularDescuento())}</span>
+            </div>
+          )}
+          {ajusteRedondeo !== 0 && (
+            <div className="flex justify-between text-gray-700">
+              <span>Redondeo:</span>
+              <span>{ajusteRedondeo > 0 ? '+' : ''}{formatBs(ajusteRedondeo)}</span>
+            </div>
+          )}
+          <div className="flex justify-between font-bold text-xs pt-1 border-t border-black border-dashed">
+            <span>TOTAL BS:</span>
+            <span>{formatBs(total)}</span>
+          </div>
+          <div className="flex justify-between text-[10px] text-gray-700">
+            <span>TOTAL USD:</span>
+            <span>{formatUSD(total / (tarifaActual || 1))}</span>
+          </div>
+          <div className="text-[9px] text-gray-600">Tasa Ref: {tarifaActual} Bs/{tasaSeleccionada.toUpperCase()}</div>
+        </div>
+
+        <div className="border-t border-black border-dashed pt-2 mb-3 space-y-1">
+          <p className="font-semibold text-center mb-1 text-[10px] uppercase">Detalle de Pagos</p>
+          {metodoPago.map((p, idx) => {
+            let detail = '';
+            if (p.tipo === 'efectivo_usd') detail = ` ($${p.montoExtranjero})`;
+            if (p.tipo === 'efectivo_eur') detail = ` (€${p.montoExtranjero})`;
+            if (p.referencia) detail = ` (Ref: ${p.referencia})`;
+            if (p.tipo === 'credito') detail = ` (Límite: ${p.fechaVencimiento})`;
+            
+            const label = p.tipo === 'punto_venta' ? 'Punto de Venta' :
+                          p.tipo === 'pago_movil' ? 'Pago Móvil' :
+                          p.tipo === 'efectivo_bs' ? 'Efectivo Bs' :
+                          p.tipo === 'efectivo_usd' ? 'Efectivo USD' :
+                          p.tipo === 'efectivo_eur' ? 'Efectivo EUR' :
+                          p.tipo === 'transferencia' ? 'Transferencia' :
+                          p.tipo === 'credito' ? 'Crédito/Fiado' : p.tipo;
+            return (
+              <div key={idx} className="flex justify-between text-[10px]">
+                <span>{label}{detail}:</span>
+                <span>{formatBs(p.monto)}</span>
+              </div>
+            );
+          })}
+          {vuelto > 0 && (
+            <div className="flex justify-between text-[10px] font-bold mt-1 border-t border-black border-dotted pt-1">
+              <span>Vuelto:</span>
+              <span>{formatBs(vuelto)} (≈ {formatUSD(vueltoUSD)})</span>
+            </div>
+          )}
+        </div>
+
+        <div className="border-t border-black border-dashed pt-3 text-center text-[10px] space-y-1">
+          <p className="font-semibold">¡Gracias por entrenar con nosotros!</p>
+          <p>Estudio ATEMPO</p>
+          <p className="text-[8px] text-gray-500">Desarrollado por ATEMPO Financial Systems</p>
+        </div>
       </div>
     </div>
   );

@@ -544,7 +544,27 @@
    PRINT
    ============================================================ */
 @media print {
-  .no-print { display: none !important; }
-  body { background: white; color: black; }
-  .card-sistema { border: 1px solid #ddd; box-shadow: none; background: white; }
+  body * {
+    visibility: hidden !important;
+  }
+  #print-receipt-ticket, #print-receipt-ticket * {
+    visibility: visible !important;
+  }
+  #print-receipt-ticket {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 80mm !important;
+    max-width: 80mm !important;
+    background: white !important;
+    color: black !important;
+    padding: 4mm 2mm !important;
+    box-shadow: none !important;
+    font-family: 'JetBrains Mono', 'DM Mono', monospace !important;
+    font-size: 11px !important;
+    line-height: 1.4 !important;
+  }
+  @page {
+    margin: 0;
+  }
 }
