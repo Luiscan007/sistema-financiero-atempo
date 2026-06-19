@@ -164,20 +164,92 @@ function ModalEvento({
     );
 }
 
+const CLASES_PRESETEADAS = [
+  { titulo: 'Latin Mood - Commercial', dia: 'Martes', horaInicio: '15:00', horaFin: '16:00', espacio: 'ALBA', instructor: 'CHISPITAS', descripcion: 'Grupo: Chispitas' },
+  { titulo: 'Pre Ballet - Jazz', dia: 'Jueves', horaInicio: '15:00', horaFin: '16:00', espacio: 'PRISMA', instructor: 'CHISPITAS', descripcion: 'Grupo: Chispitas' },
+  { titulo: 'Pre Ballet - Jazz', dia: 'Lunes', horaInicio: '16:30', horaFin: '17:30', espacio: 'ALBA', instructor: 'DANIEL', descripcion: 'Grupo: Nova' },
+  { titulo: 'Jazz', dia: 'Martes', horaInicio: '16:30', horaFin: '17:30', espacio: 'ALBA', instructor: 'YELA', descripcion: 'Grupo: Kairos' },
+  { titulo: 'Latin Mood', dia: 'Viernes', horaInicio: '16:30', horaFin: '17:30', espacio: 'ALBA', instructor: 'GENESIS', descripcion: 'Grupo: Nova' },
+  { titulo: 'Commercial', dia: 'Lunes', horaInicio: '16:30', horaFin: '17:30', espacio: 'PRISMA', instructor: 'PACCO/THIUNKER/OMAH', descripcion: 'Grupo: Kairos' },
+  { titulo: 'Salsa', dia: 'Miercoles', horaInicio: '16:30', horaFin: '17:30', espacio: 'ONIX', instructor: 'AITANA', descripcion: 'Grupo: Kairos y Kronos' },
+  { titulo: 'Latin Mood', dia: 'Lunes', horaInicio: '17:30', horaFin: '18:30', espacio: 'ALBA', instructor: 'PACCO', descripcion: 'Grupo: Kronos' },
+  { titulo: 'Latin Mood', dia: 'Martes', horaInicio: '17:30', horaFin: '18:30', espacio: 'ALBA', instructor: 'PACCO', descripcion: 'Grupo: Kairos' },
+  { titulo: 'Jazz', dia: 'Jueves', horaInicio: '17:30', horaFin: '18:30', espacio: 'ALBA', instructor: 'YELA', descripcion: 'Grupo: Kronos' },
+  { titulo: 'Commercial', dia: 'Lunes', horaInicio: '17:30', horaFin: '18:30', espacio: 'PRISMA', instructor: 'OMAH/THIUNKER/PACCO', descripcion: 'Grupo: Nova' },
+  { titulo: 'Flamenco', dia: 'Lunes', horaInicio: '17:30', horaFin: '18:30', espacio: 'ONIX', instructor: 'ALESSANDRA', descripcion: 'Grupo: Kairos' },
+  { titulo: 'Actuación', dia: 'Miercoles', horaInicio: '17:30', horaFin: '18:30', espacio: 'ONIX', instructor: 'JOSE', descripcion: 'Grupo: Nova, Kairos y Kronos' },
+  { titulo: 'Flamenco', dia: 'Viernes', horaInicio: '17:30', horaFin: '18:30', espacio: 'ONIX', instructor: 'ALESSANDRA', descripcion: 'Grupo: Nova' },
+  { titulo: 'Flamenco', dia: 'Lunes', horaInicio: '18:30', horaFin: '19:30', espacio: 'ONIX', instructor: 'ALESSANDRA', descripcion: 'Grupo: Kronos' },
+  { titulo: 'Hip Hop', dia: 'Miercoles', horaInicio: '18:30', horaFin: '19:30', espacio: 'ONIX', instructor: 'KEVIN', descripcion: 'Grupo: Kairos y Krono' },
+  { titulo: 'Commercial', dia: 'Jueves', horaInicio: '18:30', horaFin: '19:30', espacio: 'ONIX', instructor: 'OMAH/THIUNKER/PACCO', descripcion: 'Grupo: Kronos' },
+  { titulo: 'Heels - Experimental', dia: 'Lunes', horaInicio: '19:30', horaFin: '20:30', espacio: 'ONIX', instructor: 'JAVIER', descripcion: 'Grupo: Kairos y Kronos' }
+];
+
 /* ── Pagina principal ───────────────────── */
 export default function AgendaPage() {
     const hoy = new Date();
     const [semanaBase, setSemanaBase] = useState(new Date(hoy));
     const semana = getSemana(semanaBase);
-
+ 
     const fechaInicio = semana[0].toISOString().split('T')[0];
     const fechaFin    = semana[6].toISOString().split('T')[0];
-
+ 
     const { eventos, cargando, crearEvento, actualizarEvento, eliminarEvento } = useAgenda(fechaInicio, fechaFin);
-
+ 
     const [modalEvento,  setModalEvento]  = useState<Partial<Evento> | null | undefined>(undefined);
     const [fechaClick,   setFechaClick]   = useState('');
     const [eventoDetalle, setEventoDetalle] = useState<Evento | null>(null);
+    const [importando,   setImportando]   = useState(false);
+
+    const getFechaPorDia = (diaNombre: string) => {
+        const index = 
+            diaNombre === 'Lunes' ? 1 :
+            diaNombre === 'Martes' ? 2 :
+            diaNombre === 'Miercoles' ? 3 :
+            diaNombre === 'Jueves' ? 4 :
+            diaNombre === 'Viernes' ? 5 :
+            diaNombre === 'Sabado' ? 6 : 0;
+        
+        const d = semana[index];
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const r = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${r}`;
+    };
+
+    const importarHorarioAtempo = async () => {
+        if (!confirm('¿Deseas importar las 18 clases del horario estándar de Atempo Art Studio en la semana actual visible en pantalla?')) return;
+        setImportando(true);
+        let importadas = 0;
+        try {
+            for (const c of CLASES_PRESETEADAS) {
+                const fecha = getFechaPorDia(c.dia);
+                await crearEvento({
+                    titulo: c.titulo,
+                    tipo: 'clase',
+                    estado: 'confirmado',
+                    fecha,
+                    horaInicio: c.horaInicio,
+                    horaFin: c.horaFin,
+                    espacio: c.espacio,
+                    instructor: c.instructor,
+                    descripcion: c.descripcion,
+                    alumnoId: '',
+                    alumnoNombre: '',
+                    notas: '',
+                    montoBs: 0,
+                    montoUSD: 0
+                });
+                importadas++;
+            }
+            toast.success(`✅ Se importaron ${importadas} clases exitosamente para esta semana`);
+        } catch (err) {
+            console.error(err);
+            toast.error('Error al importar algunas clases');
+        } finally {
+            setImportando(false);
+        }
+    };
 
     const navegarSemana = (dir: -1 | 1) => {
         setSemanaBase(prev => {
@@ -232,6 +304,14 @@ export default function AgendaPage() {
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
+                    <button onClick={importarHorarioAtempo} disabled={importando}
+                        className="btn-secondary text-xs flex items-center gap-1 border-purple-500/30 hover:bg-purple-500/10 text-purple-400">
+                        {importando ? (
+                            <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Importando...</>
+                        ) : (
+                            <>📅 Cargar Horario Atempo</>
+                        )}
+                    </button>
                     <button onClick={() => setSemanaBase(new Date())} className="btn-secondary text-xs">Hoy</button>
                     <button onClick={() => navegarSemana(-1)} className="p-2 hover:bg-muted rounded-xl border border-border transition-all">
                         <ChevronLeft className="w-4 h-4" />
