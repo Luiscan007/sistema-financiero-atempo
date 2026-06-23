@@ -609,6 +609,54 @@ export default function ProductosPage() {
         });
     };
 
+    const handleEliminarIngreso = async (ingresoId: string) => {
+        const { doc: docRef, deleteDoc, updateDoc, increment, getDoc } = await import('firebase/firestore');
+        const { db: firestoreDb } = await import('@/lib/firebase');
+        
+        // 1. Obtener los datos del ingreso
+        const ingresoRef = docRef(firestoreDb, 'ingresos_inventario', ingresoId);
+        const snap = await getDoc(ingresoRef);
+        if (!snap.exists()) throw new Error("El registro de entrada no existe");
+        
+        const data = snap.data();
+        const { productoId, cantidad } = data;
+        
+        // 2. Restar la cantidad del stock del producto
+        await updateDoc(docRef(firestoreDb, 'productos_catalogo', productoId), {
+            stock: increment(-cantidad)
+        });
+        
+        // 3. Eliminar el registro del historial
+        await deleteDoc(ingresoRef);
+    };
+
+    const handleEditarIngreso = async (ingresoId: string, nuevaCantidad: number, nuevasNotas: string) => {
+        const { doc: docRef, updateDoc, increment, getDoc } = await import('firebase/firestore');
+        const { db: firestoreDb } = await import('@/lib/firebase');
+        
+        // 1. Obtener los datos actuales del ingreso
+        const ingresoRef = docRef(firestoreDb, 'ingresos_inventario', ingresoId);
+        const snap = await getDoc(ingresoRef);
+        if (!snap.exists()) throw new Error("El registro de entrada no existe");
+        
+        const data = snap.data();
+        const { productoId, cantidad: antiguaCantidad } = data;
+        const diferencia = nuevaCantidad - antiguaCantidad;
+        
+        // 2. Ajustar el stock del producto
+        if (diferencia !== 0) {
+            await updateDoc(docRef(firestoreDb, 'productos_catalogo', productoId), {
+                stock: increment(diferencia)
+            });
+        }
+        
+        // 3. Actualizar el registro del historial
+        await updateDoc(ingresoRef, {
+            cantidad: nuevaCantidad,
+            notas: nuevasNotas
+        });
+    };
+
     // ─── Filtrado ───────────────────────────────────────────────────────────
     const productosFiltrados = productos.filter(p => {
         const matchBusqueda =
@@ -1040,6 +1088,8 @@ export default function ProductosPage() {
                 <ModalHistorialIngresos
                     ingresos={ingresos}
                     onCerrar={() => setMostrarHistorialModal(false)}
+                    onEliminar={handleEliminarIngreso}
+                    onEditar={handleEditarIngreso}
                 />
             )}
         </div>
@@ -1171,17 +1221,69 @@ function ModalIngreso({
 function ModalHistorialIngresos({
     ingresos,
     onCerrar,
+    onEliminar,
+    onEditar,
 }: {
     ingresos: any[];
     onCerrar: () => void;
+    onEliminar: (id: string) => Promise<void>;
+    onEditar: (id: string, cantidad: number, notas: string) => Promise<void>;
 }) {
     const [busqueda, setBusqueda] = useState('');
+    const [editandoId, setEditandoId] = useState<string | null>(null);
+    const [editCantidad, setEditCantidad] = useState<number>(0);
+    const [editNotas, setEditNotas] = useState('');
+    const [guardandoId, setGuardandoId] = useState<string | null>(null);
 
     const filtrados = ingresos.filter(i =>
         i.productoNombre.toLowerCase().includes(busqueda.toLowerCase()) ||
         (i.notas || '').toLowerCase().includes(busqueda.toLowerCase()) ||
         (i.subcategoria || '').toLowerCase().includes(busqueda.toLowerCase())
     );
+
+    const iniciarEdicion = (reg: any) => {
+        setEditandoId(reg.id);
+        setEditCantidad(reg.cantidad);
+        setEditNotas(reg.notas || '');
+    };
+
+    const cancelarEdicion = () => {
+        setEditandoId(null);
+        setEditCantidad(0);
+        setEditNotas('');
+    };
+
+    const guardarEdicion = async (id: string) => {
+        if (editCantidad <= 0) {
+            toast.error('Ingresa una cantidad mayor a 0');
+            return;
+        }
+        setGuardandoId(id);
+        try {
+            await onEditar(id, editCantidad, editNotas);
+            toast.success('Registro de entrada actualizado');
+            cancelarEdicion();
+        } catch (err: any) {
+            console.error(err);
+            toast.error('Error al actualizar: ' + (err.message || err));
+        } finally {
+            setGuardandoId(null);
+        }
+    };
+
+    const eliminar = async (reg: any) => {
+        if (!window.confirm(`¿Estás seguro de que deseas eliminar este registro de entrada?\nEsto restará ${reg.cantidad} unidades del stock actual de "${reg.productoNombre}".`)) {
+            return;
+        }
+        const toastId = toast.loading('Eliminando registro...');
+        try {
+            await onEliminar(reg.id);
+            toast.success('Registro de entrada eliminado', { id: toastId });
+        } catch (err: any) {
+            console.error(err);
+            toast.error('Error al eliminar: ' + (err.message || err), { id: toastId });
+        }
+    };
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -1221,6 +1323,73 @@ function ModalHistorialIngresos({
                         <div className="space-y-4">
                             {filtrados.map(reg => {
                                 const esHelado = reg.subcategoria?.toLowerCase().trim() === 'helados';
+                                const esEditando = reg.id === editandoId;
+
+                                if (esEditando) {
+                                    return (
+                                        <div key={reg.id} className="bg-muted/30 border border-blue-500/30 rounded-xl p-4 flex flex-col gap-3">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <h4 className="text-sm font-semibold truncate">{reg.productoNombre}</h4>
+                                                    <span className={cn(
+                                                        'inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border',
+                                                        reg.categoria === 'cafetín'
+                                                            ? esHelado ? 'bg-pink-500/10 text-pink-400 border-pink-500/20' : 'bg-orange-500/10 text-orange-400 border-orange-500/20'
+                                                            : 'bg-violet-500/10 text-violet-400 border-violet-500/20'
+                                                    )}>
+                                                        {esHelado ? '🍦 Helado' : reg.subcategoria || reg.categoria}
+                                                    </span>
+                                                </div>
+                                                <span className="text-[10px] text-muted-foreground">Editando entrada</span>
+                                            </div>
+                                            
+                                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                                <div className="sm:col-span-1">
+                                                    <label className="text-[10px] text-muted-foreground mb-1 block">Cantidad</label>
+                                                    <input
+                                                        type="number"
+                                                        min="1"
+                                                        className="input-sistema py-1.5 px-3 font-mono text-sm w-full"
+                                                        value={editCantidad}
+                                                        onChange={e => setEditCantidad(parseInt(e.target.value) || 0)}
+                                                    />
+                                                </div>
+                                                <div className="sm:col-span-2">
+                                                    <label className="text-[10px] text-muted-foreground mb-1 block">Notas / Comentario</label>
+                                                    <input
+                                                        type="text"
+                                                        className="input-sistema py-1.5 px-3 text-sm w-full"
+                                                        placeholder="Ej: Reposición..."
+                                                        value={editNotas}
+                                                        onChange={e => setEditNotas(e.target.value)}
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div className="flex justify-end gap-2 mt-1">
+                                                <button
+                                                    onClick={cancelarEdicion}
+                                                    disabled={guardandoId === reg.id}
+                                                    className="btn-secondary py-1.5 px-3 text-xs justify-center"
+                                                >
+                                                    Cancelar
+                                                </button>
+                                                <button
+                                                    onClick={() => guardarEdicion(reg.id)}
+                                                    disabled={guardandoId === reg.id}
+                                                    className="btn-primary py-1.5 px-3 text-xs justify-center bg-green-600 hover:bg-green-700 text-white"
+                                                >
+                                                    {guardandoId === reg.id ? (
+                                                        <><Loader2 className="w-3 h-3 animate-spin mr-1" /> Guardando...</>
+                                                    ) : (
+                                                        'Guardar'
+                                                    )}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    );
+                                }
+
                                 return (
                                     <div key={reg.id} className="bg-muted/20 border border-border/40 rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
                                         <div className="space-y-1.5 min-w-0">
@@ -1244,10 +1413,26 @@ function ModalHistorialIngresos({
                                                 Registrado por: <span className="text-foreground">{reg.usuarioNombre}</span> · {reg.fechaStr}
                                             </p>
                                         </div>
-                                        <div className="shrink-0 flex items-center">
+                                        <div className="shrink-0 flex items-center gap-3">
                                             <span className="inline-flex items-center px-3 py-1 rounded-lg text-sm font-bold bg-green-500/10 text-green-400 border border-green-500/20 font-mono">
                                                 +{reg.cantidad} uds
                                             </span>
+                                            <div className="flex items-center gap-1">
+                                                <button
+                                                    onClick={() => iniciarEdicion(reg)}
+                                                    className="p-1.5 text-muted-foreground hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors"
+                                                    title="Editar"
+                                                >
+                                                    <Edit2 className="w-3.5 h-3.5" />
+                                                </button>
+                                                <button
+                                                    onClick={() => eliminar(reg)}
+                                                    className="p-1.5 text-muted-foreground hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                                                    title="Eliminar"
+                                                >
+                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 );
