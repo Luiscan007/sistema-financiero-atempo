@@ -15,6 +15,7 @@ import { formatBs, formatUSD } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 import { useVentas } from '@/lib/useVentas';
 import type { Venta } from '@/lib/useVentas';
+import toast from 'react-hot-toast';
 
 const ICONOS_PAGO: Record<string, any> = {
     punto_venta: CreditCard,
@@ -83,15 +84,52 @@ export default function VentasPage() {
 
     const confirmarEliminacion = async () => {
         if (!ventaAEliminar) return;
-        setEliminando(true);
+        
+        const toastId = toast.loading('Anulando venta y restaurando stock...');
+        const ventaId = ventaAEliminar.id;
+        const numeroRecibo = ventaAEliminar.numeroRecibo;
+        const items = ventaAEliminar.items || [];
+
+        // UI Optimista: Cerrar modal inmediatamente
+        setVentaAEliminar(null);
+        setVentaDetalle(null);
+        setEliminando(false);
+
         try {
-            await eliminarVenta(ventaAEliminar.id);
-            setVentaAEliminar(null);
-            setVentaDetalle(null);
-        } catch (err) {
-            alert('Error al eliminar la venta');
-        } finally {
-            setEliminando(false);
+            const { doc: docRef, deleteDoc, updateDoc, increment, collection, query, where, getDocs } = await import('firebase/firestore');
+            const { db: firestoreDb } = await import('@/lib/firebase');
+            
+            const promesas = [];
+
+            // 1. Eliminar la venta de Firestore
+            promesas.push(deleteDoc(docRef(firestoreDb, 'ventas', ventaId)));
+
+            // 2. Restaurar stock para los productos correspondientes
+            for (const item of items) {
+                if (item.tipo === 'producto') {
+                    promesas.push(
+                        updateDoc(docRef(firestoreDb, 'productos_catalogo', item.id), {
+                            stock: increment(item.cantidad)
+                        })
+                    );
+                }
+            }
+
+            // 3. Eliminar cuentas por cobrar asociadas a este recibo (en caso de fiado)
+            const q = query(
+                collection(firestoreDb, 'cuentas_cobrar'),
+                where('concepto', '==', `Venta POS - Recibo #${numeroRecibo}`)
+            );
+            const querySnapshot = await getDocs(q);
+            querySnapshot.forEach((docSnap) => {
+                promesas.push(deleteDoc(docSnap.ref));
+            });
+
+            await Promise.all(promesas);
+            toast.success(`Venta #${numeroRecibo} anulada y stock actualizado`, { id: toastId });
+        } catch (err: any) {
+            console.error("Error al anular venta:", err);
+            toast.error(`Error al anular la venta: ${err.message || err}`, { id: toastId });
         }
     };
 
