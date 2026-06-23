@@ -9,11 +9,12 @@
  * Misma estructura y lógica que app/servicios/page.tsx
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
     Plus, Search, Edit2, Trash2, Tag, CheckCircle2,
     X, DollarSign, Loader2, ShoppingBag, Coffee,
     Package, AlertTriangle, ChevronDown, ChevronUp, BarChart3,
+    History as HistoryIcon, PlusCircle, FileText,
 } from 'lucide-react';
 import { useTasas } from '@/components/providers/TasasProvider';
 import { cn } from '@/lib/utils';
@@ -536,6 +537,68 @@ export default function ProductosPage() {
     const [modalProducto,   setModalProducto]   = useState<Partial<Producto> | null | undefined>(undefined);
     const [mostrarResumen,  setMostrarResumen]  = useState(false);
     const [mostrarHelados,  setMostrarHelados]  = useState(false);
+    const [modalIngreso,    setModalIngreso]    = useState(false);
+    const [mostrarHistorialModal, setMostrarHistorialModal] = useState(false);
+    const [ingresos,        setIngresos]        = useState<any[]>([]);
+
+    useEffect(() => {
+        let unsub: any;
+        const fetchIngresos = async () => {
+            const { collection, query, orderBy, limit, onSnapshot } = await import('firebase/firestore');
+            const { db: firestoreDb } = await import('@/lib/firebase');
+            
+            const q = query(
+                collection(firestoreDb, 'ingresos_inventario'),
+                orderBy('fecha', 'desc'),
+                limit(100)
+            );
+            unsub = onSnapshot(q, (snap) => {
+                setIngresos(snap.docs.map(doc => {
+                    const data = doc.data();
+                    return {
+                        id: doc.id,
+                        ...data,
+                        fechaStr: data.fecha?.toDate()
+                            ? data.fecha.toDate().toLocaleString('es-VE')
+                            : new Date().toLocaleString('es-VE')
+                    };
+                }));
+            }, (err) => {
+                console.error("Error al escuchar ingresos de inventario:", err);
+            });
+        };
+        fetchIngresos();
+        return () => { if (unsub) unsub(); };
+    }, []);
+
+    const handleRegistrarIngreso = async (productoId: string, cantidad: number, notas: string) => {
+        const { collection, addDoc, doc: docRef, updateDoc, increment, serverTimestamp } = await import('firebase/firestore');
+        const { db: firestoreDb } = await import('@/lib/firebase');
+        const { getAuth } = await import('firebase/auth');
+        
+        const auth = getAuth();
+        const user = auth.currentUser;
+        const prod = productos.find(p => p.id === productoId);
+        if (!prod) throw new Error("Producto no encontrado");
+
+        // 1. Incrementar stock del producto
+        await updateDoc(docRef(firestoreDb, 'productos_catalogo', productoId), {
+            stock: increment(cantidad)
+        });
+
+        // 2. Registrar en historial de ingresos
+        await addDoc(collection(firestoreDb, 'ingresos_inventario'), {
+            productoId,
+            productoNombre: prod.nombre,
+            categoria: prod.categoria,
+            subcategoria: prod.subcategoria || '',
+            cantidad,
+            notas,
+            fecha: serverTimestamp(),
+            usuarioId: user?.uid || 'anonimo',
+            usuarioNombre: user?.displayName || user?.email || 'Usuario',
+        });
+    };
 
     // ─── Filtrado ───────────────────────────────────────────────────────────
     const productosFiltrados = productos.filter(p => {
@@ -618,10 +681,20 @@ export default function ProductosPage() {
                         Cafetín y Merchandising ATEMPO
                     </p>
                 </div>
-                <button onClick={() => setModalProducto({})} className="btn-primary text-sm py-2.5">
-                    <Plus className="w-4 h-4" />
-                    Nuevo Producto
-                </button>
+                <div className="flex items-center gap-2 flex-wrap">
+                    <button onClick={() => setMostrarHistorialModal(true)} className="btn-secondary text-sm py-2.5">
+                        <HistoryIcon className="w-4 h-4 text-violet-400" />
+                        Historial de Entradas
+                    </button>
+                    <button onClick={() => setModalIngreso(true)} className="btn-secondary text-sm py-2.5 border-green-500/20 text-green-400 hover:bg-green-500/10">
+                        <PlusCircle className="w-4 h-4" />
+                        Registrar Entrada
+                    </button>
+                    <button onClick={() => setModalProducto({})} className="btn-primary text-sm py-2.5">
+                        <Plus className="w-4 h-4" />
+                        Nuevo Producto
+                    </button>
+                </div>
             </div>
 
             {/* ── KPIs ── */}
@@ -943,6 +1016,249 @@ export default function ProductosPage() {
                     tasas={tasas}
                 />
             )}
+
+            {/* Modal Registrar Entrada */}
+            {modalIngreso && (
+                <ModalIngreso
+                    productos={productos}
+                    onCerrar={() => setModalIngreso(false)}
+                    onRegistrar={handleRegistrarIngreso}
+                />
+            )}
+
+            {/* Modal Historial Entradas */}
+            {mostrarHistorialModal && (
+                <ModalHistorialIngresos
+                    ingresos={ingresos}
+                    onCerrar={() => setMostrarHistorialModal(false)}
+                />
+            )}
+        </div>
+    );
+}
+
+// ─── COMPONENTES AUXILIARES PARA INGRESO DE INVENTARIO ──────────────────────────
+
+function ModalIngreso({
+    productos,
+    onCerrar,
+    onRegistrar,
+}: {
+    productos: Producto[];
+    onCerrar: () => void;
+    onRegistrar: (productoId: string, cantidad: number, notas: string) => Promise<void>;
+}) {
+    const [productoId, setProductoId] = useState('');
+    const [cantidad, setCantidad] = useState<number | ''>('');
+    const [notas, setNotas] = useState('');
+    const [procesando, setProcesando] = useState(false);
+
+    // Agrupar productos
+    const helados = productos.filter(p => p.categoria === 'cafetín' && p.subcategoria?.toLowerCase().trim() === 'helados');
+    const otrosCafetin = productos.filter(p => p.categoria === 'cafetín' && p.subcategoria?.toLowerCase().trim() !== 'helados');
+    const merch = productos.filter(p => p.categoria === 'merchandising');
+
+    const registrar = async () => {
+        if (!productoId) { toast.error('Selecciona un producto'); return; }
+        if (!cantidad || cantidad <= 0) { toast.error('Ingresa una cantidad mayor a 0'); return; }
+        setProcesando(true);
+        try {
+            await onRegistrar(productoId, cantidad, notas);
+            toast.success('Entrada de inventario registrada');
+            onCerrar();
+        } catch (err: any) {
+            console.error(err);
+            toast.error('Error al registrar entrada: ' + (err.message || err));
+        } finally {
+            setProcesando(false);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <div className="bg-card border border-border rounded-2xl w-full max-w-md shadow-2xl">
+                {/* Header */}
+                <div className="flex items-center justify-between p-6 border-b border-border">
+                    <h3 className="text-lg font-semibold flex items-center gap-2">
+                        <PlusCircle className="w-5 h-5 text-green-400" />
+                        Registrar Entrada de Stock
+                    </h3>
+                    <button onClick={onCerrar} className="p-1.5 hover:bg-muted rounded-lg transition-colors">
+                        <X className="w-4 h-4" />
+                    </button>
+                </div>
+
+                {/* Form */}
+                <div className="p-6 space-y-4">
+                    <div>
+                        <label className="text-xs text-muted-foreground mb-1.5 block">Seleccionar Producto *</label>
+                        <select
+                            className="input-sistema"
+                            value={productoId}
+                            onChange={e => setProductoId(e.target.value)}
+                        >
+                            <option value="">Selecciona un producto...</option>
+                            {helados.length > 0 && (
+                                <optgroup label="🍦 Helados">
+                                    {helados.map(p => (
+                                        <option key={p.id} value={p.id}>{p.nombre} (Stock: {p.stock})</option>
+                                    ))}
+                                </optgroup>
+                            )}
+                            {otrosCafetin.length > 0 && (
+                                <optgroup label="☕ Otros Cafetín">
+                                    {otrosCafetin.map(p => (
+                                        <option key={p.id} value={p.id}>{p.nombre} (Stock: {p.stock})</option>
+                                    ))}
+                                </optgroup>
+                            )}
+                            {merch.length > 0 && (
+                                <optgroup label="🛍️ Merchandising">
+                                    {merch.map(p => (
+                                        <option key={p.id} value={p.id}>{p.nombre} (Stock: {p.stock})</option>
+                                    ))}
+                                </optgroup>
+                            )}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label className="text-xs text-muted-foreground mb-1 block">Cantidad a Ingresar *</label>
+                        <input
+                            type="number"
+                            min="1"
+                            className="input-sistema font-mono"
+                            placeholder="Ej: 12"
+                            value={cantidad}
+                            onChange={e => setCantidad(parseInt(e.target.value) || '')}
+                        />
+                    </div>
+
+                    <div>
+                        <label className="text-xs text-muted-foreground mb-1 block">Notas / Comentario (Opcional)</label>
+                        <textarea
+                            className="input-sistema resize-none"
+                            rows={2}
+                            placeholder="Ej: Compra de proveedor, reposición de nevera..."
+                            value={notas}
+                            onChange={e => setNotas(e.target.value)}
+                        />
+                    </div>
+                </div>
+
+                {/* Footer */}
+                <div className="flex gap-3 p-6 border-t border-border">
+                    <button onClick={onCerrar} disabled={procesando} className="flex-1 btn-secondary py-2.5 text-sm justify-center">
+                        Cancelar
+                    </button>
+                    <button onClick={registrar} disabled={procesando} className="flex-1 btn-primary py-2.5 text-sm justify-center bg-green-600 hover:bg-green-700 text-white">
+                        {procesando ? (
+                            <><Loader2 className="w-4 h-4 animate-spin mr-1.5" /> Procesando...</>
+                        ) : (
+                            <><PlusCircle className="w-4 h-4 mr-1.5" /> Registrar</>
+                        )}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function ModalHistorialIngresos({
+    ingresos,
+    onCerrar,
+}: {
+    ingresos: any[];
+    onCerrar: () => void;
+}) {
+    const [busqueda, setBusqueda] = useState('');
+
+    const filtrados = ingresos.filter(i =>
+        i.productoNombre.toLowerCase().includes(busqueda.toLowerCase()) ||
+        (i.notas || '').toLowerCase().includes(busqueda.toLowerCase()) ||
+        (i.subcategoria || '').toLowerCase().includes(busqueda.toLowerCase())
+    );
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <div className="bg-card border border-border rounded-2xl w-full max-w-2xl shadow-2xl max-h-[90vh] flex flex-col">
+                {/* Header */}
+                <div className="flex items-center justify-between p-6 border-b border-border flex-shrink-0">
+                    <h3 className="text-lg font-semibold flex items-center gap-2">
+                        <HistoryIcon className="w-5 h-5 text-violet-400" />
+                        Historial de Entradas de Inventario
+                    </h3>
+                    <button onClick={onCerrar} className="p-1.5 hover:bg-muted rounded-lg transition-colors">
+                        <X className="w-4 h-4" />
+                    </button>
+                </div>
+
+                {/* Buscador */}
+                <div className="p-4 border-b border-border bg-muted/10 flex-shrink-0">
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <input
+                            className="input-sistema pl-9 w-full"
+                            placeholder="Buscar por producto, notas o subcategoría..."
+                            value={busqueda}
+                            onChange={e => setBusqueda(e.target.value)}
+                        />
+                    </div>
+                </div>
+
+                {/* Content */}
+                <div className="flex-1 overflow-y-auto p-6 min-h-0">
+                    {filtrados.length === 0 ? (
+                        <div className="text-center py-12 text-muted-foreground space-y-2">
+                            <FileText className="w-12 h-12 mx-auto opacity-20" />
+                            <p>No se encontraron registros de entrada</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-4">
+                            {filtrados.map(reg => {
+                                const esHelado = reg.subcategoria?.toLowerCase().trim() === 'helados';
+                                return (
+                                    <div key={reg.id} className="bg-muted/20 border border-border/40 rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
+                                        <div className="space-y-1.5 min-w-0">
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                <h4 className="text-sm font-semibold truncate">{reg.productoNombre}</h4>
+                                                <span className={cn(
+                                                    'inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border',
+                                                    reg.categoria === 'cafetín'
+                                                        ? esHelado ? 'bg-pink-500/10 text-pink-400 border-pink-500/20' : 'bg-orange-500/10 text-orange-400 border-orange-500/20'
+                                                        : 'bg-violet-500/10 text-violet-400 border-violet-500/20'
+                                                )}>
+                                                    {esHelado ? '🍦 Helado' : reg.subcategoria || reg.categoria}
+                                                </span>
+                                            </div>
+                                            {reg.notas && (
+                                                <p className="text-xs text-muted-foreground leading-relaxed">
+                                                    {reg.notas}
+                                                </p>
+                                            )}
+                                            <p className="text-[10px] text-muted-foreground">
+                                                Registrado por: <span className="text-foreground">{reg.usuarioNombre}</span> · {reg.fechaStr}
+                                            </p>
+                                        </div>
+                                        <div className="shrink-0 flex items-center">
+                                            <span className="inline-flex items-center px-3 py-1 rounded-lg text-sm font-bold bg-green-500/10 text-green-400 border border-green-500/20 font-mono">
+                                                +{reg.cantidad} uds
+                                            </span>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+
+                {/* Footer */}
+                <div className="p-4 border-t border-border flex justify-end flex-shrink-0">
+                    <button onClick={onCerrar} className="btn-secondary py-2 text-sm px-6 justify-center">
+                        Cerrar
+                    </button>
+                </div>
+            </div>
         </div>
     );
 }
