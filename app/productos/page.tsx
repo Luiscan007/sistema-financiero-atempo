@@ -13,7 +13,7 @@ import { useState } from 'react';
 import {
     Plus, Search, Edit2, Trash2, Tag, CheckCircle2,
     X, DollarSign, Loader2, ShoppingBag, Coffee,
-    Package, AlertTriangle,
+    Package, AlertTriangle, ChevronDown, ChevronUp, BarChart3,
 } from 'lucide-react';
 import { useTasas } from '@/components/providers/TasasProvider';
 import { cn } from '@/lib/utils';
@@ -534,6 +534,7 @@ export default function ProductosPage() {
     const [filtroStock,     setFiltroStock]     = useState<'todos' | 'bajo' | 'ok'>('todos');
     const [filtroActivo,    setFiltroActivo]    = useState<'todos' | 'activos' | 'inactivos'>('todos');
     const [modalProducto,   setModalProducto]   = useState<Partial<Producto> | null | undefined>(undefined);
+    const [mostrarResumen,  setMostrarResumen]  = useState(false);
 
     // ─── Filtrado ───────────────────────────────────────────────────────────
     const productosFiltrados = productos.filter(p => {
@@ -563,6 +564,28 @@ export default function ProductosPage() {
     const totalCafetin       = productos.filter(p => p.categoria === 'cafetín').length;
     const totalMerch         = productos.filter(p => p.categoria === 'merchandising').length;
     const totalStockBajo     = productos.filter(p => p.stock <= p.stockMinimo).length;
+
+    // ─── Agrupación de stock disponible por categoría y subcategoría ──────────
+    const stockPorCategoria = productos.reduce((acc, p) => {
+        const cat = p.categoria;
+        const sub = p.subcategoria || 'Otro';
+        const stock = p.stock || 0;
+
+        if (!acc[cat]) {
+            acc[cat] = { total: 0, sub: {} as Record<string, number> };
+        }
+        acc[cat].total += stock;
+        acc[cat].sub[sub] = (acc[cat].sub[sub] || 0) + stock;
+        return acc;
+    }, {
+        cafetín: { total: 0, sub: {} as Record<string, number> },
+        merchandising: { total: 0, sub: {} as Record<string, number> }
+    });
+
+    const subcatsCafetin = Object.entries(stockPorCategoria.cafetín.sub)
+        .sort((a, b) => b[1] - a[1]);
+    const subcatsMerch = Object.entries(stockPorCategoria.merchandising.sub)
+        .sort((a, b) => b[1] - a[1]);
 
     // ─── Loading ────────────────────────────────────────────────────────────
     if (cargando) {
@@ -629,6 +652,108 @@ export default function ProductosPage() {
                     </div>
                 </div>
             )}
+
+            {/* ── Resumen de Unidades Disponibles ── */}
+            <div className="glass-card overflow-hidden">
+                <button
+                    onClick={() => setMostrarResumen(!mostrarResumen)}
+                    className="w-full flex items-center justify-between p-4 hover:bg-white/[0.02] transition-colors"
+                >
+                    <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-violet-500/10 flex items-center justify-center text-violet-400">
+                            <BarChart3 className="w-4 h-4" />
+                        </div>
+                        <div className="text-left">
+                            <h3 className="font-semibold text-sm">Resumen de Stock Disponible por Subcategorías</h3>
+                            <p className="text-xs text-muted-foreground">
+                                Total stock: <span className="font-mono font-semibold text-green-400">{stockPorCategoria.cafetín.total + stockPorCategoria.merchandising.total} uds</span> 
+                                (Cafetín: {stockPorCategoria.cafetín.total} uds · Merch: {stockPorCategoria.merchandising.total} uds)
+                            </p>
+                        </div>
+                    </div>
+                    {mostrarResumen ? (
+                        <ChevronUp className="w-4 h-4 text-muted-foreground" />
+                    ) : (
+                        <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                    )}
+                </button>
+
+                {mostrarResumen && (
+                    <div className="p-5 border-t border-border/60 bg-muted/10 grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Cafetín */}
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between pb-2 border-b border-border/40">
+                                <span className="flex items-center gap-2 text-sm font-semibold text-orange-400">
+                                    <Coffee className="w-4 h-4" />
+                                    ☕ Cafetín
+                                </span>
+                                <span className="text-xs font-bold bg-orange-500/10 text-orange-400 px-2.5 py-0.5 rounded-full border border-orange-500/20">
+                                    {stockPorCategoria.cafetín.total} uds
+                                </span>
+                            </div>
+                            {subcatsCafetin.length === 0 ? (
+                                <p className="text-xs text-muted-foreground py-2">No hay productos en Cafetín</p>
+                            ) : (
+                                <div className="space-y-2.5">
+                                    {subcatsCafetin.map(([sub, cant]) => {
+                                        const pct = stockPorCategoria.cafetín.total > 0 ? (cant / stockPorCategoria.cafetín.total) * 100 : 0;
+                                        return (
+                                            <div key={sub} className="space-y-1">
+                                                <div className="flex justify-between text-xs font-medium">
+                                                    <span className="text-foreground">{sub}</span>
+                                                    <span className="font-mono text-muted-foreground">{cant} uds ({pct.toFixed(0)}%)</span>
+                                                </div>
+                                                <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
+                                                    <div
+                                                        className="h-full bg-orange-400 rounded-full transition-all duration-500"
+                                                        style={{ width: `${pct}%` }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Merchandising */}
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between pb-2 border-b border-border/40">
+                                <span className="flex items-center gap-2 text-sm font-semibold text-violet-400">
+                                    <ShoppingBag className="w-4 h-4" />
+                                    🛍️ Merchandising
+                                </span>
+                                <span className="text-xs font-bold bg-violet-500/10 text-violet-400 px-2.5 py-0.5 rounded-full border border-violet-500/20">
+                                    {stockPorCategoria.merchandising.total} uds
+                                </span>
+                            </div>
+                            {subcatsMerch.length === 0 ? (
+                                <p className="text-xs text-muted-foreground py-2">No hay productos en Merchandising</p>
+                            ) : (
+                                <div className="space-y-2.5">
+                                    {subcatsMerch.map(([sub, cant]) => {
+                                        const pct = stockPorCategoria.merchandising.total > 0 ? (cant / stockPorCategoria.merchandising.total) * 100 : 0;
+                                        return (
+                                            <div key={sub} className="space-y-1">
+                                                <div className="flex justify-between text-xs font-medium">
+                                                    <span className="text-foreground">{sub}</span>
+                                                    <span className="font-mono text-muted-foreground">{cant} uds ({pct.toFixed(0)}%)</span>
+                                                </div>
+                                                <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
+                                                    <div
+                                                        className="h-full bg-violet-400 rounded-full transition-all duration-500"
+                                                        style={{ width: `${pct}%` }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+            </div>
 
             {/* ── Filtros ── */}
             <div className="glass-card p-4">
