@@ -535,6 +535,7 @@ export default function ProductosPage() {
     const [filtroActivo,    setFiltroActivo]    = useState<'todos' | 'activos' | 'inactivos'>('todos');
     const [modalProducto,   setModalProducto]   = useState<Partial<Producto> | null | undefined>(undefined);
     const [mostrarResumen,  setMostrarResumen]  = useState(false);
+    const [mostrarHelados,  setMostrarHelados]  = useState(false);
 
     // ─── Filtrado ───────────────────────────────────────────────────────────
     const productosFiltrados = productos.filter(p => {
@@ -586,6 +587,12 @@ export default function ProductosPage() {
         .sort((a, b) => b[1] - a[1]);
     const subcatsMerch = Object.entries(stockPorCategoria.merchandising.sub)
         .sort((a, b) => b[1] - a[1]);
+
+    // ─── Helados detalle stock ────────────────────────────────────────────────
+    const helados = productos
+        .filter(p => p.categoria === 'cafetín' && p.subcategoria?.toLowerCase().trim() === 'helados')
+        .sort((a, b) => b.stock - a.stock);
+    const totalHeladosStock = helados.reduce((acc, p) => acc + (p.stock || 0), 0);
 
     // ─── Loading ────────────────────────────────────────────────────────────
     if (cargando) {
@@ -751,6 +758,73 @@ export default function ProductosPage() {
                                 </div>
                             )}
                         </div>
+                    </div>
+                )}
+            </div>
+
+            {/* ── Detalle de Stock de Helados ── */}
+            <div className="glass-card overflow-hidden">
+                <button
+                    onClick={() => setMostrarHelados(!mostrarHelados)}
+                    className="w-full flex items-center justify-between p-4 hover:bg-white/[0.02] transition-colors"
+                >
+                    <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-pink-500/10 flex items-center justify-center text-pink-400">
+                            <span className="text-base">🍦</span>
+                        </div>
+                        <div className="text-left">
+                            <h3 className="font-semibold text-sm">Detalle de Stock de Helados</h3>
+                            <p className="text-xs text-muted-foreground">
+                                Total helados: <span className="font-mono font-semibold text-pink-400">{totalHeladosStock} uds</span> ({helados.length} sabores/tipos)
+                            </p>
+                        </div>
+                    </div>
+                    {mostrarHelados ? (
+                        <ChevronUp className="w-4 h-4 text-muted-foreground" />
+                    ) : (
+                        <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                    )}
+                </button>
+
+                {mostrarHelados && (
+                    <div className="p-5 border-t border-border/60 bg-muted/10">
+                        {helados.length === 0 ? (
+                            <p className="text-xs text-muted-foreground text-center py-4">No hay helados registrados en el catálogo</p>
+                        ) : (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
+                                {helados.map(h => {
+                                    const sinStock = h.stock === 0;
+                                    const stockBajo = h.stock <= h.stockMinimo;
+                                    return (
+                                        <div key={h.id} className="bg-card border border-border/40 hover:border-pink-500/30 transition-all rounded-xl p-3 flex flex-col justify-between gap-2">
+                                            <div className="min-w-0">
+                                                <h4 className="text-xs font-semibold truncate" title={h.nombre}>
+                                                    {h.nombre}
+                                                </h4>
+                                                {h.descripcion && (
+                                                    <p className="text-[10px] text-muted-foreground truncate mt-0.5">{h.descripcion}</p>
+                                                )}
+                                            </div>
+                                            <div className="flex items-center justify-between gap-2 mt-auto pt-2 border-t border-border/20">
+                                                <span className={cn(
+                                                    'inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border',
+                                                    sinStock
+                                                        ? 'bg-red-500/10 text-red-400 border-red-500/20'
+                                                        : stockBajo
+                                                        ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                                                        : 'bg-pink-500/10 text-pink-400 border-pink-500/20'
+                                                )}>
+                                                    {sinStock ? 'Agotado' : `${h.stock} ${h.unidad || 'und'}`}
+                                                </span>
+                                                <span className="text-[11px] font-semibold text-muted-foreground font-mono">
+                                                    {formatUSD(h.precioUSD)}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
