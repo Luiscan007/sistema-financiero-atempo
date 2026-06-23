@@ -374,6 +374,15 @@ function limpiarUndefined(obj: any): any {
   return obj;
 }
 
+function conTimeout<T>(promise: Promise<T>, ms: number = 4000): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Tiempo de espera de red agotado (Timeout)')), ms)
+    ),
+  ]);
+}
+
 // ── COMPONENTE PRINCIPAL ──────────────────────────────────────────────────────
 export default function POSPage() {
   const [busqueda, setBusqueda]     = useState('');
@@ -577,13 +586,15 @@ export default function POSPage() {
 
     try {
       if (online) {
-        // ✅ ONLINE: guardar directo en Firestore
-        await guardarVenta(datosVenta);
+        // ✅ ONLINE: guardar directo en Firestore con un timeout de 4 segundos
+        await conTimeout(guardarVenta(datosVenta), 4000);
 
-        // Crear cuentas por cobrar automáticas si hay algún pago de tipo 'credito'
+        // Crear cuentas por cobrar automáticas si hay algún pago de tipo 'credito' (en paralelo, con timeout de 3 segundos)
         try {
           const { addDoc, collection, Timestamp } = await import('firebase/firestore');
           const { db: firestoreDb } = await import('@/lib/firebase');
+          const promesasCredito = [];
+          
           for (const pago of datosVenta.metodoPago || []) {
             if (pago.tipo === 'credito') {
               const clienteNombre = pago.clienteNombre || 'Cliente POS';
@@ -599,37 +610,53 @@ export default function POSPage() {
                 fechaTimestampVal = Timestamp.fromDate(dateObj);
               }
 
-              await addDoc(collection(firestoreDb, 'cuentas_cobrar'), {
-                alumnoId:         pago.alumnoId === 'manual' ? '' : (pago.alumnoId || ''),
-                alumnoNombre:     clienteNombre,
-                concepto:         creditConcept,
-                montoBs:          creditMontoBs,
-                montoUSD:         parseFloat(creditMontoUSD.toFixed(2)),
-                montoPagado:      0,
-                montoPagadoUSD:   0,
-                fechaEmision:     fecha || new Date().toISOString().split('T')[0],
-                fechaVencimiento: fechaVencimiento,
-                estado:           'pendiente',
-                historialPagos:   [],
-                notas:            `Registrado automáticamente desde POS. Teléfono: ${pago.clienteTelefono || ''}. Cédula: ${pago.clienteCedula || ''}`,
-                fechaTimestamp:   fechaTimestampVal,
-              });
+              promesasCredito.push(
+                addDoc(collection(firestoreDb, 'cuentas_cobrar'), {
+                  alumnoId:         pago.alumnoId === 'manual' ? '' : (pago.alumnoId || ''),
+                  alumnoNombre:     clienteNombre,
+                  concepto:         creditConcept,
+                  montoBs:          creditMontoBs,
+                  montoUSD:         parseFloat(creditMontoUSD.toFixed(2)),
+                  montoPagado:      0,
+                  montoPagadoUSD:   0,
+                  fechaEmision:     fecha || new Date().toISOString().split('T')[0],
+                  fechaVencimiento: fechaVencimiento,
+                  estado:           'pendiente',
+                  historialPagos:   [],
+                  notes:            `Registrado automáticamente desde POS. Teléfono: ${pago.clienteTelefono || ''}. Cédula: ${pago.clienteCedula || ''}`,
+                  fechaTimestamp:   fechaTimestampVal,
+                })
+              );
             }
+          }
+          
+          if (promesasCredito.length > 0) {
+            await conTimeout(Promise.all(promesasCredito), 3000);
           }
         } catch (errCredit) {
           console.error("Error al crear cuenta por cobrar:", errCredit);
         }
 
-        // Descontar stock de los productos vendidos
+        // Descontar stock de los productos vendidos (en segundo plano, sin bloquear la confirmación de la venta)
         try {
           const { doc: docRef, updateDoc, increment } = await import('firebase/firestore');
           const { db: firestoreDb } = await import('@/lib/firebase');
+          const promesasStock = [];
+          
           for (const item of datosVenta.items) {
             if (item.tipo === 'producto') {
-              await updateDoc(docRef(firestoreDb, 'productos_catalogo', item.id), {
-                stock: increment(-item.cantidad)
-              });
+              promesasStock.push(
+                updateDoc(docRef(firestoreDb, 'productos_catalogo', item.id), {
+                  stock: increment(-item.cantidad)
+                })
+              );
             }
+          }
+          
+          if (promesasStock.length > 0) {
+            Promise.all(promesasStock).catch(errStock => {
+              console.error("Error descontando stock de productos en segundo plano:", errStock);
+            });
           }
         } catch (errStock) {
           console.error("Error descontando stock de productos:", errStock);
