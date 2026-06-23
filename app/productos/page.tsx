@@ -39,6 +39,15 @@ function formatBs(n: number) {
     }).format(n) + ' Bs';
 }
 
+function conTimeout<T>(promise: Promise<T>, ms: number = 5000): Promise<T> {
+    return Promise.race([
+        promise,
+        new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('Tiempo de espera de red agotado (Timeout)')), ms)
+        ),
+    ]);
+}
+
 // ─── Constantes de categorías y subcategorías ──────────────────────────────────
 
 const CONFIG_CATEGORIAS: Record<CategoriaProducto, {
@@ -1051,7 +1060,6 @@ function ModalIngreso({
     const [productoId, setProductoId] = useState('');
     const [cantidad, setCantidad] = useState<number | ''>('');
     const [notas, setNotas] = useState('');
-    const [procesando, setProcesando] = useState(false);
 
     // Agrupar productos
     const helados = productos.filter(p => p.categoria === 'cafetín' && p.subcategoria?.toLowerCase().trim() === 'helados');
@@ -1061,16 +1069,16 @@ function ModalIngreso({
     const registrar = async () => {
         if (!productoId) { toast.error('Selecciona un producto'); return; }
         if (!cantidad || cantidad <= 0) { toast.error('Ingresa una cantidad mayor a 0'); return; }
-        setProcesando(true);
+        
+        const toastId = toast.loading('Registrando entrada de stock...');
+        onCerrar(); // Cerrar modal inmediatamente
+        
         try {
-            await onRegistrar(productoId, cantidad, notas);
-            toast.success('Entrada de inventario registrada');
-            onCerrar();
+            await conTimeout(onRegistrar(productoId, cantidad, notas), 5000);
+            toast.success('Entrada de inventario registrada', { id: toastId });
         } catch (err: any) {
             console.error(err);
-            toast.error('Error al registrar entrada: ' + (err.message || err));
-        } finally {
-            setProcesando(false);
+            toast.error('Error al registrar entrada: ' + (err.message || err), { id: toastId });
         }
     };
 
@@ -1148,15 +1156,11 @@ function ModalIngreso({
 
                 {/* Footer */}
                 <div className="flex gap-3 p-6 border-t border-border">
-                    <button onClick={onCerrar} disabled={procesando} className="flex-1 btn-secondary py-2.5 text-sm justify-center">
+                    <button onClick={onCerrar} className="flex-1 btn-secondary py-2.5 text-sm justify-center">
                         Cancelar
                     </button>
-                    <button onClick={registrar} disabled={procesando} className="flex-1 btn-primary py-2.5 text-sm justify-center bg-green-600 hover:bg-green-700 text-white">
-                        {procesando ? (
-                            <><Loader2 className="w-4 h-4 animate-spin mr-1.5" /> Procesando...</>
-                        ) : (
-                            <><PlusCircle className="w-4 h-4 mr-1.5" /> Registrar</>
-                        )}
+                    <button onClick={registrar} className="flex-1 btn-primary py-2.5 text-sm justify-center bg-green-600 hover:bg-green-700 text-white">
+                        <PlusCircle className="w-4 h-4 mr-1.5" /> Registrar
                     </button>
                 </div>
             </div>
