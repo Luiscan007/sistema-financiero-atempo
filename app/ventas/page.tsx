@@ -3,12 +3,17 @@
 /**
  * app/ventas/page.tsx
  * Historial de ventas - datos reales desde Firestore
+ * ─ Exportar CSV funcional
+ * ─ Nombre de producto + referencia visible en tabla
+ * ─ Filtros por método, fecha (desde/hasta) y búsqueda extendida (producto)
+ * ─ Auditoría y corrección de stock de ventas offline
  */
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
     Search, Download, Receipt, CreditCard, Smartphone,
-    Banknote, DollarSign, ArrowLeftRight, Eye, TrendingUp, Loader2, X, Trash2, AlertTriangle, Camera, Pencil, Save, Wallet,
+    Banknote, DollarSign, ArrowLeftRight, Eye, TrendingUp, Loader2, X, Trash2,
+    AlertTriangle, Camera, Pencil, Save, Wallet, CalendarDays, ShieldCheck, Filter,
 } from 'lucide-react';
 import { useTasas } from '@/components/providers/TasasProvider';
 import { formatBs, formatUSD } from '@/lib/utils';
@@ -69,11 +74,73 @@ function MetodosBadges({ metodos }: { metodos: Venta['metodoPago'] }) {
     );
 }
 
+/** Obtiene la primera referencia disponible de los métodos de pago */
+function getPrimeraReferencia(metodos: Venta['metodoPago']): string {
+    if (!metodos) return '';
+    for (const m of metodos) {
+        const ref = m.numeroReferencia || (m as any).referencia || '';
+        if (ref) return ref;
+    }
+    return '';
+}
+
+/** Obtiene los nombres de los productos/servicios de la venta en una línea corta */
+function getResumenItems(items: any[]): string {
+    if (!items || items.length === 0) return '-';
+    if (items.length === 1) return items[0].nombre;
+    return `${items[0].nombre} +${items.length - 1} más`;
+}
+
+/** Exportar ventas filtradas como CSV */
+function exportarCSV(ventas: Venta[], tasaEur: number) {
+    const encabezado = [
+        'N° Recibo', 'Fecha', 'Vendedor', 'Productos', 'Referencia',
+        'Método de Pago', 'Total Bs', 'Total USD', 'Total EUR', 'Origen'
+    ].join(',');
+
+    const filas = ventas.map(v => {
+        const items = (v.items || []).map((i: any) => i.nombre).join(' / ');
+        const ref = getPrimeraReferencia(v.metodoPago);
+        const tipoPago = v.metodoPago?.length > 1 ? 'Mixto' : (LABELS_PAGO[v.metodoPago?.[0]?.tipo] || v.metodoPago?.[0]?.tipo || '');
+        const totalEur = (v.totalUSD || 0) * tasaEur;
+        const origen = (v as any).origenOffline ? 'Offline' : 'Online';
+        const campos = [
+            v.numeroRecibo,
+            v.fecha,
+            v.usuarioNombre || '',
+            `"${items}"`,
+            ref,
+            tipoPago,
+            (v.total || 0).toFixed(2),
+            (v.totalUSD || 0).toFixed(2),
+            totalEur.toFixed(2),
+            origen,
+        ];
+        return campos.join(',');
+    });
+
+    const contenido = [encabezado, ...filas].join('\n');
+    const blob = new Blob(['\uFEFF' + contenido], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `ventas-atempo-${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+}
+
 export default function VentasPage() {
     const { tasas } = useTasas();
     const { ventas, cargando, eliminarVenta, actualizarVenta } = useVentas();
+
+    // ─── Filtros ───────────────────────────────────────────────────────────
     const [busqueda, setBusqueda] = useState('');
     const [metodoPagoFiltro, setMetodoPagoFiltro] = useState('todos');
+    const [fechaDesde, setFechaDesde] = useState('');
+    const [fechaHasta, setFechaHasta] = useState('');
+    const [mostrarFiltros, setMostrarFiltros] = useState(false);
+
+    // ─── Modales ───────────────────────────────────────────────────────────
     const [ventaDetalle, setVentaDetalle] = useState<Venta | null>(null);
     const [ventaAEliminar, setVentaAEliminar] = useState<Venta | null>(null);
     const [eliminando, setEliminando] = useState(false);
@@ -82,9 +149,15 @@ export default function VentasPage() {
     const [fechaEdit, setFechaEdit] = useState('');
     const [guardandoEdicion, setGuardandoEdicion] = useState(false);
 
+    // ─── Auditoría offline ─────────────────────────────────────────────────
+    const [auditando, setAuditando] = useState(false);
+
+    // ─── Helpers ───────────────────────────────────────────────────────────
+    const tasaEur = tasas.eurBcv ?? tasas.bcv;
+
     const confirmarEliminacion = async () => {
         if (!ventaAEliminar) return;
-        
+
         const toastId = toast.loading('Anulando venta y restaurando stock...');
         const ventaId = ventaAEliminar.id;
         const numeroRecibo = ventaAEliminar.numeroRecibo;
@@ -98,7 +171,7 @@ export default function VentasPage() {
         try {
             const { doc: docRef, deleteDoc, updateDoc, increment, collection, query, where, getDocs } = await import('firebase/firestore');
             const { db: firestoreDb } = await import('@/lib/firebase');
-            
+
             const promesas = [];
 
             // 1. Eliminar la venta de Firestore
@@ -159,20 +232,99 @@ export default function VentasPage() {
         }
     };
 
-    const ventasFiltradas = ventas.filter((v) => {
-        const matchBusqueda = !busqueda
-            || v.numeroRecibo.toLowerCase().includes(busqueda.toLowerCase())
-            || (v.usuarioNombre || '').toLowerCase().includes(busqueda.toLowerCase());
-        const tiposPago = v.metodoPago?.map(m => m.tipo) || [];
-        const matchMetodo = metodoPagoFiltro === 'todos'
-            || tiposPago.includes(metodoPagoFiltro)
-            || (metodoPagoFiltro === 'mixto' && tiposPago.length > 1);
-        return matchBusqueda && matchMetodo;
-    });
+    // ─── Auditoría de stock de ventas offline ──────────────────────────────
+    const auditarStockOffline = async () => {
+        setAuditando(true);
+        const toastId = toast.loading('Auditando ventas offline... esto puede tomar unos segundos.');
+        try {
+            const { doc: docRef, updateDoc, increment, collection, query, where, getDocs, getDoc } = await import('firebase/firestore');
+            const { db: firestoreDb } = await import('@/lib/firebase');
+
+            // Buscar todas las ventas con origenOffline: true
+            const q = query(
+                collection(firestoreDb, 'ventas'),
+                where('origenOffline', '==', true)
+            );
+            const snap = await getDocs(q);
+            const ventasOffline = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+            let productosDescont = 0;
+            let ventasCorregidas = 0;
+
+            for (const venta of ventasOffline) {
+                const items = (venta as any).items || [];
+                let seDescontó = false;
+                for (const item of items) {
+                    if (!item.id) continue;
+                    // Verificar si el item puede ser un producto
+                    let esProducto = item.tipo === 'producto';
+                    if (item.tipo === undefined) {
+                        const prodDoc = await getDoc(docRef(firestoreDb, 'productos_catalogo', item.id));
+                        esProducto = prodDoc.exists();
+                    }
+                    if (esProducto) {
+                        // Verificar campo stockDescontadoOffline en la venta para evitar doble descuento
+                        if (!(venta as any).stockDescontado) {
+                            await updateDoc(docRef(firestoreDb, 'productos_catalogo', item.id), {
+                                stock: increment(-item.cantidad)
+                            });
+                            productosDescont++;
+                            seDescontó = true;
+                        }
+                    }
+                }
+                // Marcar la venta como ya descontada
+                if (seDescontó) {
+                    await updateDoc(docRef(firestoreDb, 'ventas', (venta as any).id), {
+                        stockDescontado: true
+                    });
+                    ventasCorregidas++;
+                }
+            }
+
+            if (ventasCorregidas === 0) {
+                toast.success('✅ Auditoría completada. Todas las ventas offline ya tenían el stock correctamente descontado.', { id: toastId, duration: 5000 });
+            } else {
+                toast.success(`✅ Auditoría completa. Se corrigieron ${ventasCorregidas} venta(s) y se descontaron ${productosDescont} producto(s) del stock.`, { id: toastId, duration: 6000 });
+            }
+        } catch (err: any) {
+            console.error('Error en auditoría:', err);
+            toast.error('Error durante la auditoría: ' + (err.message || err), { id: toastId });
+        } finally {
+            setAuditando(false);
+        }
+    };
+
+    // ─── Filtrado ───────────────────────────────────────────────────────────
+    const ventasFiltradas = useMemo(() => {
+        return ventas.filter((v) => {
+            const textoBusqueda = busqueda.toLowerCase();
+            const itemsTexto = (v.items || []).map((i: any) => i.nombre).join(' ').toLowerCase();
+            const refTexto = getPrimeraReferencia(v.metodoPago).toLowerCase();
+
+            const matchBusqueda = !busqueda
+                || v.numeroRecibo.toLowerCase().includes(textoBusqueda)
+                || (v.usuarioNombre || '').toLowerCase().includes(textoBusqueda)
+                || itemsTexto.includes(textoBusqueda)
+                || refTexto.includes(textoBusqueda);
+
+            const tiposPago = v.metodoPago?.map(m => m.tipo) || [];
+            const matchMetodo = metodoPagoFiltro === 'todos'
+                || tiposPago.includes(metodoPagoFiltro)
+                || (metodoPagoFiltro === 'mixto' && tiposPago.length > 1);
+
+            const matchDesde = !fechaDesde || v.fecha >= fechaDesde;
+            const matchHasta = !fechaHasta || v.fecha <= fechaHasta;
+
+            return matchBusqueda && matchMetodo && matchDesde && matchHasta;
+        });
+    }, [ventas, busqueda, metodoPagoFiltro, fechaDesde, fechaHasta]);
 
     const totalBs = ventasFiltradas.reduce((acc, v) => acc + (v.total || 0), 0);
     const totalUSD = ventasFiltradas.reduce((acc, v) => acc + (v.totalUSD || 0), 0);
-    const ticketPromedio = ventasFiltradas.length > 0 ? totalBs / ventasFiltradas.length : 0;
+
+    // Contar ventas offline sin stockDescontado (posibles problemas)
+    const ventasOfflineSinAudit = ventas.filter(v => (v as any).origenOffline && !(v as any).stockDescontado).length;
 
     if (cargando) {
         return (
@@ -186,17 +338,46 @@ export default function VentasPage() {
     return (
         <div className="space-y-6 animate-fade-in">
 
-            <div className="flex items-center justify-between">
+            {/* ── Header ── */}
+            <div className="flex items-center justify-between gap-4 flex-wrap">
                 <div>
                     <h1 className="text-2xl font-bold">Historial de Ventas</h1>
                     <p className="text-muted-foreground text-sm">
                         {ventasFiltradas.length} ventas · {formatBs(totalBs)} · {formatUSD(totalUSD)}
                     </p>
                 </div>
-                <button className="btn-secondary text-sm">
-                    <Download className="w-4 h-4" /> Exportar
-                </button>
+                <div className="flex items-center gap-2 flex-wrap">
+                    {ventasOfflineSinAudit > 0 && (
+                        <button
+                            onClick={auditarStockOffline}
+                            disabled={auditando}
+                            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20 transition-colors text-sm font-medium disabled:opacity-60"
+                            title={`${ventasOfflineSinAudit} venta(s) offline sin auditar`}
+                        >
+                            {auditando ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
+                            {auditando ? 'Auditando...' : `Auditar Stock Offline (${ventasOfflineSinAudit})`}
+                        </button>
+                    )}
+                    <button
+                        className="btn-secondary text-sm"
+                        onClick={() => exportarCSV(ventasFiltradas, tasaEur)}
+                        title="Exportar ventas filtradas a CSV"
+                    >
+                        <Download className="w-4 h-4" /> Exportar CSV
+                    </button>
+                </div>
             </div>
+
+            {/* ── Alerta offline ── */}
+            {ventasOfflineSinAudit > 0 && (
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-sm">
+                    <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+                    <p className="text-amber-300">
+                        <strong>{ventasOfflineSinAudit} venta(s)</strong> registradas en modo offline podrían no haber descontado su stock.
+                        Presiona <strong>"Auditar Stock Offline"</strong> para verificar y corregir.
+                    </p>
+                </div>
+            )}
 
             {/* KPIs */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -205,7 +386,7 @@ export default function VentasPage() {
                     <p className="text-xl font-bold font-mono text-green-400">{formatUSD(totalUSD)}</p>
                     <p className="text-xs text-muted-foreground">Total periodo</p>
                     <p className="text-xs text-purple-400 font-mono mt-0.5">
-                        € {formatBs(totalUSD * (tasas.eurBcv ?? tasas.bcv))}
+                        € {formatBs(totalUSD * tasaEur)}
                     </p>
                 </div>
                 <div className="kpi-card">
@@ -217,44 +398,90 @@ export default function VentasPage() {
                     <DollarSign className="w-4 h-4 text-purple-400 mb-2" />
                     <p className="text-xl font-bold font-mono text-purple-400">{formatUSD(totalUSD > 0 && ventasFiltradas.length > 0 ? totalUSD / ventasFiltradas.length : 0)}</p>
                     <p className="text-xs text-muted-foreground">Ticket promedio</p>
-                    <p className="text-xs text-purple-400/60 font-mono mt-0.5">
-                        € {formatBs(totalUSD > 0 && ventasFiltradas.length > 0 ? (totalUSD / ventasFiltradas.length) * (tasas.eurBcv ?? tasas.bcv) : 0)}
-                    </p>
                 </div>
                 <div className="kpi-card">
                     <DollarSign className="w-4 h-4 text-yellow-400 mb-2" />
-                    <p className="text-xl font-bold font-mono text-yellow-400">{formatUSD(totalUSD)}</p>
-                    <p className="text-xs text-muted-foreground">Total USD</p>
+                    <p className="text-xl font-bold font-mono text-yellow-400">{formatBs(totalBs)}</p>
+                    <p className="text-xs text-muted-foreground">Total Bs</p>
                 </div>
             </div>
 
-            {/* Filtros */}
-            <div className="flex flex-wrap gap-3">
-                <div className="relative flex-1 min-w-48">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <input className="input-sistema pl-10 w-full"
-                        placeholder="Buscar por recibo o vendedor..."
-                        value={busqueda} onChange={e => setBusqueda(e.target.value)} />
+            {/* ── Filtros ── */}
+            <div className="glass-card p-4 space-y-3">
+                <div className="flex flex-col sm:flex-row gap-3">
+                    {/* Búsqueda extendida */}
+                    <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <input className="input-sistema pl-10 w-full"
+                            placeholder="Buscar por recibo, vendedor, producto o referencia..."
+                            value={busqueda} onChange={e => setBusqueda(e.target.value)} />
+                    </div>
+                    {/* Método de pago */}
+                    <select className="input-sistema sm:w-48" value={metodoPagoFiltro}
+                        onChange={e => setMetodoPagoFiltro(e.target.value)}>
+                        <option value="todos">Todos los métodos</option>
+                        <option value="punto_venta">Punto de Venta</option>
+                        <option value="pago_movil">Pago Móvil</option>
+                        <option value="efectivo_bs">Efectivo Bs</option>
+                        <option value="efectivo_usd">Efectivo USD</option>
+                        <option value="efectivo_eur">Efectivo EUR</option>
+                        <option value="transferencia">Transferencia</option>
+                        <option value="credito">Crédito / Fiado</option>
+                        <option value="mixto">Mixto</option>
+                    </select>
+                    {/* Toggle filtros de fecha */}
+                    <button
+                        onClick={() => setMostrarFiltros(!mostrarFiltros)}
+                        className={cn('btn-secondary text-sm py-2 px-3 gap-1.5', mostrarFiltros && 'bg-blue-500/10 border-blue-500/30 text-blue-400')}
+                    >
+                        <CalendarDays className="w-4 h-4" />
+                        Fecha
+                        {(fechaDesde || fechaHasta) && (
+                            <span className="ml-1 w-2 h-2 rounded-full bg-blue-400 inline-block" />
+                        )}
+                    </button>
                 </div>
-                <select className="input-sistema w-auto" value={metodoPagoFiltro}
-                    onChange={e => setMetodoPagoFiltro(e.target.value)}>
-                    <option value="todos">Todos los metodos</option>
-                    <option value="punto_venta">Punto de Venta</option>
-                    <option value="pago_movil">Pago Movil</option>
-                    <option value="efectivo_bs">Efectivo Bs</option>
-                    <option value="efectivo_usd">Efectivo USD</option>
-                    <option value="transferencia">Transferencia</option>
-                    <option value="credito">Crédito / Fiado</option>
-                    <option value="mixto">Mixto</option>
-                </select>
+
+                {/* Panel de filtros de fecha */}
+                {mostrarFiltros && (
+                    <div className="flex flex-wrap gap-3 pt-1 border-t border-border/40">
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <CalendarDays className="w-3.5 h-3.5" />
+                            <span>Desde:</span>
+                        </div>
+                        <input
+                            type="date"
+                            className="input-sistema text-sm py-1.5 px-3"
+                            value={fechaDesde}
+                            onChange={e => setFechaDesde(e.target.value)}
+                        />
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <span>Hasta:</span>
+                        </div>
+                        <input
+                            type="date"
+                            className="input-sistema text-sm py-1.5 px-3"
+                            value={fechaHasta}
+                            onChange={e => setFechaHasta(e.target.value)}
+                        />
+                        {(fechaDesde || fechaHasta) && (
+                            <button
+                                onClick={() => { setFechaDesde(''); setFechaHasta(''); }}
+                                className="text-xs text-red-400 hover:text-red-300 transition-colors flex items-center gap-1"
+                            >
+                                <X className="w-3 h-3" /> Limpiar fechas
+                            </button>
+                        )}
+                    </div>
+                )}
             </div>
 
-            {/* Tabla */}
+            {/* ── Tabla ── */}
             {ventasFiltradas.length === 0 ? (
                 <div className="card-sistema p-12 text-center">
                     <Receipt className="w-12 h-12 text-muted-foreground mx-auto mb-4 opacity-30" />
                     <p className="text-muted-foreground font-medium">
-                        {ventas.length === 0 ? 'Aun no hay ventas registradas' : 'No hay ventas que coincidan con los filtros'}
+                        {ventas.length === 0 ? 'Aún no hay ventas registradas' : 'No hay ventas que coincidan con los filtros'}
                     </p>
                 </div>
             ) : (
@@ -264,68 +491,84 @@ export default function VentasPage() {
                             <thead>
                                 <tr>
                                     <th>Recibo</th>
-                                    <th>Fecha / Hora</th>
-                                    <th>Vendedor</th>
-                                    <th>Servicios</th>
-                                    <th>Metodo Pago</th>
-                                    <th>Total (Bs)</th>
-                                    <th>Total (USD)</th>
-                                    <th>€ EUR</th>
-                                    <th>Ver</th>
-                                    <th>Anular</th>
+                                    <th>Fecha</th>
+                                    <th>Producto(s)</th>
+                                    <th>Referencia</th>
+                                    <th>Método</th>
+                                    <th>Total Bs</th>
+                                    <th>Total USD</th>
+                                    <th className="text-center">Ver</th>
+                                    <th className="text-center">Anular</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {ventasFiltradas.map((venta) => (
-                                    <tr key={venta.id}>
-                                        <td>
-                                            <span className="font-mono text-xs text-blue-400">{venta.numeroRecibo}</span>
-                                        </td>
-                                        <td>
-                                            <span className="text-xs text-muted-foreground">{venta.fecha}</span>
-                                        </td>
-                                        <td className="text-sm text-muted-foreground">
-                                            {venta.usuarioNombre || '-'}
-                                        </td>
-                                        <td>
-                                            <span className="text-xs text-muted-foreground">
-                                                {venta.items?.length || 0} item{(venta.items?.length || 0) !== 1 ? 's' : ''}
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <MetodosBadges metodos={venta.metodoPago} />
-                                        </td>
-                                        <td className="font-mono text-sm text-green-400">
-                                            {formatBs(venta.total || 0)}
-                                        </td>
-                                        <td className="font-mono text-sm text-muted-foreground">
-                                            {formatUSD(venta.totalUSD || 0)}
-                                        </td>
-                                        <td className="font-mono text-xs text-purple-400">
-                                            € {(tasas.eurBcv ?? tasas.bcv).toFixed(2)}
-                                        </td>
-                                        <td>
-                                            <button className="text-muted-foreground hover:text-blue-400 transition-colors"
-                                                onClick={() => setVentaDetalle(venta)}>
-                                                <Eye className="w-4 h-4" />
-                                            </button>
-                                        </td>
-                                        <td>
-                                            <button className="text-muted-foreground hover:text-red-400 transition-colors"
-                                                onClick={() => setVentaAEliminar(venta)}
-                                                title="Anular venta">
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))}
+                                {ventasFiltradas.map((venta) => {
+                                    const ref = getPrimeraReferencia(venta.metodoPago);
+                                    const resumenItems = getResumenItems(venta.items || []);
+                                    const esOffline = (venta as any).origenOffline;
+
+                                    return (
+                                        <tr key={venta.id}>
+                                            <td>
+                                                <div className="flex flex-col gap-0.5">
+                                                    <span className="font-mono text-xs text-blue-400">{venta.numeroRecibo}</span>
+                                                    {esOffline && (
+                                                        <span className="inline-flex items-center gap-1 text-[9px] font-semibold text-amber-400">
+                                                            <AlertTriangle className="w-2.5 h-2.5" /> Offline
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <span className="text-xs text-muted-foreground">{venta.fecha}</span>
+                                            </td>
+                                            <td className="max-w-[180px]">
+                                                <span className="text-xs font-medium truncate block" title={resumenItems}>
+                                                    {resumenItems}
+                                                </span>
+                                                <span className="text-[10px] text-muted-foreground">
+                                                    {venta.items?.length || 0} item{(venta.items?.length || 0) !== 1 ? 's' : ''} · {venta.usuarioNombre || ''}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                {ref ? (
+                                                    <span className="font-mono text-xs text-cyan-400">{ref}</span>
+                                                ) : (
+                                                    <span className="text-muted-foreground text-xs">—</span>
+                                                )}
+                                            </td>
+                                            <td>
+                                                <MetodosBadges metodos={venta.metodoPago} />
+                                            </td>
+                                            <td className="font-mono text-sm text-green-400">
+                                                {formatBs(venta.total || 0)}
+                                            </td>
+                                            <td className="font-mono text-sm text-muted-foreground">
+                                                {formatUSD(venta.totalUSD || 0)}
+                                            </td>
+                                            <td className="text-center">
+                                                <button className="text-muted-foreground hover:text-blue-400 transition-colors"
+                                                    onClick={() => setVentaDetalle(venta)}>
+                                                    <Eye className="w-4 h-4" />
+                                                </button>
+                                            </td>
+                                            <td className="text-center">
+                                                <button className="text-muted-foreground hover:text-red-400 transition-colors"
+                                                    onClick={() => setVentaAEliminar(venta)}
+                                                    title="Anular venta">
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>
                 </div>
             )}
 
-            {/* Modal detalle */}
+            {/* ── Modal detalle ── */}
             {ventaDetalle && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
                     onClick={() => setVentaDetalle(null)}>
@@ -389,6 +632,9 @@ export default function VentasPage() {
                             {ventaDetalle.usuarioNombre && !editando && (
                                 <div className="text-xs text-muted-foreground mb-4">
                                     Vendedor: <span className="text-foreground">{ventaDetalle.usuarioNombre}</span>
+                                    {(ventaDetalle as any).origenOffline && (
+                                        <span className="ml-2 text-amber-400 font-medium">· Venta Offline</span>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -399,13 +645,23 @@ export default function VentasPage() {
 
                             {/* Items */}
                             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                                Servicios
+                                Productos / Servicios
                             </p>
                             <div className="space-y-2 mb-4">
                                 {(ventaDetalle.items || []).map((item: any, i: number) => (
                                     <div key={i} className="flex justify-between text-sm">
                                         <span className="text-muted-foreground">
                                             {item.nombre} x{item.cantidad}
+                                            {item.tipo && (
+                                                <span className={cn(
+                                                    'ml-2 text-[10px] px-1.5 py-0.5 rounded-full border',
+                                                    item.tipo === 'producto'
+                                                        ? 'bg-orange-500/10 text-orange-400 border-orange-500/20'
+                                                        : 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                                                )}>
+                                                    {item.tipo}
+                                                </span>
+                                            )}
                                         </span>
                                         <span className="font-mono">{formatBs(item.subtotal)}</span>
                                     </div>
@@ -448,7 +704,7 @@ export default function VentasPage() {
 
                             {/* Metodos de pago */}
                             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                                Metodos de Pago
+                                Métodos de Pago
                             </p>
                             <div className="space-y-3 mb-4">
                                 {(ventaDetalle.metodoPago || []).map((m: any, i: number) => {
@@ -468,15 +724,6 @@ export default function VentasPage() {
                                                 <span className="font-mono font-semibold">{formatBs(m.monto || 0)}</span>
                                             </div>
 
-                                            {/* Quién paga */}
-                                            {m.nombrePagador && (
-                                                <div className="flex items-center justify-between text-xs">
-                                                    <span className="text-muted-foreground">Quién paga</span>
-                                                    <span>{m.nombrePagador}</span>
-                                                </div>
-                                            )}
-
-                                            {/* Referencia */}
                                             {refMostrar && (
                                                 <div className="flex items-center justify-between text-xs">
                                                     <span className="text-muted-foreground">N° Referencia</span>
@@ -484,7 +731,13 @@ export default function VentasPage() {
                                                 </div>
                                             )}
 
-                                            {/* Otros datos según tipo */}
+                                            {m.nombrePagador && (
+                                                <div className="flex items-center justify-between text-xs">
+                                                    <span className="text-muted-foreground">Quién paga</span>
+                                                    <span>{m.nombrePagador}</span>
+                                                </div>
+                                            )}
+
                                             {m.telefonoCliente && (
                                                 <div className="flex items-center justify-between text-xs">
                                                     <span className="text-muted-foreground">Teléfono</span>
@@ -504,7 +757,6 @@ export default function VentasPage() {
                                                 </div>
                                             )}
 
-                                            {/* Comprobante adjunto */}
                                             {m.comprobanteUrl && (
                                                 <div>
                                                     <p className="text-xs text-muted-foreground mb-1">Comprobante</p>
@@ -547,7 +799,7 @@ export default function VentasPage() {
                 </div>
             )}
 
-            {/* Modal confirmación eliminación */}
+            {/* ── Modal confirmación eliminación ── */}
             {ventaAEliminar && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
                     <div className="bg-card border border-red-500/30 rounded-2xl w-full max-w-sm shadow-2xl p-6">
@@ -569,6 +821,10 @@ export default function VentasPage() {
                             <div className="flex justify-between">
                                 <span className="text-muted-foreground">Fecha</span>
                                 <span>{ventaAEliminar.fecha}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-muted-foreground">Productos</span>
+                                <span className="text-right max-w-[180px] truncate">{getResumenItems(ventaAEliminar.items || [])}</span>
                             </div>
                             <div className="flex justify-between font-bold">
                                 <span className="text-muted-foreground">Total</span>
